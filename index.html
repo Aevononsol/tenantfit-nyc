@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TenantFit NYC</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <aside class="sidebar" aria-label="Search controls">
+          <div class="brand">
+            <div class="mark" aria-hidden="true">TF</div>
+            <div>
+              <p class="eyebrow">TenantFit NYC</p>
+              <h1>Business fit research by ZIP code</h1>
+            </div>
+          </div>
+
+          <form id="zip-form" class="search-panel">
+            <label for="zip-input">NYC ZIP code</label>
+            <div class="zip-row">
+              <input
+                id="zip-input"
+                name="zip"
+                inputmode="numeric"
+                pattern="[0-9]{5}"
+                maxlength="5"
+                list="nyc-zip-options"
+                placeholder="10003"
+                autocomplete="postal-code"
+                required
+              />
+              <datalist id="nyc-zip-options"></datalist>
+              <button id="analyze-button" type="submit">Analyze</button>
+            </div>
+            <p id="form-message" class="form-message" role="status"></p>
+          </form>
+
+          <form id="address-form" class="address-panel">
+            <p class="section-label">Exact storefront</p>
+            <label for="address-input">Address for radius search</label>
+            <input id="address-input" name="address" placeholder="123 Main St, Brooklyn, NY" autocomplete="street-address" />
+            <div class="address-row">
+              <select id="radius-input" name="radius" aria-label="Search radius">
+                <option value="0.25">0.25 mile</option>
+                <option value="0.5" selected>0.5 mile</option>
+                <option value="1">1 mile</option>
+              </select>
+              <button type="submit">Use address</button>
+            </div>
+            <button id="clear-address" class="subtle-button" type="button">Use ZIP only</button>
+            <p id="address-message" class="form-message" role="status"></p>
+          </form>
+
+          <form id="api-key-form" class="api-key-panel">
+            <p class="section-label">API keys</p>
+            <label for="key-nyc">NYC Open Data app token</label>
+            <input id="key-nyc" name="NYC_OPEN_DATA_APP_TOKEN" type="password" autocomplete="off" />
+            <label for="key-google">Google Places API key</label>
+            <input id="key-google" name="GOOGLE_PLACES_API_KEY" type="password" autocomplete="off" />
+            <label for="key-census">Census API key</label>
+            <input id="key-census" name="CENSUS_API_KEY" type="password" autocomplete="off" />
+            <label for="key-openai">OpenAI API key</label>
+            <input id="key-openai" name="OPENAI_API_KEY" type="password" autocomplete="off" />
+            <button type="submit">Save keys</button>
+            <p id="api-key-message" class="form-message" role="status"></p>
+          </form>
+
+          <div class="preset-list" aria-label="Sample ZIP codes">
+            <p class="section-label">Sample areas</p>
+            <button class="preset active" type="button" data-zip="10003">
+              <span>10003</span>
+              <small>East Village / Union Square</small>
+            </button>
+            <button class="preset" type="button" data-zip="11201">
+              <span>11201</span>
+              <small>Brooklyn Heights / DUMBO</small>
+            </button>
+            <button class="preset" type="button" data-zip="11101">
+              <span>11101</span>
+              <small>Long Island City</small>
+            </button>
+            <button class="preset" type="button" data-zip="10458">
+              <span>10458</span>
+              <small>Fordham / Belmont</small>
+            </button>
+            <button class="preset" type="button" data-zip="10301">
+              <span>10301</span>
+              <small>St. George / Stapleton</small>
+            </button>
+          </div>
+        </aside>
+
+        <section class="results" aria-live="polite">
+          <section class="hero-report">
+            <div>
+              <p class="section-label">TenantFit NYC live report</p>
+              <h2 id="area-title">ZIP 10003</h2>
+              <p id="hero-copy">Analyze tenant demand, competition, local customer profile, and deal risk before a client signs a lease.</p>
+              <div class="hero-tags">
+                <span id="hero-business">Checking deli demand</span>
+                <span id="hero-source">Census + Google + NYC Open Data</span>
+                <span id="hero-market">Block-level diligence recommended</span>
+              </div>
+            </div>
+            <button id="export-button" class="ghost-button" type="button">Export summary</button>
+          </section>
+
+          <div class="summary-grid">
+            <article class="signal-card">
+              <span class="signal-label">Population density</span>
+              <strong id="density-value">Very high</strong>
+              <meter id="density-meter" min="0" max="100" value="92"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Income strength</span>
+              <strong id="income-value">High</strong>
+              <meter id="income-meter" min="0" max="100" value="86"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Transit access</span>
+              <strong id="transit-value">Excellent</strong>
+              <meter id="transit-meter" min="0" max="100" value="94"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Rent pressure</span>
+              <strong id="rent-value">Severe</strong>
+              <meter id="rent-meter" min="0" max="100" value="90"></meter>
+            </article>
+          </div>
+
+          <section class="photo-strip" aria-label="NYC commercial streets">
+            <figure
+              tabindex="0"
+              role="button"
+              data-title="Street demand"
+              data-copy="Use this as a reminder to verify whether the block has repeat local demand, visible storefronts, and enough nearby residents or workers to support the tenant."
+            >
+              <img src="https://images.unsplash.com/photo-1518391846015-55a9cc003b25?auto=format&fit=crop&w=900&q=80" alt="Manhattan street storefronts" />
+              <figcaption>Street demand</figcaption>
+            </figure>
+            <figure
+              tabindex="0"
+              role="button"
+              data-title="Foot traffic"
+              data-copy="Foot traffic should be checked at lunch, evening, weekend, and bad-weather times. A ZIP can look strong while one side street is weak."
+            >
+              <img src="https://images.unsplash.com/photo-1541336032412-2048a678540d?auto=format&fit=crop&w=900&q=80" alt="NYC crosswalk and retail corridor" />
+              <figcaption>Foot traffic</figcaption>
+            </figure>
+            <figure
+              tabindex="0"
+              role="button"
+              data-title="Tenant mix"
+              data-copy="Compare nearby anchors, chains, independents, vacancy, and direct competitors. The best tenant fit depends on the exact mix around the storefront."
+            >
+              <img src="https://images.unsplash.com/photo-1522083165195-3424ed129620?auto=format&fit=crop&w=900&q=80" alt="New York neighborhood avenue" />
+              <figcaption>Tenant mix</figcaption>
+            </figure>
+          </section>
+
+          <div id="photo-modal" class="photo-modal" hidden>
+            <div class="photo-modal-card" role="dialog" aria-modal="true" aria-labelledby="photo-modal-title">
+              <button id="photo-modal-close" class="photo-modal-close" type="button" aria-label="Close photo">Close</button>
+              <img id="photo-modal-image" src="" alt="" />
+              <div>
+                <p class="section-label">NYC field signal</p>
+                <h3 id="photo-modal-title">Street demand</h3>
+                <p id="photo-modal-copy"></p>
+              </div>
+            </div>
+          </div>
+
+          <section class="verdict-panel">
+            <div>
+              <p class="section-label">Client verdict</p>
+              <h3 id="verdict-title">Good area for premium daily-use concepts</h3>
+              <p id="verdict-copy"></p>
+            </div>
+            <div class="verdict-score">
+              <span id="verdict-grade">A-</span>
+              <small id="verdict-label">Tenant fit</small>
+            </div>
+          </section>
+
+          <section class="decision-strip">
+            <article>
+              <span class="signal-label">Agent answer</span>
+              <strong id="agent-answer">Research before saying yes</strong>
+              <p id="agent-answer-copy">TenantFit is checking live sources and lease risk.</p>
+            </article>
+            <article>
+              <span class="signal-label">Data confidence</span>
+              <strong id="data-confidence">Building</strong>
+              <p id="data-confidence-copy">Census, Google Places, and NYC Open Data status will appear here.</p>
+            </article>
+            <article>
+              <span class="signal-label">Next move</span>
+              <strong id="next-move">Walk the block</strong>
+              <p id="next-move-copy">Compare the exact storefront against the ZIP-wide signal.</p>
+            </article>
+          </section>
+
+          <section class="panel map-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Market map</p>
+                <h3>Address, competitors, and saved spaces</h3>
+              </div>
+              <span id="map-status" class="pill">ZIP view</span>
+            </div>
+            <div id="market-map" class="market-map" role="img" aria-label="Map of market signals"></div>
+            <div class="map-legend">
+              <span><i class="legend-dot address-dot"></i> Address</span>
+              <span><i class="legend-dot competitor-dot"></i> Google places</span>
+              <span><i class="legend-dot lease-dot"></i> Saved spaces</span>
+            </div>
+          </section>
+
+          <section class="panel business-checker">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Business checker</p>
+                <h3>Check competition for any tenant type</h3>
+              </div>
+              <form id="business-form" class="business-form">
+                <input id="business-input" name="business" placeholder="deli, pizza, gym, smoke shop" required />
+                <button type="submit">Check</button>
+              </form>
+            </div>
+            <div class="business-results">
+              <article class="business-count">
+                <span id="business-count">18</span>
+                <small id="business-count-label">similar businesses nearby</small>
+                <div id="business-source-tags" class="source-tags" aria-label="Business count sources"></div>
+              </article>
+              <article>
+                <span class="signal-label">Saturation</span>
+                <strong id="business-saturation">Crowded</strong>
+                <meter id="business-meter" min="0" max="100" value="82"></meter>
+              </article>
+              <article>
+                <span class="signal-label">Local vs chain</span>
+                <strong id="business-mix">Mostly local</strong>
+                <p id="business-mix-copy"></p>
+              </article>
+              <article>
+                <span class="signal-label">Broker answer</span>
+                <strong id="business-verdict">Possible, but only with a clear niche.</strong>
+                <p id="business-reason"></p>
+              </article>
+            </div>
+            <div id="business-examples" class="business-examples" aria-label="Example business types">
+              <button type="button" data-business="deli">Deli</button>
+              <button type="button" data-business="pizza">Pizza</button>
+              <button type="button" data-business="laundromat">Laundromat</button>
+              <button type="button" data-business="gym">Gym</button>
+              <button type="button" data-business="smoke shop">Smoke shop</button>
+              <button type="button" data-business="daycare">Daycare</button>
+            </div>
+          </section>
+
+          <section class="panel opportunity-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Best business ideas</p>
+                <h3>Likely winners in this area</h3>
+              </div>
+              <span class="pill">Modeled profit ranges</span>
+            </div>
+            <p class="panel-note">Profit ranges are rough broker-screening estimates, not verified owner profit. Use them to decide what to research next.</p>
+            <div id="opportunity-list" class="opportunity-list"></div>
+          </section>
+
+          <section class="panel places-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Best nearby matches</p>
+                <h3 id="places-title">Top reviewed places for this search</h3>
+              </div>
+              <span id="places-source" class="pill">Google Places</span>
+            </div>
+            <div id="places-list" class="places-list"></div>
+          </section>
+
+          <div class="insight-grid">
+            <article class="panel insight-panel">
+              <p class="section-label">Customer profile</p>
+              <div id="customer-profile" class="profile-list"></div>
+            </article>
+            <article class="panel insight-panel">
+              <p class="section-label">Local vs chain fit</p>
+              <h3 id="chain-title">Local brands can win if differentiated.</h3>
+              <p id="chain-copy"></p>
+              <div class="fit-bar" aria-label="Local versus chain fit">
+                <span id="local-fit-bar"></span>
+              </div>
+              <div class="fit-labels">
+                <small>Local boutique</small>
+                <small>National chain</small>
+              </div>
+            </article>
+            <article class="panel insight-panel">
+              <p class="section-label">Agent talking points</p>
+              <ul id="talking-points" class="plain-list"></ul>
+            </article>
+          </div>
+
+          <section class="market-grid">
+            <article class="panel market-panel">
+              <p class="section-label">Market pulse</p>
+              <div class="pulse-row">
+                <span>Foot traffic proxy</span>
+                <strong id="pulse-foot">Strong</strong>
+              </div>
+              <div class="pulse-row">
+                <span>Customer spend</span>
+                <strong id="pulse-spend">High</strong>
+              </div>
+              <div class="pulse-row">
+                <span>Lease risk</span>
+                <strong id="pulse-risk">Elevated</strong>
+              </div>
+            </article>
+            <article class="panel diligence-panel">
+              <p class="section-label">Before recommending a lease</p>
+              <ul class="check-list">
+                <li>Compare asking rent against realistic monthly sales.</li>
+                <li>Walk the block at lunch, evening, and weekend hours.</li>
+                <li>Check signage, corner visibility, delivery access, and storefront width.</li>
+                <li>Verify licenses, venting, ADA access, and permitted use.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section class="panel civic-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Government risk signals</p>
+                <h3>311 complaints and DOB permit activity</h3>
+              </div>
+              <span id="civic-source" class="pill">NYC Open Data</span>
+            </div>
+            <div class="civic-grid">
+              <article>
+                <span class="signal-label">Quality-of-life complaints</span>
+                <strong id="complaint-level">Checking</strong>
+                <p id="complaint-copy">Loading recent 311 complaints.</p>
+                <div id="complaint-types" class="mini-list"></div>
+              </article>
+              <article>
+                <span class="signal-label">Construction / permit activity</span>
+                <strong id="permit-level">Checking</strong>
+                <p id="permit-copy">Loading DOB permit records.</p>
+                <div id="permit-types" class="mini-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel site-intel-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Site intelligence</p>
+                <h3>Outdoor dining, liquor, transit, and property mix</h3>
+              </div>
+              <span id="site-intel-source" class="pill">Public data</span>
+            </div>
+            <div class="site-intel-grid">
+              <article>
+                <span class="signal-label">Outdoor dining</span>
+                <strong id="sidewalk-level">Checking</strong>
+                <p id="sidewalk-copy">Loading sidewalk cafe records.</p>
+                <div id="sidewalk-types" class="mini-list"></div>
+              </article>
+              <article>
+                <span class="signal-label">Liquor licenses</span>
+                <strong id="liquor-level">Checking</strong>
+                <p id="liquor-copy">Loading NYS liquor license records.</p>
+                <div id="liquor-types" class="mini-list"></div>
+              </article>
+              <article>
+                <span class="signal-label">MTA ridership</span>
+                <strong id="mta-level">Checking</strong>
+                <p id="mta-copy">Enter an address to calculate nearby station ridership.</p>
+                <div id="mta-types" class="mini-list"></div>
+              </article>
+              <article>
+                <span class="signal-label">PLUTO property mix</span>
+                <strong id="pluto-level">Checking</strong>
+                <p id="pluto-copy">Loading tax-lot land-use mix.</p>
+                <div id="pluto-types" class="mini-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel lease-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Spaces for lease</p>
+                <h3>Show available storefronts and compare fit</h3>
+              </div>
+              <div id="lease-search-links" class="quick-links" aria-label="Listing search links"></div>
+            </div>
+            <div class="listing-feed-note">
+              <strong>Live listing feed not connected</strong>
+              <span>Free listing websites block automated pulls. Upload a CSV/export or save spaces manually to show active availabilities here.</span>
+            </div>
+            <div class="csv-import-row">
+              <label for="lease-csv">Import CSV</label>
+              <input id="lease-csv" type="file" accept=".csv,text/csv" />
+              <small>Headers supported: address, zip, rent, sf, use, frontage, link, notes</small>
+            </div>
+            <form id="lease-form" class="lease-form">
+              <input id="lease-address" name="address" placeholder="Listing address" required />
+              <input id="lease-rent" name="rent" type="number" min="0" step="100" placeholder="Monthly rent" />
+              <input id="lease-sf" name="sf" type="number" min="0" step="50" placeholder="Square feet" />
+              <select id="lease-use" name="use">
+                <option value="Retail">Retail</option>
+                <option value="Restaurant">Restaurant</option>
+                <option value="Cafe">Cafe</option>
+                <option value="Medical">Medical</option>
+                <option value="Office">Office</option>
+                <option value="Industrial">Industrial</option>
+              </select>
+              <input id="lease-frontage" name="frontage" type="number" min="0" step="1" placeholder="Frontage ft" />
+              <input id="lease-link" name="link" type="url" placeholder="Listing link" />
+              <textarea id="lease-notes" name="notes" placeholder="Venting, basement, corner, broker notes"></textarea>
+              <button type="submit">Save space</button>
+            </form>
+            <p id="lease-message" class="panel-note" role="status">Saved spaces stay on this computer. Use listing links from LoopNet, Crexi, broker emails, Craigslist, or signs.</p>
+            <div id="lease-list" class="lease-list"></div>
+          </section>
+
+          <div class="report-layout">
+            <section class="panel recommendations">
+              <div class="panel-header">
+                <p class="section-label">Ranked categories</p>
+                <select id="category-filter" aria-label="Filter category results">
+                  <option value="all">All</option>
+                  <option value="strong">Strong only</option>
+                  <option value="mixed">Mixed only</option>
+                  <option value="weak">Weak only</option>
+                </select>
+              </div>
+              <div id="category-list" class="category-list"></div>
+            </section>
+
+            <section class="panel narrative">
+              <div class="panel-header">
+                <p class="section-label">Broker insight</p>
+                <span id="confidence-pill" class="pill">High confidence</span>
+              </div>
+              <h3 id="headline">Strong demand, but rent punishes weak operators.</h3>
+              <p id="narrative-copy"></p>
+              <button id="memo-button" class="memo-button" type="button">Generate client memo</button>
+              <div id="memo-box" class="memo-box">
+                <p class="section-label">OpenAI memo</p>
+                <p id="memo-copy">Generate a client-ready memo after selecting a ZIP and business type.</p>
+              </div>
+              <div class="evidence">
+                <h4>Research signals</h4>
+                <ul id="evidence-list"></ul>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel data-roadmap">
+            <div>
+              <p class="section-label">Data roadmap</p>
+              <h3>Connect live sources when API keys are ready</h3>
+            </div>
+            <div class="source-grid">
+              <div>
+                <strong>Census</strong>
+                <span>Income, age, education, household size, renter profile</span>
+                <small id="census-status" class="key-status">Checking key</small>
+              </div>
+              <div>
+                <strong>Google Places</strong>
+                <span>Local competitors, chains, ratings, category saturation</span>
+                <small id="google-status" class="key-status">Checking key</small>
+              </div>
+              <div>
+                <strong>NYC Open Data</strong>
+                <span>Restaurant inspections and active license records used for observed business counts</span>
+                <small id="nyc-status" class="key-status">Checking key</small>
+              </div>
+              <div>
+                <strong>OpenAI optional</strong>
+                <span>Client-ready written report generation</span>
+                <small id="openai-status" class="key-status">Checking key</small>
+              </div>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
