@@ -521,6 +521,11 @@ select {
   background: var(--brick);
 }
 
+.registry-dot,
+.registry-marker {
+  background: var(--taxi);
+}
+
 .lease-dot,
 .lease-marker {
   background: var(--green);

@@ -146,6 +146,14 @@ function normalizeBusiness(value) {
   return normalized || "business";
 }
 
+function titleCase(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function soqlTextFilter(fields, terms) {
   const activeTerms = terms.filter(Boolean);
   if (!activeTerms.length) return "1=1";
@@ -153,6 +161,28 @@ function soqlTextFilter(fields, terms) {
   return activeTerms
     .flatMap((term) => fields.map((field) => `upper(${field}) like '%${term.replaceAll("'", "''")}%'`))
     .join(" OR ");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function distanceMiles(aLat, aLng, bLat, bLng) {
+  const toRadians = (degrees) => (Number(degrees) * Math.PI) / 180;
+  const lat1 = toRadians(aLat);
+  const lat2 = toRadians(bLat);
+  const deltaLat = toRadians(bLat - aLat);
+  const deltaLng = toRadians(bLng - aLng);
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function withinSearchRadius(record, location) {
+  if (!location?.lat || !location?.lng) return true;
+  if (!record.lat || !record.lng) return false;
+  return distanceMiles(location.lat, location.lng, record.lat, record.lng) <= Number(location.radiusMiles || 0.5);
 }
 
 async function socrataJson(resource, params) {
@@ -367,6 +397,93 @@ async function businessTenure(zip, business) {
   };
 }
 
+function cityRecordAddress(...parts) {
+  return parts.filter(Boolean).map((part) => String(part).trim()).filter(Boolean).join(" ");
+}
+
+function cityRecordKey(record) {
+  const lat = Number.isFinite(Number(record.lat)) ? Number(record.lat).toFixed(5) : "";
+  const lng = Number.isFinite(Number(record.lng)) ? Number(record.lng).toFixed(5) : "";
+  return `${record.name}:${record.address}:${lat}:${lng}`.toUpperCase().replace(/\s+/g, " ");
+}
+
+async function restaurantMapRecords(zip, business, location = null) {
+  const terms = restaurantTerms[business];
+  if (!terms) return [];
+
+  const where = [
+    `zipcode='${zip}'`,
+    "latitude IS NOT NULL",
+    "longitude IS NOT NULL",
+    terms.some(Boolean) ? `(${soqlTextFilter(["dba", "cuisine_description"], terms)})` : "1=1"
+  ].join(" AND ");
+
+  const rows = await socrataJson("43nn-pn8j", {
+    $select: "camis,dba,building,street,zipcode,cuisine_description,latitude,longitude",
+    $where: where,
+    $group: "camis,dba,building,street,zipcode,cuisine_description,latitude,longitude",
+    $limit: "300",
+    $order: "dba"
+  });
+
+  return rows
+    .map((row) => ({
+      id: row.camis,
+      name: row.dba || "Restaurant record",
+      address: cityRecordAddress(row.building, row.street, row.zipcode),
+      lat: Number(row.latitude),
+      lng: Number(row.longitude),
+      category: row.cuisine_description || titleCase(business),
+      source: "NYC restaurant inspections"
+    }))
+    .filter((record) => Number.isFinite(record.lat) && Number.isFinite(record.lng) && withinSearchRadius(record, location));
+}
+
+async function dcwpMapRecords(zip, business, location = null) {
+  const terms = dcwpTerms[business] || [business.toUpperCase()];
+  const where = [
+    `address_zip='${zip}'`,
+    "license_status='Active'",
+    "latitude IS NOT NULL",
+    "longitude IS NOT NULL",
+    `(${soqlTextFilter(["business_name", "dba_trade_name", "business_category", "detail"], terms)})`
+  ].join(" AND ");
+
+  const rows = await socrataJson("w7w3-xahh", {
+    $select: "license_nbr,business_name,dba_trade_name,business_category,detail,address_building,address_street_name,address_zip,latitude,longitude",
+    $where: where,
+    $group: "license_nbr,business_name,dba_trade_name,business_category,detail,address_building,address_street_name,address_zip,latitude,longitude",
+    $limit: "300",
+    $order: "business_name"
+  });
+
+  return rows
+    .map((row) => ({
+      id: row.license_nbr,
+      name: row.dba_trade_name || row.business_name || "Licensed business",
+      address: cityRecordAddress(row.address_building, row.address_street_name, row.address_zip),
+      lat: Number(row.latitude),
+      lng: Number(row.longitude),
+      category: row.business_category || row.detail || titleCase(business),
+      source: "NYC active licenses"
+    }))
+    .filter((record) => Number.isFinite(record.lat) && Number.isFinite(record.lng) && withinSearchRadius(record, location));
+}
+
+async function cityMapRecords(zip, business, location = null) {
+  const [restaurants, licenses] = await Promise.all([
+    restaurantMapRecords(zip, business, location).catch(() => []),
+    dcwpMapRecords(zip, business, location).catch(() => [])
+  ]);
+  const seen = new Set();
+  return [...restaurants, ...licenses].filter((record) => {
+    const key = cityRecordKey(record);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function googlePlaceSignals(zip, businessInput, location = null) {
   if (!process.env.GOOGLE_PLACES_API_KEY) return null;
 
@@ -382,14 +499,29 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
   }
   url.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Google Places returned ${response.status}`);
-  const data = await response.json();
-  if (data.status && !["OK", "ZERO_RESULTS"].includes(data.status)) {
-    throw new Error(`Google Places status ${data.status}`);
+  const places = [];
+  let nextPageToken = "";
+  for (let page = 0; page < 3; page += 1) {
+    const pageUrl = new URL(url);
+    if (nextPageToken) {
+      await sleep(1300);
+      pageUrl.search = "";
+      pageUrl.searchParams.set("pagetoken", nextPageToken);
+      pageUrl.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
+    }
+
+    const response = await fetch(pageUrl);
+    if (!response.ok) throw new Error(`Google Places returned ${response.status}`);
+    const data = await response.json();
+    if (data.status && !["OK", "ZERO_RESULTS"].includes(data.status)) {
+      throw new Error(`Google Places status ${data.status}`);
+    }
+
+    places.push(...(Array.isArray(data.results) ? data.results : []));
+    nextPageToken = data.next_page_token || "";
+    if (!nextPageToken) break;
   }
 
-  const places = Array.isArray(data.results) ? data.results : [];
   const names = places.map((place) => String(place.name || "").toUpperCase());
   const chainCount = names.filter((name) => knownChains.some((chain) => name.includes(chain))).length;
   const ratedPlaces = places.filter((place) => Number.isFinite(Number(place.rating)));
@@ -418,7 +550,7 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
       };
     })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 6);
+    .slice(0, 60);
 
   return {
     business,
@@ -428,7 +560,8 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
     avgRating,
     reviewCount,
     topNames: rankedPlaces.slice(0, 5).map((place) => place.name),
-    topPlaces: rankedPlaces,
+    topPlaces: rankedPlaces.slice(0, 6),
+    mapPlaces: rankedPlaces,
     source: location?.lat ? "Google Places Nearby Search visible results" : "Google Places Text Search top results",
     caveat: "Google Places returns visible search results, not a complete registry of every business."
   };
@@ -436,11 +569,12 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
 
 async function businessCount(zip, businessInput, location = null) {
   const business = normalizeBusiness(businessInput);
-  const [restaurantCount, dcwpCount, googlePlaces, tenure] = await Promise.all([
-    countRestaurants(zip, business),
-    countDcwpBusinesses(zip, business),
+  const [restaurantCount, dcwpCount, googlePlaces, tenure, mapRecords] = await Promise.all([
+    countRestaurants(zip, business).catch(() => 0),
+    countDcwpBusinesses(zip, business).catch(() => 0),
     googlePlaceSignals(zip, businessInput, location).catch(() => null),
-    businessTenure(zip, business).catch(() => null)
+    businessTenure(zip, business).catch(() => null),
+    cityMapRecords(zip, business, location).catch(() => [])
   ]);
   const openDataTotal = restaurantCount + dcwpCount;
   const googleVisibleCount = googlePlaces?.count || 0;
@@ -464,6 +598,7 @@ async function businessCount(zip, businessInput, location = null) {
         }
       : { mode: "zip", radiusMiles: null },
     googlePlaces,
+    mapRecords,
     tenure,
     sources: [
       restaurantCount ? `DOHMH restaurant records: ${restaurantCount}` : null,

@@ -637,7 +637,18 @@ function renderMarketMap() {
     mapLayers.push(circle);
   }
 
-  const places = currentBusinessResult()?.googlePlaces?.topPlaces || [];
+  const businessResult = currentBusinessResult();
+  const records = businessResult?.mapRecords || [];
+  records.forEach((record) => {
+    addMapMarker(
+      record.lat,
+      record.lng,
+      "registry-marker",
+      `<strong>${record.name}</strong><br>${record.category || "City record"}<br>${record.address || ""}<br><small>${record.source}</small>`
+    );
+  });
+
+  const places = businessResult?.googlePlaces?.mapPlaces || businessResult?.googlePlaces?.topPlaces || [];
   places.forEach((place) => {
     addMapMarker(
       place.lat,
@@ -658,7 +669,10 @@ function renderMarketMap() {
       );
     });
 
-  elements.mapStatus.textContent = state.location ? `Radius ${state.location.radiusMiles} mi` : `ZIP ${state.zip}`;
+  const mappedCount = records.length + places.length;
+  elements.mapStatus.textContent = state.location
+    ? `${mappedCount} pins · ${state.location.radiusMiles} mi`
+    : `${mappedCount} pins · ZIP ${state.zip}`;
   window.setTimeout(() => map.invalidateSize(), 120);
 }
 
