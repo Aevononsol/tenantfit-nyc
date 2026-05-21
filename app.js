@@ -347,6 +347,14 @@ const categoryModels = [
 ];
 
 const businessTypes = {
+  restaurant: {
+    aliases: ["restaurant", "resturant", "dining", "eatery", "food spot", "full-service restaurant"],
+    baseDemand: 76,
+    localBias: 72,
+    chainBias: 58,
+    rentSensitivity: 82,
+    notes: "Restaurants are a core NYC tenant type. Validate cuisine gap, venting, liquor fit, reviews, delivery demand, labor costs, and late-night/weekend traffic."
+  },
   deli: {
     aliases: ["deli", "bodega", "corner store", "convenience store"],
     baseDemand: 82,
@@ -406,11 +414,11 @@ const businessTypes = {
 };
 
 const competitorCounts = {
-  "10003": { deli: 24, pizza: 31, laundromat: 9, gym: 18, "smoke shop": 16, daycare: 8, cafe: 42 },
-  "11201": { deli: 14, pizza: 19, laundromat: 7, gym: 15, "smoke shop": 7, daycare: 13, cafe: 29 },
-  "11101": { deli: 12, pizza: 16, laundromat: 6, gym: 12, "smoke shop": 6, daycare: 8, cafe: 20 },
-  "10458": { deli: 30, pizza: 24, laundromat: 18, gym: 7, "smoke shop": 15, daycare: 17, cafe: 10 },
-  "10301": { deli: 11, pizza: 10, laundromat: 8, gym: 5, "smoke shop": 6, daycare: 9, cafe: 7 }
+  "10003": { restaurant: 150, deli: 24, pizza: 31, laundromat: 9, gym: 18, "smoke shop": 16, daycare: 8, cafe: 42 },
+  "11201": { restaurant: 95, deli: 14, pizza: 19, laundromat: 7, gym: 15, "smoke shop": 7, daycare: 13, cafe: 29 },
+  "11101": { restaurant: 88, deli: 12, pizza: 16, laundromat: 6, gym: 12, "smoke shop": 6, daycare: 8, cafe: 20 },
+  "10458": { restaurant: 58, deli: 30, pizza: 24, laundromat: 18, gym: 7, "smoke shop": 15, daycare: 17, cafe: 10 },
+  "10301": { restaurant: 42, deli: 11, pizza: 10, laundromat: 8, gym: 5, "smoke shop": 6, daycare: 9, cafe: 7 }
 };
 
 const labels = {
@@ -423,7 +431,7 @@ const labels = {
 const state = {
   zip: "10003",
   filter: "all",
-  business: "deli",
+  business: "restaurant",
   location: null,
   businessRequestId: 0,
   areaRequestId: 0,

@@ -142,7 +142,13 @@ function normalizeBusiness(value) {
   if (normalized.includes("gym") || normalized.includes("fitness")) return "gym";
   if (normalized.includes("daycare") || normalized.includes("child")) return "daycare";
   if (normalized.includes("bakery") || normalized.includes("bagel")) return "bakery";
-  if (normalized.includes("restaurant") || normalized.includes("food")) return "restaurant";
+  if (
+    normalized.includes("restaurant") ||
+    normalized.includes("resturant") ||
+    normalized.includes("dining") ||
+    normalized.includes("eatery") ||
+    normalized.includes("food")
+  ) return "restaurant";
   return normalized || "business";
 }
 
