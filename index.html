@@ -398,6 +398,39 @@
             </div>
           </section>
 
+          <div class="report-layout">
+            <section class="panel recommendations">
+              <div class="panel-header">
+                <p class="section-label">Ranked categories</p>
+                <select id="category-filter" aria-label="Filter category results">
+                  <option value="all">All</option>
+                  <option value="strong">Strong only</option>
+                  <option value="mixed">Mixed only</option>
+                  <option value="weak">Weak only</option>
+                </select>
+              </div>
+              <div id="category-list" class="category-list"></div>
+            </section>
+
+            <section class="panel narrative">
+              <div class="panel-header">
+                <p class="section-label">Broker insight</p>
+                <span id="confidence-pill" class="pill">High confidence</span>
+              </div>
+              <h3 id="headline">Strong demand, but rent punishes weak operators.</h3>
+              <p id="narrative-copy"></p>
+              <button id="memo-button" class="memo-button" type="button">Generate client memo</button>
+              <div id="memo-box" class="memo-box">
+                <p class="section-label">OpenAI memo</p>
+                <p id="memo-copy">Generate a client-ready memo after selecting a ZIP and business type.</p>
+              </div>
+              <div class="evidence">
+                <h4>Research signals</h4>
+                <ul id="evidence-list"></ul>
+              </div>
+            </section>
+          </div>
+
           <section class="panel lease-panel">
             <div class="panel-header">
               <div>
@@ -435,39 +468,6 @@
             <p id="lease-message" class="panel-note" role="status">Saved spaces stay on this computer. Use listing links from LoopNet, Crexi, broker emails, Craigslist, or signs.</p>
             <div id="lease-list" class="lease-list"></div>
           </section>
-
-          <div class="report-layout">
-            <section class="panel recommendations">
-              <div class="panel-header">
-                <p class="section-label">Ranked categories</p>
-                <select id="category-filter" aria-label="Filter category results">
-                  <option value="all">All</option>
-                  <option value="strong">Strong only</option>
-                  <option value="mixed">Mixed only</option>
-                  <option value="weak">Weak only</option>
-                </select>
-              </div>
-              <div id="category-list" class="category-list"></div>
-            </section>
-
-            <section class="panel narrative">
-              <div class="panel-header">
-                <p class="section-label">Broker insight</p>
-                <span id="confidence-pill" class="pill">High confidence</span>
-              </div>
-              <h3 id="headline">Strong demand, but rent punishes weak operators.</h3>
-              <p id="narrative-copy"></p>
-              <button id="memo-button" class="memo-button" type="button">Generate client memo</button>
-              <div id="memo-box" class="memo-box">
-                <p class="section-label">OpenAI memo</p>
-                <p id="memo-copy">Generate a client-ready memo after selecting a ZIP and business type.</p>
-              </div>
-              <div class="evidence">
-                <h4>Research signals</h4>
-                <ul id="evidence-list"></ul>
-              </div>
-            </section>
-          </div>
 
         </section>
       </section>
