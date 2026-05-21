@@ -174,15 +174,13 @@ h4 {
 }
 
 .search-panel,
-.address-panel,
-.api-key-panel {
+.address-panel {
   display: grid;
   gap: 10px;
 }
 
 .search-panel label,
-.address-panel label,
-.api-key-panel label {
+.address-panel label {
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -205,7 +203,6 @@ select {
 
 .zip-row button,
 .address-row button,
-.api-key-panel button,
 .ghost-button,
 .subtle-button {
   min-height: 44px;
@@ -215,15 +212,9 @@ select {
   font-weight: 800;
 }
 
-.address-panel,
-.api-key-panel {
+.address-panel {
   padding-top: 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-.api-key-panel.hosted-key-mode input,
-.api-key-panel.hosted-key-mode button {
-  display: none;
 }
 
 .subtle-button {
@@ -1209,8 +1200,7 @@ meter::-webkit-meter-optimum-value {
 }
 
 .narrative p,
-.evidence li,
-.source-grid span {
+.evidence li {
   color: var(--muted);
   line-height: 1.55;
 }
@@ -1228,51 +1218,9 @@ meter::-webkit-meter-optimum-value {
   padding-left: 20px;
 }
 
-.data-roadmap {
-  display: grid;
-  grid-template-columns: 270px 1fr;
-  gap: 20px;
-  align-items: start;
-}
-
-.source-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.source-grid div {
-  display: grid;
-  gap: 6px;
-  min-height: 96px;
-  border: 1px solid var(--line);
-  padding: 13px;
-  background: #fbfcfd;
-}
-
-.source-grid strong {
-  color: var(--blue);
-}
-
-.key-status {
-  width: max-content;
-  margin-top: 4px;
-  padding: 4px 7px;
-  background: #fdecec;
-  color: var(--red);
-  font-size: 0.75rem;
-  font-weight: 850;
-}
-
-.key-status.connected {
-  background: #eaf7ef;
-  color: var(--green);
-}
-
 @media (max-width: 1060px) {
   .workspace,
   .report-layout,
-  .data-roadmap,
   .insight-grid,
   .market-grid,
   .decision-strip,
@@ -1293,7 +1241,6 @@ meter::-webkit-meter-optimum-value {
   }
 
   .summary-grid,
-  .source-grid,
   .photo-strip,
   .photo-modal-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1317,7 +1264,6 @@ meter::-webkit-meter-optimum-value {
 
   .preset-list,
   .summary-grid,
-  .source-grid,
   .photo-strip,
   .photo-modal-card,
   .verdict-panel,

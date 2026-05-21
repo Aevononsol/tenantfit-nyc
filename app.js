@@ -482,8 +482,6 @@ const elements = {
   localFitBar: document.querySelector("#local-fit-bar"),
   talkingPoints: document.querySelector("#talking-points"),
   exportButton: document.querySelector("#export-button"),
-  apiKeyForm: document.querySelector("#api-key-form"),
-  apiKeyMessage: document.querySelector("#api-key-message"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
   businessExamples: document.querySelector("#business-examples"),
@@ -535,12 +533,6 @@ const elements = {
   leaseMessage: document.querySelector("#lease-message"),
   leaseList: document.querySelector("#lease-list"),
   leaseSearchLinks: document.querySelector("#lease-search-links"),
-  keyStatus: {
-    census: document.querySelector("#census-status"),
-    googlePlaces: document.querySelector("#google-status"),
-    nycOpenData: document.querySelector("#nyc-status"),
-    openai: document.querySelector("#openai-status")
-  },
   meters: {
     density: document.querySelector("#density-meter"),
     income: document.querySelector("#income-meter"),
@@ -1944,62 +1936,6 @@ elements.memoButton.addEventListener("click", async () => {
   }
 });
 
-if (elements.apiKeyForm) {
-  elements.apiKeyForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    elements.apiKeyMessage.textContent = "Saving keys...";
-
-    const formData = new FormData(elements.apiKeyForm);
-    const payload = Object.fromEntries(formData.entries());
-
-    try {
-      const response = await fetch("/api/save-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) throw new Error("Save failed");
-
-      elements.apiKeyForm.reset();
-      elements.apiKeyMessage.textContent = "Keys saved locally.";
-      await renderKeyStatus();
-    } catch {
-      elements.apiKeyMessage.textContent = "Could not save. Make sure the Node server is running.";
-    }
-  });
-}
-
-async function renderKeyStatus() {
-  try {
-    const response = await fetch("/api/key-status");
-    if (!response.ok) throw new Error("No backend");
-    const status = await response.json();
-    const canSaveKeys = status.canSaveKeys !== false;
-
-    if (elements.apiKeyForm) {
-      elements.apiKeyForm.classList.toggle("hosted-key-mode", !canSaveKeys);
-      elements.apiKeyForm.querySelectorAll("input, button").forEach((field) => {
-        field.disabled = !canSaveKeys;
-      });
-      if (!canSaveKeys) {
-        elements.apiKeyMessage.textContent = "Keys are managed in Render environment variables.";
-      }
-    }
-
-    Object.entries(elements.keyStatus).forEach(([key, element]) => {
-      const connected = Boolean(status[key]);
-      element.textContent = connected ? "Key connected" : "Key missing";
-      element.classList.toggle("connected", connected);
-    });
-  } catch {
-    Object.values(elements.keyStatus).forEach((element) => {
-      element.textContent = "Run Node server";
-      element.classList.remove("connected");
-    });
-  }
-}
-
 function renderZipOptions() {
   elements.zipOptions.innerHTML = allNycZipCodes.map((zip) => `<option value="${zip}"></option>`).join("");
 }
@@ -2042,4 +1978,3 @@ document.addEventListener("keydown", (event) => {
 renderZipOptions();
 state.leases = loadLeases();
 render(state.zip);
-renderKeyStatus();
