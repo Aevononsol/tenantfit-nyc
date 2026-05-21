@@ -78,21 +78,32 @@ button:disabled {
 
 .brand {
   display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: 14px;
+  grid-template-columns: 58px 1fr;
+  gap: 15px;
   align-items: center;
 }
 
 .mark {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: var(--taxi);
-  color: #17202a;
-  font-weight: 800;
-  letter-spacing: 0;
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.05) 30%),
+    linear-gradient(145deg, #f5cc47 0%, #e4a929 48%, #0f837a 49%, #096d70 100%);
+  color: #f9fbf2;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+}
+
+.liberty-mark {
+  width: 36px;
+  height: 36px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.2;
 }
 
 .eyebrow,
@@ -108,6 +119,24 @@ button:disabled {
 .brand .eyebrow,
 .sidebar .section-label {
   color: #b9c8d6;
+}
+
+.brand-title {
+  margin: 2px 0 3px;
+  color: #ffffff;
+  font-size: 1.72rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
+}
+
+.brand-tagline {
+  margin: 0;
+  color: #dce8f0;
+  font-size: 0.86rem;
+  line-height: 1.28;
+  font-weight: 700;
 }
 
 h1,
