@@ -273,7 +273,7 @@
                 <p class="section-label">Best business ideas</p>
                 <h3>Likely winners in this area</h3>
               </div>
-              <span class="pill">Modeled profit ranges</span>
+              <span id="opportunity-source" class="pill">Modeled profit ranges</span>
             </div>
             <p class="panel-note">Profit ranges are rough broker-screening estimates, not verified owner profit. Use them to decide what to research next.</p>
             <div id="opportunity-list" class="opportunity-list"></div>
@@ -403,7 +403,10 @@
           <div class="report-layout">
             <section class="panel recommendations">
               <div class="panel-header">
-                <p class="section-label">Ranked categories</p>
+                <div>
+                  <p class="section-label">Ranked categories</p>
+                  <span id="category-source" class="mini-source">Area model, waiting for live check</span>
+                </div>
                 <select id="category-filter" aria-label="Filter category results">
                   <option value="all">All</option>
                   <option value="strong">Strong only</option>

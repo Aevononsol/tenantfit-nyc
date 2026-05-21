@@ -511,6 +511,8 @@ const elements = {
   businessVerdict: document.querySelector("#business-verdict"),
   businessReason: document.querySelector("#business-reason"),
   opportunityList: document.querySelector("#opportunity-list"),
+  opportunitySource: document.querySelector("#opportunity-source"),
+  categorySource: document.querySelector("#category-source"),
   placesTitle: document.querySelector("#places-title"),
   placesSource: document.querySelector("#places-source"),
   placesList: document.querySelector("#places-list"),
@@ -931,6 +933,10 @@ function scoreDrivers(profile, item) {
 
 function renderOpportunities(profile) {
   const recommendations = buildRecommendations(profile).slice(0, 5);
+  const liveCompetition = currentBusinessResult()?.registryExact;
+  elements.opportunitySource.textContent = liveCompetition
+    ? "Live competition + modeled profit"
+    : "Modeled profit ranges";
   elements.opportunityList.innerHTML = recommendations
     .map((item) => {
       const profit = estimateMonthlyProfit(item, profile);
@@ -951,6 +957,31 @@ function renderOpportunities(profile) {
         </article>
       `;
     })
+    .join("");
+}
+
+function renderCategoryList(recommendations) {
+  const visibleRecommendations =
+    state.filter === "all"
+      ? recommendations
+      : recommendations.filter((item) => item.band === state.filter);
+  const liveCompetition = currentBusinessResult()?.registryExact;
+
+  elements.categorySource.textContent = liveCompetition
+    ? `Live-adjusted for ${currentBusinessResult().business}`
+    : "Area model, waiting for live check";
+  elements.categoryList.innerHTML = visibleRecommendations
+    .map(
+      (item) => `
+        <article class="category-item">
+          <div>
+            <h4>${item.name}</h4>
+            <p>${item.note}</p>
+          </div>
+          <div class="score ${item.band}" aria-label="${item.band} fit score">${item.score}</div>
+        </article>
+      `
+    )
     .join("");
 }
 
@@ -1571,8 +1602,14 @@ async function renderBusinessCheck() {
         result,
         sourceNote: `${result.note} ${result.sources?.length ? `Breakdown: ${result.sources.join("; ")}.` : ""}`
       });
-      renderDecisionStrip(profile, buildRecommendations(profile));
+      const updatedRecommendations = buildRecommendations(profile);
+      renderDecisionStrip(profile, updatedRecommendations);
+      renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
+      elements.headline.textContent = headlineFor(updatedRecommendations, profile);
+      elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
+      elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
+      elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
       renderTopPlaces(result);
       renderMarketMap();
     } else {
@@ -1584,8 +1621,14 @@ async function renderBusinessCheck() {
         result,
         sourceNote: "Connected sources found no exact observed matches for this ZIP and search term. Try a broader term or verify the exact block."
       });
-      renderDecisionStrip(profile, buildRecommendations(profile));
+      const updatedRecommendations = buildRecommendations(profile);
+      renderDecisionStrip(profile, updatedRecommendations);
+      renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
+      elements.headline.textContent = headlineFor(updatedRecommendations, profile);
+      elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
+      elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
+      elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
       renderTopPlaces(result);
       renderMarketMap();
     }
@@ -1597,8 +1640,14 @@ async function renderBusinessCheck() {
       isLive: false,
       sourceNote: "Live lookup failed, so TenantFit is clearly marking this as a modeled estimate."
     });
-    renderDecisionStrip(profile, buildRecommendations(profile));
+    const updatedRecommendations = buildRecommendations(profile);
+    renderDecisionStrip(profile, updatedRecommendations);
+    renderCategoryList(updatedRecommendations);
     renderOpportunities(profile);
+    elements.headline.textContent = headlineFor(updatedRecommendations, profile);
+    elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
+    elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
+    elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
     renderMarketMap();
   }
 }
@@ -1684,24 +1733,7 @@ function render(zip) {
   });
 
   const recommendations = buildRecommendations(profile);
-  const visibleRecommendations =
-    state.filter === "all"
-      ? recommendations
-      : recommendations.filter((item) => item.band === state.filter);
-
-  elements.categoryList.innerHTML = visibleRecommendations
-    .map(
-      (item) => `
-        <article class="category-item">
-          <div>
-            <h4>${item.name}</h4>
-            <p>${item.note}</p>
-          </div>
-          <div class="score ${item.band}" aria-label="${item.band} fit score">${item.score}</div>
-        </article>
-      `
-    )
-    .join("");
+  renderCategoryList(recommendations);
 
   elements.headline.textContent = headlineFor(recommendations, profile);
   elements.narrative.textContent = narrativeFor(zip, profile, recommendations);

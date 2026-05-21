@@ -577,7 +577,9 @@ async function businessCount(zip, businessInput, location = null) {
     businessTenure(zip, business).catch(() => null),
     cityMapRecords(zip, business, location).catch(() => [])
   ]);
-  const openDataTotal = restaurantCount + dcwpCount;
+  const countedOpenDataTotal = restaurantCount + dcwpCount;
+  const mappedOpenDataTotal = mapRecords.length;
+  const openDataTotal = countedOpenDataTotal || mappedOpenDataTotal;
   const googleVisibleCount = googlePlaces?.count || 0;
   const hasAnySourceSignal = openDataTotal > 0 || googleVisibleCount > 0;
 
@@ -604,11 +606,14 @@ async function businessCount(zip, businessInput, location = null) {
     sources: [
       restaurantCount ? `DOHMH restaurant records: ${restaurantCount}` : null,
       dcwpCount ? `DCWP active licenses: ${dcwpCount}` : null,
+      !countedOpenDataTotal && mappedOpenDataTotal ? `Mapped NYC records: ${mappedOpenDataTotal}` : null,
       googlePlaces ? `Google Places visible results: ${googlePlaces.count}` : null
     ].filter(Boolean),
     note:
-      openDataTotal > 0
+      countedOpenDataTotal > 0
         ? "Observed city-record matches from NYC Open Data. Google Places is shown separately as visibility, not as an exact competitor count."
+        : mappedOpenDataTotal > 0
+          ? "Observed mapped NYC records from connected city datasets. Google Places is shown separately as visibility, not as a complete registry."
         : googleVisibleCount > 0
           ? "No matching NYC city records were found for this exact ZIP and term. Google Places has visible results, but those are search visibility signals, not a complete registry."
           : "Connected sources returned zero matching records for this exact ZIP and search term."
