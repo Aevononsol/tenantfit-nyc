@@ -306,41 +306,49 @@ const boroughProfiles = {
 const categoryModels = [
   {
     name: "Specialty coffee",
+    business: "cafe",
     weights: { density: 0.2, income: 0.16, transit: 0.18, office: 0.16, student: 0.1, competition: -0.12, rent: -0.1 },
     note: "Works best near transit, offices, universities, and dense morning routes."
   },
   {
     name: "Boutique fitness",
+    business: "gym",
     weights: { density: 0.12, income: 0.26, transit: 0.1, families: 0.08, office: 0.1, rent: -0.12, competition: -0.08 },
     note: "Needs disposable income, routine traffic, and enough room for class economics."
   },
   {
     name: "Fast casual lunch",
+    business: "restaurant",
     weights: { density: 0.18, transit: 0.12, office: 0.24, student: 0.08, nightlife: 0.04, competition: -0.14, rent: -0.12 },
     note: "Strong when daytime workers and repeat weekly traffic are nearby."
   },
   {
     name: "Daycare / enrichment",
+    business: "daycare",
     weights: { families: 0.32, income: 0.18, density: 0.12, rent: -0.08, competition: -0.06, transit: 0.06 },
     note: "Favors family density, reliable household income, and local referral networks."
   },
   {
     name: "Med spa / beauty clinic",
+    business: "salon",
     weights: { income: 0.3, density: 0.1, transit: 0.08, office: 0.08, tourist: 0.06, competition: -0.1, rent: -0.1 },
     note: "Needs premium spend, appointment flow, and trust-building local marketing."
   },
   {
     name: "Discount retail",
+    business: "retail",
     weights: { density: 0.16, income: -0.08, rent: -0.18, families: 0.14, competition: -0.08, transit: 0.06 },
     note: "Works with lower rent, family volume, and practical daily demand."
   },
   {
     name: "Full-service restaurant",
+    business: "restaurant",
     weights: { income: 0.16, nightlife: 0.16, tourist: 0.12, density: 0.1, rent: -0.18, competition: -0.16, transit: 0.08 },
     note: "Can do well, but only if concept, reviews, and labor economics are sharp."
   },
   {
     name: "Laundry / wash-and-fold",
+    business: "laundromat",
     weights: { density: 0.24, families: 0.12, rent: -0.12, income: -0.06, competition: -0.1, transit: 0.04 },
     note: "Best for dense residential pockets with repeat household need."
   }
@@ -751,12 +759,53 @@ function enrichProfileWithCensus(baseProfile, census) {
   };
 }
 
+function opportunityCompetition(zip, business, profile) {
+  const liveResult = currentBusinessResult();
+  const liveMatchesBusiness = liveResult?.business === business;
+  const count = liveMatchesBusiness && Number.isFinite(Number(liveResult.count))
+    ? Number(liveResult.count)
+    : competitorCounts[zip]?.[business];
+
+  if (!Number.isFinite(Number(count))) {
+    return {
+      count: null,
+      source: "modeled area signals",
+      adjustment: 0,
+      label: "Directional"
+    };
+  }
+
+  const saturation = saturationFromCount(Number(count), profile);
+  const adjustment = saturation >= 82
+    ? -14
+    : saturation >= 68
+      ? -8
+      : saturation <= 36
+        ? 9
+        : saturation <= 50
+          ? 5
+          : 0;
+
+  return {
+    count: Number(count),
+    source: liveMatchesBusiness ? "live city records" : "modeled competitor baseline",
+    adjustment,
+    label: saturationLabel(saturation)
+  };
+}
+
 function scoreCategory(profile, model) {
   const raw = Object.entries(model.weights).reduce((total, [metric, weight]) => {
-    return total + ((profile[metric] || 50) - 50) * weight * 1.55;
+    return total + ((profile[metric] || 50) - 50) * weight * 2.25;
   }, 56);
 
-  return Math.max(5, Math.min(98, Math.round(raw)));
+  const competition = opportunityCompetition(state.zip, model.business, profile);
+  const localFit = model.business === "restaurant"
+    ? Math.round((profile.nightlife + profile.transit + profile.density - profile.rent * 0.45) / 3)
+    : Math.round((profile.localPreference + profile.density - profile.rent * 0.35) / 2.2);
+  const contextAdjustment = Math.max(-8, Math.min(8, Math.round((localFit - 50) / 8)));
+
+  return Math.max(5, Math.min(98, Math.round(raw + competition.adjustment + contextAdjustment)));
 }
 
 function bandFor(score) {
@@ -860,6 +909,7 @@ function sourceTagsForResult(result, isLive) {
 }
 
 function scoreDrivers(profile, item) {
+  const competition = opportunityCompetition(state.zip, item.business, profile);
   const positiveDrivers = Object.entries(item.weights)
     .filter(([, weight]) => weight > 0)
     .sort((a, b) => (profile[b[0]] || 0) * b[1] - (profile[a[0]] || 0) * a[1])
@@ -872,7 +922,11 @@ function scoreDrivers(profile, item) {
     ?.replace(/([A-Z])/g, " $1")
     .toLowerCase();
 
-  return `Driven by ${positiveDrivers.join(" and ")}${drag ? `; watch ${drag}` : ""}.`;
+  const competitionCopy = competition.count === null
+    ? "competition still modeled"
+    : `${competition.count.toLocaleString()} ${competition.source} · ${competition.label.toLowerCase()}`;
+
+  return `Driven by ${positiveDrivers.join(" and ")}${drag ? `; watch ${drag}` : ""}. Competition: ${competitionCopy}.`;
 }
 
 function renderOpportunities(profile) {
@@ -880,7 +934,9 @@ function renderOpportunities(profile) {
   elements.opportunityList.innerHTML = recommendations
     .map((item) => {
       const profit = estimateMonthlyProfit(item, profile);
+      const competition = opportunityCompetition(state.zip, item.business, profile);
       const risk = item.score >= 72 ? "Good fit" : item.score >= 58 ? "Selective" : "Risky";
+      const scoreType = competition.source.includes("live") ? "live-adjusted" : "area-adjusted";
       return `
         <article class="opportunity-item">
           <div>
@@ -890,7 +946,7 @@ function renderOpportunities(profile) {
           </div>
           <div class="opportunity-metrics">
             <strong>${profit}</strong>
-            <span>${risk} · modeled score ${item.score}</span>
+            <span>${risk} · ${scoreType} score ${item.score}</span>
           </div>
         </article>
       `;
@@ -1516,6 +1572,7 @@ async function renderBusinessCheck() {
         sourceNote: `${result.note} ${result.sources?.length ? `Breakdown: ${result.sources.join("; ")}.` : ""}`
       });
       renderDecisionStrip(profile, buildRecommendations(profile));
+      renderOpportunities(profile);
       renderTopPlaces(result);
       renderMarketMap();
     } else {
@@ -1528,6 +1585,7 @@ async function renderBusinessCheck() {
         sourceNote: "Connected sources found no exact observed matches for this ZIP and search term. Try a broader term or verify the exact block."
       });
       renderDecisionStrip(profile, buildRecommendations(profile));
+      renderOpportunities(profile);
       renderTopPlaces(result);
       renderMarketMap();
     }
@@ -1540,6 +1598,7 @@ async function renderBusinessCheck() {
       sourceNote: "Live lookup failed, so TenantFit is clearly marking this as a modeled estimate."
     });
     renderDecisionStrip(profile, buildRecommendations(profile));
+    renderOpportunities(profile);
     renderMarketMap();
   }
 }
