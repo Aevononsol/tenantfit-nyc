@@ -167,6 +167,17 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function fetchJsonWithTimeout(url, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    return { response, data: await response.json() };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function distanceMiles(aLat, aLng, bLat, bLng) {
   const toRadians = (degrees) => (Number(degrees) * Math.PI) / 180;
   const lat1 = toRadians(aLat);
@@ -499,29 +510,13 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
   }
   url.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
 
-  const places = [];
-  let nextPageToken = "";
-  for (let page = 0; page < 3; page += 1) {
-    const pageUrl = new URL(url);
-    if (nextPageToken) {
-      await sleep(1300);
-      pageUrl.search = "";
-      pageUrl.searchParams.set("pagetoken", nextPageToken);
-      pageUrl.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
-    }
-
-    const response = await fetch(pageUrl);
-    if (!response.ok) throw new Error(`Google Places returned ${response.status}`);
-    const data = await response.json();
-    if (data.status && !["OK", "ZERO_RESULTS"].includes(data.status)) {
-      throw new Error(`Google Places status ${data.status}`);
-    }
-
-    places.push(...(Array.isArray(data.results) ? data.results : []));
-    nextPageToken = data.next_page_token || "";
-    if (!nextPageToken) break;
+  const { response, data } = await fetchJsonWithTimeout(url, 5500);
+  if (!response.ok) throw new Error(`Google Places returned ${response.status}`);
+  if (data.status && !["OK", "ZERO_RESULTS"].includes(data.status)) {
+    throw new Error(`Google Places status ${data.status}`);
   }
 
+  const places = Array.isArray(data.results) ? data.results : [];
   const names = places.map((place) => String(place.name || "").toUpperCase());
   const chainCount = names.filter((name) => knownChains.some((chain) => name.includes(chain))).length;
   const ratedPlaces = places.filter((place) => Number.isFinite(Number(place.rating)));
@@ -561,9 +556,9 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
     reviewCount,
     topNames: rankedPlaces.slice(0, 5).map((place) => place.name),
     topPlaces: rankedPlaces.slice(0, 6),
-    mapPlaces: rankedPlaces,
-    source: location?.lat ? "Google Places Nearby Search visible results" : "Google Places Text Search top results",
-    caveat: "Google Places returns visible search results, not a complete registry of every business."
+    mapPlaces: rankedPlaces.slice(0, 20),
+    source: location?.lat ? "Google Places Nearby Search first page" : "Google Places Text Search first page",
+    caveat: "Google Places is limited to a fast first-page sample. NYC record pins show the broader registry picture."
   };
 }
 
