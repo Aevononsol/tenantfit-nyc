@@ -687,12 +687,6 @@ const elements = {
   heroMarket: document.querySelector("#hero-market"),
   map: document.querySelector("#market-map"),
   mapStatus: document.querySelector("#map-status"),
-  photoCards: document.querySelectorAll(".photo-strip figure"),
-  photoModal: document.querySelector("#photo-modal"),
-  photoModalClose: document.querySelector("#photo-modal-close"),
-  photoModalImage: document.querySelector("#photo-modal-image"),
-  photoModalTitle: document.querySelector("#photo-modal-title"),
-  photoModalCopy: document.querySelector("#photo-modal-copy"),
   presets: document.querySelectorAll(".preset"),
   areaTitle: document.querySelector("#area-title"),
   categoryList: document.querySelector("#category-list"),
@@ -734,7 +728,6 @@ const elements = {
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
   restaurantType: document.querySelector("#restaurant-type"),
-  businessExamples: document.querySelector("#business-examples"),
   businessCount: document.querySelector("#business-count"),
   businessCountLabel: document.querySelector("#business-count-label"),
   businessSourceTags: document.querySelector("#business-source-tags"),
@@ -2952,23 +2945,6 @@ elements.restaurantType?.addEventListener("change", () => {
   if (state.zip) renderBusinessCheck();
 });
 
-elements.businessExamples.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-business]");
-  if (!button) return;
-
-  state.business = button.dataset.business;
-  elements.businessInput.value = state.business;
-  if (elements.restaurantType) {
-    const hasOption = [...elements.restaurantType.options].some((option) => option.value === state.business);
-    elements.restaurantType.value = hasOption ? state.business : "";
-  }
-  if (!state.zip) {
-    elements.message.textContent = "Enter a ZIP code before checking a business type.";
-    return;
-  }
-  renderBusinessCheck();
-});
-
 elements.radiusInput.addEventListener("change", () => {
   if (!state.location) return;
   state.location.radiusMiles = elements.radiusInput.value;
@@ -3079,41 +3055,6 @@ elements.memoButton.addEventListener("click", async () => {
 function renderZipOptions() {
   elements.zipOptions.innerHTML = allNycZipCodes.map((zip) => `<option value="${zip}"></option>`).join("");
 }
-
-function openPhotoModal(card) {
-  const image = card.querySelector("img");
-  elements.photoModalImage.src = image.src.replace("w=900", "w=1600");
-  elements.photoModalImage.alt = image.alt;
-  elements.photoModalTitle.textContent = card.dataset.title || "NYC field signal";
-  elements.photoModalCopy.textContent = card.dataset.copy || "";
-  elements.photoModal.hidden = false;
-  elements.photoModalClose.focus();
-}
-
-function closePhotoModal() {
-  elements.photoModal.hidden = true;
-  elements.photoModalImage.src = "";
-}
-
-elements.photoCards.forEach((card) => {
-  card.addEventListener("click", () => openPhotoModal(card));
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      openPhotoModal(card);
-    }
-  });
-});
-
-elements.photoModal.addEventListener("click", (event) => {
-  if (event.target === elements.photoModal) closePhotoModal();
-});
-
-elements.photoModalClose.addEventListener("click", closePhotoModal);
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !elements.photoModal.hidden) closePhotoModal();
-});
 
 renderZipOptions();
 state.leases = loadLeases();
