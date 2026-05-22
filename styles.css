@@ -2603,3 +2603,106 @@ textarea {
 .score.strong {
   background: linear-gradient(145deg, #d8f3dc, #b7e4c7) !important;
 }
+
+/* Semantic color pass: green means good, blue means action/navigation */
+:root {
+  --green: #12805c;
+  --teal: #0e7490;
+  --gold: #0e7490;
+  --taxi: #0e7490;
+}
+
+.mark {
+  background: linear-gradient(145deg, #12324a, #0e7490) !important;
+  box-shadow: 0 12px 28px rgba(14, 116, 144, 0.22);
+}
+
+.sidebar::before {
+  background:
+    linear-gradient(90deg, rgba(14, 116, 144, 0.18), transparent 24%),
+    linear-gradient(180deg, transparent 0%, rgba(37, 99, 235, 0.1) 100%);
+}
+
+.panel-header,
+.section-label,
+.panel-header .section-label {
+  border-left-color: #0e7490 !important;
+}
+
+.panel-header {
+  background: linear-gradient(90deg, rgba(14, 116, 144, 0.12), rgba(51, 65, 85, 0.06)) !important;
+}
+
+.sidebar .form-message,
+.sidebar .panel-note {
+  color: #bae6fd !important;
+}
+
+.ghost-button,
+.memo-button,
+.business-form button,
+.business-examples button,
+.lease-form button,
+.csv-import-row button,
+.address-row button,
+.sidebar .zip-row button,
+.sidebar .address-row button,
+.sidebar .subtle-button,
+.analyze-button,
+.export-button {
+  background: linear-gradient(145deg, #0e7490, #155e75) !important;
+  border-color: rgba(14, 116, 144, 0.38) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(14, 116, 144, 0.2);
+}
+
+.sidebar .preset.active,
+.sidebar .preset:hover,
+.preset-list button.active,
+.preset-list button:hover {
+  background: linear-gradient(145deg, #12324a, #0e7490) !important;
+}
+
+.business-count {
+  background: linear-gradient(145deg, #12324a, #0e7490) !important;
+}
+
+.business-results article:nth-child(2) {
+  background: linear-gradient(145deg, #e7f0f6, #cbddea) !important;
+}
+
+.business-results article:nth-child(3) {
+  background: linear-gradient(145deg, #e2eef8, #c8dcea) !important;
+}
+
+.business-results article:nth-child(4) {
+  background: linear-gradient(145deg, #edeaf7, #d7d2ea) !important;
+}
+
+.meter-fill,
+meter::-webkit-meter-optimum-value,
+meter::-webkit-meter-suboptimum-value,
+meter::-webkit-meter-even-less-good-value {
+  background: #0e7490;
+}
+
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline-color: #0e7490 !important;
+}
+
+.grade-box,
+.score.strong,
+.summary-grid article.positive,
+.decision-card.positive {
+  background: linear-gradient(145deg, #d8f3dc, #b7e4c7) !important;
+  border-color: rgba(18, 128, 92, 0.24) !important;
+}
+
+.grade-box strong,
+.score.strong,
+.score.strong * {
+  color: #0b6b4b !important;
+}
