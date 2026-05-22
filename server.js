@@ -591,7 +591,16 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
     reviewCount,
     topNames: rankedPlaces.slice(0, 5).map((place) => place.name),
     topPlaces: rankedPlaces.slice(0, 6),
-    mapPlaces: rankedPlaces.slice(0, 20),
+    mapPlaces: rankedPlaces.slice(0, 20).map((place) => ({
+      name: place.name,
+      address: place.address,
+      lat: place.lat,
+      lng: place.lng,
+      rating: place.rating,
+      reviews: place.reviews,
+      chain: place.chain,
+      placeId: place.placeId
+    })),
     source: location?.lat ? "Google Places Nearby Search first page" : "Google Places Text Search first page",
     caveat: "Google Places is limited to a fast first-page sample. NYC record pins show the broader registry picture."
   };

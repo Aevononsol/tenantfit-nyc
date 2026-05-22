@@ -1295,8 +1295,9 @@ function renderSiteIntelligence(data) {
   }
 
   elements.plutoLevel.textContent = `${numberLabel(data.pluto.taxLots)} tax lots`;
+  const averageYearBuilt = data.pluto.averageYearBuilt >= 1800 ? data.pluto.averageYearBuilt : "n/a";
   elements.plutoCopy.textContent =
-    `${numberLabel(data.pluto.retailArea)} sq ft retail area, ${numberLabel(data.pluto.commercialArea)} sq ft commercial area, average year built ${data.pluto.averageYearBuilt || "n/a"}.`;
+    `${numberLabel(data.pluto.retailArea)} sq ft retail area, ${numberLabel(data.pluto.commercialArea)} sq ft commercial area, average year built ${averageYearBuilt}.`;
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
 
   const profile = profileForZip(state.zip);
