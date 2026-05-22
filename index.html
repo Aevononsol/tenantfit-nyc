@@ -230,6 +230,110 @@
             </article>
           </section>
 
+          <section class="panel business-checker">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Restaurant concept checker</p>
+                <h3>Pick the exact food concept before judging the area</h3>
+              </div>
+              <form id="business-form" class="business-form">
+                <input id="business-input" name="business" placeholder="restaurant, deli, pizza, cafe, gym" required />
+                <select id="restaurant-type" name="restaurantType" aria-label="Restaurant or food type">
+                  <option value="">Choose food type</option>
+                  <option value="restaurant">General restaurant</option>
+                  <option value="pizza">Pizza / slice shop</option>
+                  <option value="deli">Deli / bodega</option>
+                  <option value="cafe">Cafe / coffee</option>
+                  <option value="bakery">Bakery / bagel</option>
+                  <option value="breakfast">Breakfast / brunch</option>
+                  <option value="italian">Italian</option>
+                  <option value="greek">Greek</option>
+                  <option value="mediterranean">Mediterranean / halal</option>
+                  <option value="turkish">Turkish</option>
+                  <option value="french">French</option>
+                  <option value="japanese">Japanese / sushi / ramen</option>
+                  <option value="chinese">Chinese / dim sum</option>
+                  <option value="korean">Korean</option>
+                  <option value="thai">Thai</option>
+                  <option value="vietnamese">Vietnamese / pho</option>
+                  <option value="filipino">Filipino</option>
+                  <option value="indian">Indian</option>
+                  <option value="pakistani">Pakistani / Bangladeshi</option>
+                  <option value="mexican">Mexican / tacos</option>
+                  <option value="latin">Latin American</option>
+                  <option value="dominican">Dominican</option>
+                  <option value="puerto rican">Puerto Rican</option>
+                  <option value="peruvian">Peruvian</option>
+                  <option value="colombian">Colombian</option>
+                  <option value="brazilian">Brazilian</option>
+                  <option value="caribbean">Caribbean / Jamaican</option>
+                  <option value="african">African</option>
+                  <option value="ethiopian">Ethiopian</option>
+                  <option value="american">American</option>
+                  <option value="burger">Burgers</option>
+                  <option value="chicken">Chicken / wings</option>
+                  <option value="bbq">BBQ</option>
+                  <option value="seafood">Seafood</option>
+                  <option value="steakhouse">Steakhouse</option>
+                  <option value="vegan">Vegan / vegetarian</option>
+                  <option value="juice">Juice / smoothie</option>
+                  <option value="dessert">Dessert / ice cream</option>
+                  <option value="bubble tea">Bubble tea</option>
+                  <option value="bar">Bar / pub</option>
+                  <option value="food truck">Food truck / cart</option>
+                </select>
+                <button type="submit">Check</button>
+              </form>
+            </div>
+            <p class="panel-note">Use the selector for restaurants, then AreaIntel checks that exact cuisine against NYC restaurant records and Google visibility.</p>
+            <div class="business-results">
+              <article class="business-count">
+                <span id="business-count">18</span>
+                <small id="business-count-label">similar businesses nearby</small>
+                <div id="business-source-tags" class="source-tags" aria-label="Business count sources"></div>
+              </article>
+              <article>
+                <span class="signal-label">Saturation</span>
+                <strong id="business-saturation">Crowded</strong>
+                <meter id="business-meter" min="0" max="100" value="82"></meter>
+              </article>
+              <article>
+                <span class="signal-label">Local vs chain</span>
+                <strong id="business-mix">Mostly local</strong>
+                <p id="business-mix-copy"></p>
+              </article>
+              <article>
+                <span class="signal-label">Broker answer</span>
+                <strong id="business-verdict">Possible, but only with a clear niche.</strong>
+                <p id="business-reason"></p>
+              </article>
+            </div>
+            <div id="business-examples" class="business-examples" aria-label="Example business types">
+              <button type="button" data-business="restaurant">Restaurant</button>
+              <button type="button" data-business="pizza">Pizza</button>
+              <button type="button" data-business="mediterranean">Mediterranean</button>
+              <button type="button" data-business="japanese">Japanese</button>
+              <button type="button" data-business="mexican">Mexican</button>
+              <button type="button" data-business="thai">Thai</button>
+              <button type="button" data-business="deli">Deli</button>
+              <button type="button" data-business="cafe">Cafe</button>
+              <button type="button" data-business="laundromat">Laundromat</button>
+              <button type="button" data-business="gym">Gym</button>
+            </div>
+          </section>
+
+          <section class="panel concept-fit-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Restaurant concept fit</p>
+                <h3>Which cuisines have room near this address?</h3>
+              </div>
+              <span id="concept-source" class="pill">Google + NYC records</span>
+            </div>
+            <p class="panel-note">Delivery-platform data from Uber Eats and Grubhub needs official access. AreaIntel uses Google Places visibility and NYC restaurant records first, then flags concepts worth checking on delivery apps.</p>
+            <div id="concept-fit-list" class="concept-fit-list"></div>
+          </section>
+
           <section class="panel institutional-panel">
             <div class="panel-header">
               <div>
@@ -304,63 +408,6 @@
               <span><i class="legend-dot registry-dot"></i> NYC records</span>
               <span><i class="legend-dot lease-dot"></i> Saved spaces</span>
             </div>
-          </section>
-
-          <section class="panel business-checker">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Business checker</p>
-                <h3>Check competition for any tenant type</h3>
-              </div>
-              <form id="business-form" class="business-form">
-                <input id="business-input" name="business" placeholder="restaurant, deli, pizza, cafe, gym" required />
-                <button type="submit">Check</button>
-              </form>
-            </div>
-            <div class="business-results">
-              <article class="business-count">
-                <span id="business-count">18</span>
-                <small id="business-count-label">similar businesses nearby</small>
-                <div id="business-source-tags" class="source-tags" aria-label="Business count sources"></div>
-              </article>
-              <article>
-                <span class="signal-label">Saturation</span>
-                <strong id="business-saturation">Crowded</strong>
-                <meter id="business-meter" min="0" max="100" value="82"></meter>
-              </article>
-              <article>
-                <span class="signal-label">Local vs chain</span>
-                <strong id="business-mix">Mostly local</strong>
-                <p id="business-mix-copy"></p>
-              </article>
-              <article>
-                <span class="signal-label">Broker answer</span>
-                <strong id="business-verdict">Possible, but only with a clear niche.</strong>
-                <p id="business-reason"></p>
-              </article>
-            </div>
-            <div id="business-examples" class="business-examples" aria-label="Example business types">
-              <button type="button" data-business="restaurant">Restaurant</button>
-              <button type="button" data-business="deli">Deli</button>
-              <button type="button" data-business="pizza">Pizza</button>
-              <button type="button" data-business="cafe">Cafe</button>
-              <button type="button" data-business="laundromat">Laundromat</button>
-              <button type="button" data-business="gym">Gym</button>
-              <button type="button" data-business="smoke shop">Smoke shop</button>
-              <button type="button" data-business="daycare">Daycare</button>
-            </div>
-          </section>
-
-          <section class="panel concept-fit-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Restaurant concept fit</p>
-                <h3>Which cuisine has room on this block?</h3>
-              </div>
-              <span id="concept-source" class="pill">Google + NYC records</span>
-            </div>
-            <p class="panel-note">Delivery-platform data from Uber Eats and Grubhub needs official access. AreaIntel uses Google Places visibility and NYC restaurant records first, then flags concepts worth checking on delivery apps.</p>
-            <div id="concept-fit-list" class="concept-fit-list"></div>
           </section>
 
           <section class="panel opportunity-panel">

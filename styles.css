@@ -972,9 +972,13 @@ meter::-webkit-meter-optimum-value {
 
 .business-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 92px;
+  grid-template-columns: minmax(180px, 0.95fr) minmax(190px, 1fr) 92px;
   gap: 8px;
-  width: min(460px, 100%);
+  width: min(720px, 100%);
+}
+
+.business-form select {
+  min-width: 0;
 }
 
 .business-form button,

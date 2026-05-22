@@ -39,27 +39,72 @@ const restaurantTerms = {
   cafe: ["CAFE", "COFFEE", "ESPRESSO"],
   coffee: ["CAFE", "COFFEE", "ESPRESSO"],
   bakery: ["BAKERY", "BAGEL"],
+  breakfast: ["BREAKFAST", "BRUNCH", "PANCAKE"],
   italian: ["ITALIAN", "PASTA"],
   greek: ["GREEK"],
-  mediterranean: ["MEDITERRANEAN", "HALAL", "MIDDLE EASTERN"],
+  mediterranean: ["MEDITERRANEAN", "HALAL", "MIDDLE EASTERN", "FALAFEL", "SHAWARMA"],
+  turkish: ["TURKISH", "KEBAB", "DONER"],
+  french: ["FRENCH", "BISTRO", "BRASSERIE"],
   japanese: ["JAPANESE", "SUSHI", "RAMEN"],
   chinese: ["CHINESE", "DIM SUM"],
   korean: ["KOREAN"],
+  thai: ["THAI"],
+  vietnamese: ["VIETNAMESE", "PHO", "BANH MI", "CAMBODIAN", "MALAYSIA"],
+  filipino: ["FILIPINO"],
   indian: ["INDIAN"],
+  pakistani: ["PAKISTANI", "BANGLADESHI", "BENGALI"],
   mexican: ["MEXICAN", "TACO"],
+  latin: ["LATIN", "SPANISH"],
+  dominican: ["DOMINICAN"],
+  "puerto rican": ["PUERTO RICAN"],
+  peruvian: ["PERUVIAN"],
+  colombian: ["COLOMBIAN"],
+  brazilian: ["BRAZILIAN"],
+  caribbean: ["CARIBBEAN", "JAMAICAN", "HAITIAN", "TRINIDADIAN"],
+  african: ["AFRICAN", "NIGERIAN", "GHANAIAN"],
+  ethiopian: ["ETHIOPIAN"],
+  american: ["AMERICAN", "DINER"],
+  burger: ["BURGER", "HAMBURGER"],
+  chicken: ["CHICKEN", "WINGS"],
+  bbq: ["BBQ", "BARBECUE", "BARBEQUE"],
+  seafood: ["SEAFOOD", "FISH", "LOBSTER", "CRAB"],
+  steakhouse: ["STEAKHOUSE", "STEAK"],
+  vegan: ["VEGAN", "VEGETARIAN"],
+  juice: ["JUICE", "SMOOTHIE", "ACAI"],
+  dessert: ["DESSERT", "ICE CREAM", "GELATO", "DONUT", "YOGURT", "ICES"],
+  "bubble tea": ["BUBBLE TEA", "BOBA"],
+  bar: ["BAR", "PUB", "TAVERN", "COCKTAIL"],
+  "food truck": ["FOOD TRUCK", "FOOD CART", "CART"],
   restaurant: [""]
 };
 
 const restaurantConceptModels = [
   { key: "pizza", label: "Pizza / slice shop", search: "pizza" },
+  { key: "deli", label: "Deli / bodega", search: "deli bodega" },
+  { key: "breakfast", label: "Breakfast / brunch", search: "breakfast brunch restaurant" },
   { key: "italian", label: "Italian", search: "Italian restaurant" },
   { key: "greek", label: "Greek", search: "Greek restaurant" },
   { key: "mediterranean", label: "Mediterranean / halal", search: "Mediterranean halal restaurant" },
+  { key: "turkish", label: "Turkish", search: "Turkish restaurant" },
   { key: "japanese", label: "Japanese / sushi", search: "Japanese sushi restaurant" },
   { key: "chinese", label: "Chinese", search: "Chinese restaurant" },
   { key: "korean", label: "Korean", search: "Korean restaurant" },
+  { key: "thai", label: "Thai", search: "Thai restaurant" },
+  { key: "vietnamese", label: "Vietnamese / pho", search: "Vietnamese pho restaurant" },
   { key: "indian", label: "Indian", search: "Indian restaurant" },
+  { key: "pakistani", label: "Pakistani / Bangladeshi", search: "Pakistani Bangladeshi restaurant" },
   { key: "mexican", label: "Mexican", search: "Mexican restaurant" },
+  { key: "latin", label: "Latin American", search: "Latin American restaurant" },
+  { key: "dominican", label: "Dominican", search: "Dominican restaurant" },
+  { key: "caribbean", label: "Caribbean / Jamaican", search: "Caribbean Jamaican restaurant" },
+  { key: "american", label: "American / diner", search: "American diner restaurant" },
+  { key: "burger", label: "Burger", search: "burger restaurant" },
+  { key: "chicken", label: "Chicken / wings", search: "chicken wings restaurant" },
+  { key: "seafood", label: "Seafood", search: "seafood restaurant" },
+  { key: "vegan", label: "Vegan / vegetarian", search: "vegan vegetarian restaurant" },
+  { key: "juice", label: "Juice / smoothie", search: "juice smoothie" },
+  { key: "dessert", label: "Dessert / ice cream", search: "dessert ice cream" },
+  { key: "bubble tea", label: "Bubble tea", search: "bubble tea boba" },
   { key: "cafe", label: "Cafe / bakery", search: "cafe bakery" }
 ];
 
@@ -171,11 +216,39 @@ function normalizeBusiness(value) {
   if (normalized.includes("italian") || normalized.includes("pasta")) return "italian";
   if (normalized.includes("greek")) return "greek";
   if (normalized.includes("mediterranean") || normalized.includes("halal") || normalized.includes("middle eastern")) return "mediterranean";
+  if (normalized.includes("turkish") || normalized.includes("kebab") || normalized.includes("doner")) return "turkish";
+  if (normalized.includes("french") || normalized.includes("bistro") || normalized.includes("brasserie")) return "french";
   if (normalized.includes("japanese") || normalized.includes("sushi") || normalized.includes("ramen")) return "japanese";
   if (normalized.includes("chinese") || normalized.includes("dim sum")) return "chinese";
   if (normalized.includes("korean")) return "korean";
+  if (normalized.includes("thai")) return "thai";
+  if (normalized.includes("vietnamese") || normalized.includes("pho") || normalized.includes("banh mi")) return "vietnamese";
+  if (normalized.includes("filipino")) return "filipino";
   if (normalized.includes("indian")) return "indian";
+  if (normalized.includes("pakistani") || normalized.includes("bangladeshi") || normalized.includes("bengali")) return "pakistani";
   if (normalized.includes("mexican") || normalized.includes("taco")) return "mexican";
+  if (normalized.includes("dominican")) return "dominican";
+  if (normalized.includes("puerto rican")) return "puerto rican";
+  if (normalized.includes("peruvian")) return "peruvian";
+  if (normalized.includes("colombian")) return "colombian";
+  if (normalized.includes("brazilian")) return "brazilian";
+  if (normalized.includes("caribbean") || normalized.includes("jamaican") || normalized.includes("haitian")) return "caribbean";
+  if (normalized.includes("ethiopian")) return "ethiopian";
+  if (normalized.includes("african") || normalized.includes("nigerian") || normalized.includes("ghanaian")) return "african";
+  if (normalized.includes("latin") || normalized.includes("spanish food")) return "latin";
+  if (normalized.includes("burger") || normalized.includes("hamburger")) return "burger";
+  if (normalized.includes("chicken") || normalized.includes("wings")) return "chicken";
+  if (normalized.includes("bbq") || normalized.includes("barbecue") || normalized.includes("barbeque")) return "bbq";
+  if (normalized.includes("seafood") || normalized.includes("lobster") || normalized.includes("crab")) return "seafood";
+  if (normalized.includes("steak")) return "steakhouse";
+  if (normalized.includes("vegan") || normalized.includes("vegetarian")) return "vegan";
+  if (normalized.includes("juice") || normalized.includes("smoothie") || normalized.includes("acai")) return "juice";
+  if (normalized.includes("dessert") || normalized.includes("ice cream") || normalized.includes("gelato") || normalized.includes("donut")) return "dessert";
+  if (normalized.includes("bubble tea") || normalized.includes("boba")) return "bubble tea";
+  if (normalized.includes("bar") || normalized.includes("pub") || normalized.includes("tavern")) return "bar";
+  if (normalized.includes("food truck") || normalized.includes("food cart")) return "food truck";
+  if (normalized.includes("breakfast") || normalized.includes("brunch")) return "breakfast";
+  if (normalized.includes("american") || normalized.includes("diner")) return "american";
   if (normalized.includes("deli") || normalized.includes("bodega") || normalized.includes("corner store")) return "deli";
   if (normalized.includes("coffee") || normalized.includes("cafe")) return "cafe";
   if (normalized.includes("laundr")) return "laundromat";
@@ -734,18 +807,32 @@ function conceptVerdict(cityCount, googleCount, avgRating) {
 }
 
 async function restaurantConceptFit(zip, location = null) {
+  const cityCounts = [];
+  for (const concept of restaurantConceptModels) {
+    cityCounts.push({
+      ...concept,
+      cityCount: await countRestaurants(zip, concept.key).catch(() => 0)
+    });
+  }
+  const googleLookupKeys = new Set(
+    cityCounts
+      .slice()
+      .sort((a, b) => a.cityCount - b.cityCount)
+      .slice(0, 12)
+      .map((concept) => concept.key)
+  );
+
   const concepts = await Promise.all(
-    restaurantConceptModels.map(async (concept) => {
-      const [cityCount, googlePlaces] = await Promise.all([
-        countRestaurants(zip, concept.key).catch(() => 0),
-        googlePlaceSignals(zip, concept.search, location).catch(() => null)
-      ]);
+    cityCounts.map(async (concept) => {
+      const googlePlaces = googleLookupKeys.has(concept.key)
+        ? await googlePlaceSignals(zip, concept.search, location).catch(() => null)
+        : null;
       const googleCount = googlePlaces?.count || 0;
-      const verdict = conceptVerdict(cityCount, googleCount, googlePlaces?.avgRating ?? null);
+      const verdict = conceptVerdict(concept.cityCount, googleCount, googlePlaces?.avgRating ?? null);
       return {
         key: concept.key,
         label: concept.label,
-        cityCount,
+        cityCount: concept.cityCount,
         googleCount,
         avgRating: googlePlaces?.avgRating ?? null,
         reviewCount: googlePlaces?.reviewCount || 0,
@@ -769,7 +856,7 @@ async function restaurantConceptFit(zip, location = null) {
         }
       : { mode: "zip" },
     concepts: concepts.sort((a, b) => b.score - a.score),
-    source: "Google Places visibility + NYC DOHMH restaurant inspection cuisine records",
+    source: "NYC DOHMH cuisine records for all concepts + Google Places visibility for the least-saturated concepts",
     caveat: "Delivery-platform data from Uber Eats and Grubhub is not pulled unless official partner/API access is available. Treat this as concept research, then verify delivery apps manually."
   };
 }

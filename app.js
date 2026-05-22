@@ -421,6 +421,57 @@ const businessTypes = {
   }
 };
 
+const restaurantCuisineTypes = Object.fromEntries([
+  ["italian", ["italian", "pasta", "red sauce"]],
+  ["greek", ["greek", "gyro", "souvlaki"]],
+  ["mediterranean", ["mediterranean", "halal", "middle eastern", "falafel", "shawarma"]],
+  ["turkish", ["turkish", "kebab", "doner"]],
+  ["french", ["french", "bistro", "brasserie"]],
+  ["japanese", ["japanese", "sushi", "ramen", "izakaya"]],
+  ["chinese", ["chinese", "dim sum", "noodle"]],
+  ["korean", ["korean", "kbbq", "korean bbq"]],
+  ["thai", ["thai", "pad thai"]],
+  ["vietnamese", ["vietnamese", "pho", "banh mi"]],
+  ["filipino", ["filipino", "filipina"]],
+  ["indian", ["indian", "curry"]],
+  ["pakistani", ["pakistani", "bangladeshi", "bengali"]],
+  ["mexican", ["mexican", "taco", "taqueria", "burrito"]],
+  ["latin", ["latin", "latin american", "spanish food"]],
+  ["dominican", ["dominican"]],
+  ["puerto rican", ["puerto rican", "boricua"]],
+  ["peruvian", ["peruvian"]],
+  ["colombian", ["colombian"]],
+  ["brazilian", ["brazilian"]],
+  ["caribbean", ["caribbean", "jamaican", "haitian", "trinidadian"]],
+  ["african", ["african", "west african", "nigerian", "ghanaian"]],
+  ["ethiopian", ["ethiopian"]],
+  ["american", ["american", "new american", "diner"]],
+  ["burger", ["burger", "hamburger", "hamburgers"]],
+  ["chicken", ["chicken", "wings", "fried chicken"]],
+  ["bbq", ["bbq", "barbecue", "barbeque"]],
+  ["seafood", ["seafood", "fish", "lobster", "crab"]],
+  ["steakhouse", ["steakhouse", "steak house", "steak"]],
+  ["vegan", ["vegan", "vegetarian", "plant based"]],
+  ["juice", ["juice", "smoothie", "acai"]],
+  ["dessert", ["dessert", "ice cream", "gelato", "donut", "donuts"]],
+  ["bubble tea", ["bubble tea", "boba"]],
+  ["bar", ["bar", "pub", "tavern", "cocktail"]],
+  ["food truck", ["food truck", "food cart", "cart"]],
+  ["breakfast", ["breakfast", "brunch"]]
+].map(([key, aliases]) => [
+  key,
+  {
+    aliases,
+    baseDemand: 70,
+    localBias: 76,
+    chainBias: 44,
+    rentSensitivity: 74,
+    notes: `${titleCase(key)} is scored as a restaurant concept. Validate cuisine-specific competition, reviews, delivery demand, labor, kitchen buildout, venting, and the exact block.`
+  }
+]));
+
+Object.assign(businessTypes, restaurantCuisineTypes);
+
 const businessSuccessWeights = {
   demand: 0.25,
   customerFit: 0.2,
@@ -530,6 +581,7 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
+  restaurantType: document.querySelector("#restaurant-type"),
   businessExamples: document.querySelector("#business-examples"),
   businessCount: document.querySelector("#business-count"),
   businessCountLabel: document.querySelector("#business-count-label"),
@@ -2275,6 +2327,10 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
         : "Mixed market";
 
   elements.businessInput.value = state.business;
+  if (elements.restaurantType) {
+    const hasOption = [...elements.restaurantType.options].some((option) => option.value === business);
+    elements.restaurantType.value = hasOption ? business : "";
+  }
   elements.businessCount.textContent = loading ? "..." : String(count);
   elements.businessCountLabel.textContent = isLive
     ? `city-record ${business} matches`
@@ -2724,7 +2780,8 @@ elements.filter.addEventListener("change", (event) => {
 
 elements.businessForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  state.business = elements.businessInput.value.trim();
+  state.business = elements.restaurantType?.value || elements.businessInput.value.trim();
+  elements.businessInput.value = state.business;
   if (!state.zip) {
     elements.message.textContent = "Enter a ZIP code before checking a business type.";
     return;
@@ -2732,11 +2789,23 @@ elements.businessForm.addEventListener("submit", (event) => {
   renderBusinessCheck();
 });
 
+elements.restaurantType?.addEventListener("change", () => {
+  if (!elements.restaurantType.value) return;
+  state.business = elements.restaurantType.value;
+  elements.businessInput.value = state.business;
+  if (state.zip) renderBusinessCheck();
+});
+
 elements.businessExamples.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-business]");
   if (!button) return;
 
   state.business = button.dataset.business;
+  elements.businessInput.value = state.business;
+  if (elements.restaurantType) {
+    const hasOption = [...elements.restaurantType.options].some((option) => option.value === state.business);
+    elements.restaurantType.value = hasOption ? state.business : "";
+  }
   if (!state.zip) {
     elements.message.textContent = "Enter a ZIP code before checking a business type.";
     return;
