@@ -1323,12 +1323,12 @@ function listingSearchText() {
 
 function quickSearchUrl(source, zip) {
   const query = encodeURIComponent(listingSearchText());
-  const area = encodeURIComponent(`${zip} New York NY`);
+  const platformQuery = (site, extra = "") => `https://www.google.com/search?q=${encodeURIComponent(`site:${site} ${listingSearchText()} ${extra}`.trim())}`;
   const urls = {
-    loopnet: `https://www.loopnet.com/search/retail-space/${area}/for-lease/`,
-    commercialCafe: `https://www.commercialcafe.com/commercial-real-estate/us/ny/new-york/?SearchType=ForLease&PropertyType=Retail`,
-    storefront: `https://www.google.com/search?q=${encodeURIComponent(`site:thestorefront.com ${listingSearchText()}`)}`,
-    crexi: `https://www.google.com/search?q=${encodeURIComponent(`site:crexi.com/lease ${listingSearchText()}`)}`,
+    loopnet: platformQuery("loopnet.com", "retail space for lease"),
+    commercialCafe: platformQuery("commercialcafe.com", "retail space for lease"),
+    storefront: platformQuery("thestorefront.com", "retail pop up space"),
+    crexi: platformQuery("crexi.com/lease", "retail lease"),
     craigslist: `https://newyork.craigslist.org/search/off?query=${query}`,
     google: `https://www.google.com/search?q=${query}`
   };
