@@ -30,8 +30,29 @@ const restaurantTerms = {
   cafe: ["CAFE", "COFFEE", "ESPRESSO"],
   coffee: ["CAFE", "COFFEE", "ESPRESSO"],
   bakery: ["BAKERY", "BAGEL"],
+  italian: ["ITALIAN", "PASTA"],
+  greek: ["GREEK"],
+  mediterranean: ["MEDITERRANEAN", "HALAL", "MIDDLE EASTERN"],
+  japanese: ["JAPANESE", "SUSHI", "RAMEN"],
+  chinese: ["CHINESE", "DIM SUM"],
+  korean: ["KOREAN"],
+  indian: ["INDIAN"],
+  mexican: ["MEXICAN", "TACO"],
   restaurant: [""]
 };
+
+const restaurantConceptModels = [
+  { key: "pizza", label: "Pizza / slice shop", search: "pizza" },
+  { key: "italian", label: "Italian", search: "Italian restaurant" },
+  { key: "greek", label: "Greek", search: "Greek restaurant" },
+  { key: "mediterranean", label: "Mediterranean / halal", search: "Mediterranean halal restaurant" },
+  { key: "japanese", label: "Japanese / sushi", search: "Japanese sushi restaurant" },
+  { key: "chinese", label: "Chinese", search: "Chinese restaurant" },
+  { key: "korean", label: "Korean", search: "Korean restaurant" },
+  { key: "indian", label: "Indian", search: "Indian restaurant" },
+  { key: "mexican", label: "Mexican", search: "Mexican restaurant" },
+  { key: "cafe", label: "Cafe / bakery", search: "cafe bakery" }
+];
 
 const dcwpTerms = {
   laundromat: ["LAUNDRY", "LAUNDROMAT"],
@@ -135,6 +156,14 @@ function sendJson(response, statusCode, data) {
 function normalizeBusiness(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized.includes("pizza")) return "pizza";
+  if (normalized.includes("italian") || normalized.includes("pasta")) return "italian";
+  if (normalized.includes("greek")) return "greek";
+  if (normalized.includes("mediterranean") || normalized.includes("halal") || normalized.includes("middle eastern")) return "mediterranean";
+  if (normalized.includes("japanese") || normalized.includes("sushi") || normalized.includes("ramen")) return "japanese";
+  if (normalized.includes("chinese") || normalized.includes("dim sum")) return "chinese";
+  if (normalized.includes("korean")) return "korean";
+  if (normalized.includes("indian")) return "indian";
+  if (normalized.includes("mexican") || normalized.includes("taco")) return "mexican";
   if (normalized.includes("deli") || normalized.includes("bodega") || normalized.includes("corner store")) return "deli";
   if (normalized.includes("coffee") || normalized.includes("cafe")) return "cafe";
   if (normalized.includes("laundr")) return "laundromat";
@@ -617,6 +646,55 @@ async function businessCount(zip, businessInput, location = null) {
         : googleVisibleCount > 0
           ? "No matching NYC city records were found for this exact ZIP and term. Google Places has visible results, but those are search visibility signals, not a complete registry."
           : "Connected sources returned zero matching records for this exact ZIP and search term."
+  };
+}
+
+function conceptVerdict(cityCount, googleCount, avgRating) {
+  const visible = Number(cityCount || 0) + Number(googleCount || 0);
+  if (visible <= 4) return { label: "Open gap", score: 86, tone: "good" };
+  if (visible <= 12 && (avgRating === null || avgRating < 4.4)) return { label: "Potential gap", score: 76, tone: "good" };
+  if (visible <= 24) return { label: "Competitive but possible", score: 62, tone: "mixed" };
+  return { label: "Crowded concept", score: 44, tone: "risky" };
+}
+
+async function restaurantConceptFit(zip, location = null) {
+  const concepts = await Promise.all(
+    restaurantConceptModels.map(async (concept) => {
+      const [cityCount, googlePlaces] = await Promise.all([
+        countRestaurants(zip, concept.key).catch(() => 0),
+        googlePlaceSignals(zip, concept.search, location).catch(() => null)
+      ]);
+      const googleCount = googlePlaces?.count || 0;
+      const verdict = conceptVerdict(cityCount, googleCount, googlePlaces?.avgRating ?? null);
+      return {
+        key: concept.key,
+        label: concept.label,
+        cityCount,
+        googleCount,
+        avgRating: googlePlaces?.avgRating ?? null,
+        reviewCount: googlePlaces?.reviewCount || 0,
+        topNames: googlePlaces?.topNames || [],
+        score: verdict.score,
+        verdict: verdict.label,
+        tone: verdict.tone
+      };
+    })
+  );
+
+  return {
+    zip,
+    searchContext: location
+      ? {
+          mode: "address-radius",
+          address: location.address,
+          radiusMiles: location.radiusMiles,
+          lat: location.lat,
+          lng: location.lng
+        }
+      : { mode: "zip" },
+    concepts: concepts.sort((a, b) => b.score - a.score),
+    source: "Google Places visibility + NYC DOHMH restaurant inspection cuisine records",
+    caveat: "Delivery-platform data from Uber Eats and Grubhub is not pulled unless official partner/API access is available. Treat this as concept research, then verify delivery apps manually."
   };
 }
 
@@ -1140,6 +1218,33 @@ createServer(async (request, response) => {
         : null;
 
       sendJson(response, 200, await businessCount(zip, business, location));
+      return;
+    }
+
+    if (url.pathname === "/api/restaurant-concepts") {
+      const zip = String(url.searchParams.get("zip") || "").trim();
+      const hasLocation = url.searchParams.has("lat") && url.searchParams.has("lng");
+      const lat = Number(url.searchParams.get("lat"));
+      const lng = Number(url.searchParams.get("lng"));
+      const radiusMiles = Number(url.searchParams.get("radius") || 0.5);
+      const address = String(url.searchParams.get("address") || "").trim();
+
+      if (!/^\d{5}$/.test(zip)) {
+        sendJson(response, 400, { error: "Provide a five-digit ZIP." });
+        return;
+      }
+
+      const location = hasLocation && Number.isFinite(lat) && Number.isFinite(lng)
+        ? {
+            lat,
+            lng,
+            address,
+            radiusMiles,
+            radiusMeters: Math.round(Math.max(0.1, Math.min(3, radiusMiles)) * 1609.344)
+          }
+        : null;
+
+      sendJson(response, 200, await restaurantConceptFit(zip, location));
       return;
     }
 

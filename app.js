@@ -445,6 +445,7 @@ const state = {
   areaRequestId: 0,
   civicRequestId: 0,
   siteIntelRequestId: 0,
+  conceptRequestId: 0,
   liveProfiles: {},
   lastBusinessResult: null,
   leases: []
@@ -512,6 +513,8 @@ const elements = {
   businessMixCopy: document.querySelector("#business-mix-copy"),
   businessVerdict: document.querySelector("#business-verdict"),
   businessReason: document.querySelector("#business-reason"),
+  conceptSource: document.querySelector("#concept-source"),
+  conceptFitList: document.querySelector("#concept-fit-list"),
   opportunityList: document.querySelector("#opportunity-list"),
   opportunitySource: document.querySelector("#opportunity-source"),
   categorySource: document.querySelector("#category-source"),
@@ -1125,6 +1128,89 @@ async function renderCivicCheck() {
     elements.complaintCopy.textContent = "311 lookup failed. Try again after checking the NYC Open Data connection.";
     elements.permitLevel.textContent = "Unavailable";
     elements.permitCopy.textContent = "DOB lookup failed. Try again after checking the NYC Open Data connection.";
+  }
+}
+
+function renderConceptLoading() {
+  elements.conceptSource.textContent = state.location ? "Address radius" : "ZIP-level scan";
+  elements.conceptFitList.innerHTML = `
+    <article class="empty-places">
+      <strong>Checking cuisine gaps</strong>
+      <p>AreaIntel is comparing Google Places visibility with NYC restaurant cuisine records.</p>
+    </article>
+  `;
+}
+
+function escapeText(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderConceptFit(data) {
+  const concepts = Array.isArray(data.concepts) ? data.concepts : [];
+  elements.conceptSource.textContent = data.searchContext?.mode === "address-radius"
+    ? `Google + NYC records · ${data.searchContext.radiusMiles} mi`
+    : "Google + NYC records";
+
+  if (!concepts.length) {
+    elements.conceptFitList.innerHTML = `
+      <article class="empty-places">
+        <strong>No cuisine data returned</strong>
+        <p>Try checking a specific restaurant type in the Business Checker.</p>
+      </article>
+    `;
+    return;
+  }
+
+  elements.conceptFitList.innerHTML = concepts.slice(0, 6).map((concept) => {
+    const topNames = concept.topNames?.length
+      ? concept.topNames.slice(0, 3).map(escapeText).join(", ")
+      : "No top Google matches returned";
+    return `
+      <article class="concept-card concept-${concept.tone}">
+        <div>
+          <span class="signal-label">${escapeText(concept.verdict)}</span>
+          <h4>${escapeText(concept.label)}</h4>
+          <p>${concept.cityCount.toLocaleString()} NYC cuisine records · ${concept.googleCount} Google-visible matches${concept.avgRating ? ` · ${concept.avgRating} avg rating` : ""}</p>
+          <small>Visible examples: ${topNames}</small>
+        </div>
+        <strong>${concept.score}</strong>
+      </article>
+    `;
+  }).join("");
+}
+
+async function renderRestaurantConceptFit() {
+  const requestId = ++state.conceptRequestId;
+  renderConceptLoading();
+
+  const params = new URLSearchParams({ zip: state.zip });
+  if (state.location) {
+    params.set("lat", state.location.lat);
+    params.set("lng", state.location.lng);
+    params.set("radius", state.location.radiusMiles);
+    params.set("address", state.location.address);
+  }
+
+  try {
+    const response = await fetch(`/api/restaurant-concepts?${params.toString()}`);
+    if (!response.ok) throw new Error("Concept lookup failed");
+    const data = await response.json();
+    if (requestId !== state.conceptRequestId) return;
+    renderConceptFit(data);
+  } catch {
+    if (requestId !== state.conceptRequestId) return;
+    elements.conceptSource.textContent = "Unavailable";
+    elements.conceptFitList.innerHTML = `
+      <article class="empty-places">
+        <strong>Concept fit unavailable</strong>
+        <p>Google Places or NYC Open Data did not return concept data right now.</p>
+      </article>
+    `;
   }
 }
 
@@ -1985,6 +2071,7 @@ function render(zip) {
   renderOpportunities(profile);
   renderMarketPulse(profile);
   renderBusinessCheck();
+  renderRestaurantConceptFit();
   renderCivicCheck();
   renderSiteIntelCheck();
   renderLeases();
@@ -2183,6 +2270,7 @@ elements.radiusInput.addEventListener("change", () => {
   state.location.radiusMiles = elements.radiusInput.value;
   elements.addressMessage.textContent = `Using ${state.location.address} within ${state.location.radiusMiles} mile.`;
   renderBusinessCheck();
+  renderRestaurantConceptFit();
 });
 
 elements.leaseForm.addEventListener("submit", async (event) => {
