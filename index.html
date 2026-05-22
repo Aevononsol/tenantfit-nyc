@@ -476,7 +476,7 @@
             <div class="csv-import-row">
               <label for="lease-csv">Import CSV</label>
               <input id="lease-csv" type="file" accept=".csv,text/csv" />
-              <small>Headers supported: address, zip, rent, sf, use, frontage, link, notes</small>
+              <small>Headers supported: address, zip, rent, sf, use, concept, sales, buildout, frontage, link, notes</small>
             </div>
             <form id="lease-form" class="lease-form">
               <input id="lease-address" name="address" placeholder="Listing address" required />
@@ -490,6 +490,23 @@
                 <option value="Office">Office</option>
                 <option value="Industrial">Industrial</option>
               </select>
+              <select id="lease-concept" name="concept" aria-label="Restaurant concept">
+                <option value="">Restaurant concept if needed</option>
+                <option value="pizza">Pizza / slice shop</option>
+                <option value="fast-casual">Fast casual</option>
+                <option value="full-service">Full-service general</option>
+                <option value="italian">Italian</option>
+                <option value="greek">Greek</option>
+                <option value="mediterranean">Mediterranean / halal</option>
+                <option value="japanese">Japanese / sushi</option>
+                <option value="chinese">Chinese</option>
+                <option value="korean">Korean</option>
+                <option value="indian">Indian</option>
+                <option value="mexican">Mexican</option>
+                <option value="cafe-bakery">Cafe / bakery</option>
+              </select>
+              <input id="lease-sales" name="sales" type="number" min="0" step="1000" placeholder="Expected monthly sales" />
+              <input id="lease-buildout" name="buildout" type="number" min="0" step="5000" placeholder="Buildout budget" />
               <input id="lease-frontage" name="frontage" type="number" min="0" step="1" placeholder="Frontage ft" />
               <input id="lease-link" name="link" type="url" placeholder="Listing link" />
               <textarea id="lease-notes" name="notes" placeholder="Venting, basement, corner, broker notes"></textarea>

@@ -1059,7 +1059,7 @@ meter::-webkit-meter-optimum-value {
 
 .lease-form {
   display: grid;
-  grid-template-columns: 1.2fr 0.7fr 0.7fr 0.8fr 0.7fr;
+  grid-template-columns: 1.2fr repeat(4, minmax(130px, 0.7fr));
   gap: 10px;
 }
 
@@ -1119,6 +1119,53 @@ meter::-webkit-meter-optimum-value {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.lease-fit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.lease-fit-grid span {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.lease-fit-grid strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.lease-fit-grid small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lease-fit-good {
+  border-left: 5px solid #12805c !important;
+}
+
+.lease-fit-tight {
+  border-left: 5px solid #b45309 !important;
+}
+
+.lease-fit-risky {
+  border-left: 5px solid #b91c1c !important;
+}
+
+.lease-fit-unknown {
+  border-left: 5px solid #0e7490 !important;
 }
 
 .lease-actions button {
@@ -1854,6 +1901,10 @@ meter::-webkit-meter-optimum-value {
   .sidebar {
     min-height: auto;
   }
+
+  .lease-fit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -1912,6 +1963,7 @@ meter::-webkit-meter-optimum-value {
 
   .lease-form,
   .lease-card,
+  .lease-fit-grid,
   .address-row,
   .business-form {
     grid-template-columns: 1fr;

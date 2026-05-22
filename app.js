@@ -546,6 +546,9 @@ const elements = {
   leaseRent: document.querySelector("#lease-rent"),
   leaseSf: document.querySelector("#lease-sf"),
   leaseUse: document.querySelector("#lease-use"),
+  leaseConcept: document.querySelector("#lease-concept"),
+  leaseSales: document.querySelector("#lease-sales"),
+  leaseBuildout: document.querySelector("#lease-buildout"),
   leaseFrontage: document.querySelector("#lease-frontage"),
   leaseLink: document.querySelector("#lease-link"),
   leaseNotes: document.querySelector("#lease-notes"),
@@ -1199,6 +1202,96 @@ function rentPerSfMonthly(lease) {
   return rent > 0 && sf > 0 ? rent / sf : null;
 }
 
+const leaseConceptModels = {
+  retail: { label: "Retail", rentShare: [0.08, 0.12], buildoutPerSf: [60, 140], note: "Retail can usually tolerate a moderate rent share if frontage and visibility are strong." },
+  cafe: { label: "Cafe", rentShare: [0.08, 0.12], buildoutPerSf: [120, 250], note: "Cafe economics depend heavily on morning flow, repeat customers, and labor control." },
+  medical: { label: "Medical", rentShare: [0.07, 0.11], buildoutPerSf: [110, 240], note: "Medical users can pay for access and household income, but appointment demand must be proven." },
+  office: { label: "Office", rentShare: [0.07, 0.1], buildoutPerSf: [50, 130], note: "Office fit depends more on layout, access, and tenant credit than walk-in demand." },
+  industrial: { label: "Industrial", rentShare: [0.05, 0.09], buildoutPerSf: [40, 120], note: "Industrial fit depends on loading, access, ceiling height, and logistics." },
+  restaurant: { label: "Restaurant", rentShare: [0.06, 0.1], buildoutPerSf: [250, 550], note: "General restaurant economics need strong sales because kitchen buildout and labor are heavy." },
+  "full-service": { label: "Full-service restaurant", rentShare: [0.06, 0.09], buildoutPerSf: [300, 650], note: "Full-service needs higher check average, staff discipline, liquor fit, and strong dinner/weekend demand." },
+  italian: { label: "Italian restaurant", rentShare: [0.06, 0.09], buildoutPerSf: [280, 600], note: "Italian can work with strong dinner demand, delivery, and wine/liquor upside." },
+  greek: { label: "Greek restaurant", rentShare: [0.065, 0.1], buildoutPerSf: [240, 520], note: "Greek works best with lunch/dinner repeat demand and clear differentiation from Mediterranean competitors." },
+  mediterranean: { label: "Mediterranean / halal", rentShare: [0.07, 0.11], buildoutPerSf: [180, 420], note: "Mediterranean/halal can support fast-casual volume if lunch, delivery, and neighborhood repeat demand are strong." },
+  japanese: { label: "Japanese / sushi", rentShare: [0.055, 0.085], buildoutPerSf: [320, 700], note: "Japanese/sushi usually needs premium spend, trust, freshness perception, and strong reviews." },
+  chinese: { label: "Chinese restaurant", rentShare: [0.07, 0.11], buildoutPerSf: [180, 420], note: "Chinese concepts can work with delivery density, value positioning, and efficient kitchen throughput." },
+  korean: { label: "Korean restaurant", rentShare: [0.06, 0.095], buildoutPerSf: [260, 620], note: "Korean concepts need a strong niche, group dining or fast-casual clarity, and ventilation diligence." },
+  indian: { label: "Indian restaurant", rentShare: [0.065, 0.105], buildoutPerSf: [220, 500], note: "Indian works best with delivery demand, family/group spend, and clear cuisine gap." },
+  mexican: { label: "Mexican restaurant", rentShare: [0.07, 0.11], buildoutPerSf: [170, 420], note: "Mexican can work with lunch volume, late-night demand, and strong price/value positioning." },
+  pizza: { label: "Pizza / slice shop", rentShare: [0.08, 0.13], buildoutPerSf: [160, 380], note: "Pizza can tolerate higher rent only with strong slice volume, delivery, schools/offices, or late-night traffic." },
+  "fast-casual": { label: "Fast casual", rentShare: [0.075, 0.12], buildoutPerSf: [180, 420], note: "Fast casual needs speed, lunch traffic, delivery, and repeat weekday demand." },
+  "cafe-bakery": { label: "Cafe / bakery", rentShare: [0.075, 0.12], buildoutPerSf: [180, 450], note: "Cafe/bakery needs morning habits, visible frontage, and strong repeat neighborhood demand." }
+};
+
+function leaseConceptModel(lease) {
+  const concept = String(lease.concept || "").toLowerCase();
+  const use = String(lease.use || "").toLowerCase();
+  if (concept && leaseConceptModels[concept]) return leaseConceptModels[concept];
+  if (use.includes("restaurant")) return leaseConceptModels.restaurant;
+  if (use.includes("cafe")) return leaseConceptModels.cafe;
+  if (use.includes("medical")) return leaseConceptModels.medical;
+  if (use.includes("office")) return leaseConceptModels.office;
+  if (use.includes("industrial")) return leaseConceptModels.industrial;
+  return leaseConceptModels.retail;
+}
+
+function leaseFitMath(lease, profile) {
+  const rent = Number(lease.rent || 0);
+  const sf = Number(lease.sf || 0);
+  const sales = Number(lease.sales || 0);
+  const buildout = Number(lease.buildout || 0);
+  const model = leaseConceptModel(lease);
+  const [targetLow, targetHigh] = model.rentShare;
+  const neededSalesLow = rent > 0 ? Math.round(rent / targetHigh) : 0;
+  const neededSalesHigh = rent > 0 ? Math.round(rent / targetLow) : 0;
+  const salesRatio = sales > 0 && rent > 0 ? rent / sales : null;
+  const perSfYear = rent > 0 && sf > 0 ? (rent * 12) / sf : null;
+  const buildoutPerSf = buildout > 0 && sf > 0 ? buildout / sf : null;
+  const buildoutHigh = buildoutPerSf !== null && buildoutPerSf > model.buildoutPerSf[1];
+  const buildoutLow = buildoutPerSf !== null && buildoutPerSf < model.buildoutPerSf[0];
+
+  let verdict = "Need sales estimate";
+  let tone = "unknown";
+  if (salesRatio !== null) {
+    if (salesRatio <= targetLow) {
+      verdict = "Strong lease fit";
+      tone = "good";
+    } else if (salesRatio <= targetHigh) {
+      verdict = "Workable but tight";
+      tone = "tight";
+    } else {
+      verdict = "Rent likely too high";
+      tone = "risky";
+    }
+  } else if (profile.rent >= 84 || (perSfYear !== null && perSfYear >= 180)) {
+    verdict = "Needs high sales";
+    tone = "tight";
+  }
+
+  const buildoutNote = buildoutPerSf === null
+    ? "Buildout not entered"
+    : buildoutHigh
+      ? "Buildout looks heavy for this concept"
+      : buildoutLow
+        ? "Buildout budget may be light"
+        : "Buildout is within a normal planning range";
+
+  return {
+    model,
+    rent,
+    sf,
+    perSfYear,
+    sales,
+    salesRatio,
+    neededSalesLow,
+    neededSalesHigh,
+    buildoutPerSf,
+    buildoutNote,
+    verdict,
+    tone
+  };
+}
+
 function rentPressureForLease(lease, profile) {
   const perSf = rentPerSfMonthly(lease);
   if (perSf === null) return "Rent unknown";
@@ -1208,6 +1301,8 @@ function rentPressureForLease(lease, profile) {
 }
 
 function leaseFitLabel(lease, profile) {
+  const math = leaseFitMath(lease, profile);
+  if (math.salesRatio !== null) return math.verdict;
   const rentPressure = rentPressureForLease(lease, profile);
   const frontage = Number(lease.frontage || 0);
   const use = String(lease.use || "").toLowerCase();
@@ -1264,22 +1359,35 @@ function renderLeases() {
     .map((lease) => {
       const perSf = rentPerSfMonthly(lease);
       const fit = leaseFitLabel(lease, profile);
+      const math = leaseFitMath(lease, profile);
       const rent = Number(lease.rent || 0);
       const sf = Number(lease.sf || 0);
       const link = lease.link
         ? `<a href="${lease.link}" target="_blank" rel="noreferrer">Open listing</a>`
         : "";
+      const neededSales = math.neededSalesLow && math.neededSalesHigh
+        ? `$${math.neededSalesLow.toLocaleString()}-${math.neededSalesHigh.toLocaleString()}/mo`
+        : "Enter rent";
+      const ratio = math.salesRatio !== null ? `${Math.round(math.salesRatio * 100)}% of sales` : "Add sales estimate";
+      const perSfYear = math.perSfYear !== null ? `$${Math.round(math.perSfYear).toLocaleString()}/SF/yr` : "No rent/SF";
+      const conceptLabel = math.model.label;
       return `
-        <article class="lease-card">
+        <article class="lease-card lease-fit-${math.tone}">
           <div>
             <h4>${lease.address}</h4>
-            <p>${lease.use} · ${sf ? `${sf.toLocaleString()} SF` : "SF unknown"} · ${rent ? `$${rent.toLocaleString()}/mo` : "Rent unknown"}</p>
+            <p>${lease.use}${lease.concept ? ` · ${conceptLabel}` : ""} · ${sf ? `${sf.toLocaleString()} SF` : "SF unknown"} · ${rent ? `$${rent.toLocaleString()}/mo` : "Rent unknown"}</p>
+            <div class="lease-fit-grid">
+              <span><strong>${fit}</strong><small>Lease fit</small></span>
+              <span><strong>${neededSales}</strong><small>Sales needed</small></span>
+              <span><strong>${ratio}</strong><small>Rent-to-sales</small></span>
+              <span><strong>${perSfYear}</strong><small>Annual rent/SF</small></span>
+            </div>
             <div class="place-meta">
-              <span>${fit}</span>
               <span>${rentPressureForLease(lease, profile)}</span>
               <span>${perSf ? `$${perSf.toFixed(2)}/SF/mo` : "No rent/SF"}</span>
+              <span>${math.buildoutNote}</span>
             </div>
-            <small>${lease.notes || "No notes yet"}</small>
+            <small>${math.model.note} ${lease.notes || ""}</small>
           </div>
           <div class="lease-actions">
             ${link}
@@ -1333,6 +1441,9 @@ function leaseFromCsvRow(headers, row) {
     rent: Number(String(data.rent || data.monthlyrent || data.askingrent || "").replace(/[^0-9.]/g, "")) || 0,
     sf: Number(String(data.sf || data.sqft || data.squarefeet || data.size || "").replace(/[^0-9.]/g, "")) || 0,
     use: data.use || data.type || data.propertytype || "Retail",
+    concept: data.concept || data.restaurantconcept || data.cuisine || "",
+    sales: Number(String(data.sales || data.monthlysales || data.expectedsales || "").replace(/[^0-9.]/g, "")) || 0,
+    buildout: Number(String(data.buildout || data.buildoutbudget || data.construction || "").replace(/[^0-9.]/g, "")) || 0,
     frontage: Number(String(data.frontage || data.frontageft || "").replace(/[^0-9.]/g, "")) || 0,
     link: data.link || data.url || data.listinglink || "",
     notes: data.notes || data.description || "",
@@ -1986,6 +2097,9 @@ elements.leaseForm.addEventListener("submit", async (event) => {
     rent: Number(elements.leaseRent.value || 0),
     sf: Number(elements.leaseSf.value || 0),
     use: elements.leaseUse.value,
+    concept: elements.leaseConcept.value,
+    sales: Number(elements.leaseSales.value || 0),
+    buildout: Number(elements.leaseBuildout.value || 0),
     frontage: Number(elements.leaseFrontage.value || 0),
     link: elements.leaseLink.value.trim(),
     notes: elements.leaseNotes.value.trim(),
