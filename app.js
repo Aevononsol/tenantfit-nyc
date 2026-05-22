@@ -556,6 +556,7 @@ const elements = {
   leaseMessage: document.querySelector("#lease-message"),
   leaseList: document.querySelector("#lease-list"),
   leaseSearchLinks: document.querySelector("#lease-search-links"),
+  listingSearchContext: document.querySelector("#listing-search-context"),
   meters: {
     density: document.querySelector("#density-meter"),
     income: document.querySelector("#income-meter"),
@@ -1315,12 +1316,19 @@ function leaseFitLabel(lease, profile) {
   return "Needs diligence";
 }
 
+function listingSearchText() {
+  if (state.location?.address) return `${state.location.address} retail space for lease`;
+  return `retail storefront space for lease ${state.zip} NYC`;
+}
+
 function quickSearchUrl(source, zip) {
-  const query = encodeURIComponent(`retail space for lease ${zip} NYC`);
+  const query = encodeURIComponent(listingSearchText());
   const area = encodeURIComponent(`${zip} New York NY`);
   const urls = {
     loopnet: `https://www.loopnet.com/search/retail-space/${area}/for-lease/`,
     commercialCafe: `https://www.commercialcafe.com/commercial-real-estate/us/ny/new-york/?SearchType=ForLease&PropertyType=Retail`,
+    storefront: `https://www.google.com/search?q=${encodeURIComponent(`site:thestorefront.com ${listingSearchText()}`)}`,
+    crexi: `https://www.google.com/search?q=${encodeURIComponent(`site:crexi.com/lease ${listingSearchText()}`)}`,
     craigslist: `https://newyork.craigslist.org/search/off?query=${query}`,
     google: `https://www.google.com/search?q=${query}`
   };
@@ -1329,14 +1337,24 @@ function quickSearchUrl(source, zip) {
 
 function renderLeaseSearchLinks() {
   const links = [
-    ["LoopNet", quickSearchUrl("loopnet", state.zip)],
-    ["CommercialCafe", quickSearchUrl("commercialCafe", state.zip)],
-    ["Craigslist", quickSearchUrl("craigslist", state.zip)],
-    ["Google", quickSearchUrl("google", state.zip)]
+    ["LoopNet", "Broker listings", quickSearchUrl("loopnet", state.zip)],
+    ["CommercialCafe", "Retail lease search", quickSearchUrl("commercialCafe", state.zip)],
+    ["Storefront", "Pop-up / short-term", quickSearchUrl("storefront", state.zip)],
+    ["Crexi", "Commercial listings", quickSearchUrl("crexi", state.zip)],
+    ["Craigslist", "Owner / local posts", quickSearchUrl("craigslist", state.zip)],
+    ["Google", "Broad web search", quickSearchUrl("google", state.zip)]
   ];
 
+  elements.listingSearchContext.textContent = state.location?.address
+    ? `Address search · ${state.location.radiusMiles} mi`
+    : `ZIP ${state.zip}`;
   elements.leaseSearchLinks.innerHTML = links
-    .map(([label, href]) => `<a href="${href}" target="_blank" rel="noreferrer">${label}</a>`)
+    .map(([label, copy, href]) => `
+      <a href="${href}" target="_blank" rel="noreferrer">
+        <strong>${label}</strong>
+        <span>${copy}</span>
+      </a>
+    `)
     .join("");
 }
 

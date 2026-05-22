@@ -1041,6 +1041,45 @@ meter::-webkit-meter-optimum-value {
   line-height: 1.45;
 }
 
+.available-spaces-panel {
+  background: linear-gradient(145deg, #edf3f8, #dfe9ef) !important;
+}
+
+.listing-platform-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.listing-platform-grid a {
+  display: grid;
+  gap: 5px;
+  min-height: 84px;
+  padding: 14px;
+  border: 1px solid rgba(14, 116, 144, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(145deg, #f0f6f8, #dce8ee);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.listing-platform-grid a:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 116, 144, 0.36);
+}
+
+.listing-platform-grid strong {
+  color: #12324a;
+  font-size: 0.98rem;
+}
+
+.listing-platform-grid span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .csv-import-row {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
