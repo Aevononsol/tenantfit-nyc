@@ -952,6 +952,99 @@ async function clientMemo({ zip, business, profile, businessResult }) {
   };
 }
 
+function parseJsonObject(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function listingFinder({ zip, address, radiusMiles, business }) {
+  if (!process.env.OPENAI_API_KEY) {
+    return {
+      listings: [],
+      source: "fallback",
+      note: "OpenAI key is not connected, so AreaIntel cannot search public listing pages inside the app yet."
+    };
+  }
+
+  const locationText = address
+    ? `${address} within ${radiusMiles || 0.5} mile, NYC`
+    : `ZIP ${zip}, NYC`;
+  const prompt = [
+    "Search the public web for active or recent commercial storefront, retail, restaurant, or pop-up space listing pages.",
+    `Location: ${locationText}.`,
+    `Tenant/business context: ${business || "retail storefront"}.`,
+    "Prefer sources from LoopNet, CommercialCafe, Crexi, The Storefront, Craigslist, broker pages, and official leasing pages.",
+    "Return only public source links. Do not invent rent, square footage, or availability.",
+    "Return JSON only in this exact shape:",
+    "{\"listings\":[{\"title\":\"\",\"source\":\"\",\"url\":\"\",\"snippet\":\"\"}],\"note\":\"\"}",
+    "Limit to 6 useful results. If results are broad directories, say that in the snippet."
+  ].join("\n");
+
+  const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+      tools: [
+        {
+          type: "web_search_preview",
+          search_context_size: "low",
+          user_location: {
+            type: "approximate",
+            country: "US",
+            region: "New York",
+            city: "New York",
+            timezone: "America/New_York"
+          }
+        }
+      ],
+      input: prompt,
+      max_output_tokens: 1200
+    })
+  });
+
+  if (!openaiResponse.ok) {
+    const errorText = await openaiResponse.text();
+    throw new Error(`OpenAI listing search returned ${openaiResponse.status}: ${errorText.slice(0, 180)}`);
+  }
+
+  const data = await openaiResponse.json();
+  const outputText =
+    data.output_text ||
+    data.output?.flatMap((item) => item.content || [])?.map((content) => content.text || "").join("\n").trim() ||
+    "";
+  const parsed = parseJsonObject(outputText) || { listings: [], note: outputText };
+  const listings = Array.isArray(parsed.listings)
+    ? parsed.listings
+        .filter((listing) => listing && listing.url && /^https?:\/\//.test(String(listing.url)))
+        .slice(0, 6)
+        .map((listing) => ({
+          title: String(listing.title || "Listing source").slice(0, 140),
+          source: String(listing.source || "Web result").slice(0, 80),
+          url: String(listing.url),
+          snippet: String(listing.snippet || "Open source and confirm availability with the broker.").slice(0, 260)
+        }))
+    : [];
+
+  return {
+    listings,
+    source: "OpenAI web search",
+    note: parsed.note || "Verify every listing with the broker or platform before using it with a client."
+  };
+}
+
 async function sendFile(response, pathname) {
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
   const normalized = normalize(requested);
@@ -1129,6 +1222,31 @@ createServer(async (request, response) => {
       } catch (error) {
         sendJson(response, 502, {
           memo: "OpenAI could not generate the memo right now. The rest of the live data is connected.",
+          error: error.message
+        });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/listing-finder" && request.method === "POST") {
+      try {
+        const body = await readRequestJson(request);
+        const zip = String(body.zip || "").trim();
+        if (!/^\d{5}$/.test(zip)) {
+          sendJson(response, 400, { error: "Provide a five-digit ZIP." });
+          return;
+        }
+
+        sendJson(response, 200, await listingFinder({
+          zip,
+          address: String(body.address || "").trim(),
+          radiusMiles: String(body.radiusMiles || "").trim(),
+          business: String(body.business || "").trim()
+        }));
+      } catch (error) {
+        sendJson(response, 502, {
+          listings: [],
+          note: "AreaIntel could not run the AI listing search right now. Use the manual platform fallback, then save the best listing into the calculator.",
           error: error.message
         });
       }

@@ -557,6 +557,8 @@ const elements = {
   leaseList: document.querySelector("#lease-list"),
   leaseSearchLinks: document.querySelector("#lease-search-links"),
   listingSearchContext: document.querySelector("#listing-search-context"),
+  listingFinderButton: document.querySelector("#listing-finder-button"),
+  listingResults: document.querySelector("#listing-results"),
   meters: {
     density: document.querySelector("#density-meter"),
     income: document.querySelector("#income-meter"),
@@ -1356,6 +1358,86 @@ function renderLeaseSearchLinks() {
       </a>
     `)
     .join("");
+}
+
+function listingSearchPayload() {
+  return {
+    zip: state.zip,
+    address: state.location?.address || "",
+    radiusMiles: state.location?.radiusMiles || "",
+    business: state.business || "retail"
+  };
+}
+
+function renderListingResults(result) {
+  const listings = Array.isArray(result?.listings) ? result.listings : [];
+  if (!listings.length) {
+    elements.listingResults.innerHTML = `
+      <article class="empty-places">
+        <strong>No listing links returned yet</strong>
+        <p>${result?.note || "Try the manual platform fallback or a nearby ZIP."}</p>
+      </article>
+    `;
+    return;
+  }
+
+  elements.listingResults.innerHTML = listings
+    .map((listing, index) => {
+      const title = listing.title || "Listing source";
+      const source = listing.source || "Web result";
+      const url = listing.url || "#";
+      const snippet = listing.snippet || "Open this source and confirm rent, size, and availability with the broker.";
+      return `
+        <article class="listing-result-card">
+          <div>
+            <span class="signal-label">${source}</span>
+            <h4>${title}</h4>
+            <p>${snippet}</p>
+          </div>
+          <div class="lease-actions">
+            <a href="${url}" target="_blank" rel="noreferrer">Open source</a>
+            <button type="button" data-listing-result="${index}">Use in calculator</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+  elements.listingResults.dataset.results = JSON.stringify(listings);
+}
+
+async function findAvailableSpaces() {
+  if (!state.zip) {
+    elements.message.textContent = "Enter a ZIP code before searching listings.";
+    return;
+  }
+
+  elements.listingFinderButton.disabled = true;
+  elements.listingFinderButton.textContent = "Searching...";
+  elements.listingResults.innerHTML = `
+    <article class="empty-places">
+      <strong>Searching public listing sources</strong>
+      <p>AreaIntel is checking public web results and will show source links here.</p>
+    </article>
+  `;
+
+  try {
+    const response = await fetch("/api/listing-finder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(listingSearchPayload())
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Listing search failed");
+    renderListingResults(result);
+  } catch (error) {
+    renderListingResults({
+      listings: [],
+      note: `${error.message}. Use the manual platform fallback, then save the best listing into the calculator.`
+    });
+  } finally {
+    elements.listingFinderButton.disabled = false;
+    elements.listingFinderButton.textContent = "Find available spaces";
+  }
 }
 
 function renderLeases() {
@@ -2160,6 +2242,22 @@ elements.leaseCsv.addEventListener("change", async () => {
   } finally {
     elements.leaseCsv.value = "";
   }
+});
+
+elements.listingFinderButton.addEventListener("click", findAvailableSpaces);
+
+elements.listingResults.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-listing-result]");
+  if (!button) return;
+  const listings = JSON.parse(elements.listingResults.dataset.results || "[]");
+  const listing = listings[Number(button.dataset.listingResult)];
+  if (!listing) return;
+
+  elements.leaseAddress.value = listing.title || "";
+  elements.leaseLink.value = listing.url || "";
+  elements.leaseNotes.value = [listing.source, listing.snippet].filter(Boolean).join(" - ");
+  elements.leaseMessage.textContent = "Listing link copied into the calculator. Add rent and square feet, then save.";
+  elements.leaseAddress.focus();
 });
 
 elements.exportButton.addEventListener("click", exportSummary);

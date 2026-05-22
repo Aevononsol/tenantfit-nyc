@@ -1080,6 +1080,47 @@ meter::-webkit-meter-optimum-value {
   line-height: 1.35;
 }
 
+.listing-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.listing-result-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(14, 116, 144, 0.16);
+  border-radius: 8px;
+  background: linear-gradient(145deg, #f4f8fa, #e1ebf0);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.listing-result-card h4 {
+  margin: 4px 0 6px;
+}
+
+.listing-result-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.manual-platform-links {
+  margin-top: 12px;
+}
+
+.manual-platform-links summary {
+  cursor: pointer;
+  color: #155e75;
+  font-weight: 850;
+}
+
+.manual-platform-links .listing-platform-grid {
+  margin-top: 10px;
+}
+
 .csv-import-row {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);

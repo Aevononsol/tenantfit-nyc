@@ -465,12 +465,17 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Available spaces search</p>
-                <h3>Open listing platforms for this area</h3>
+                <h3>Find public listing pages inside AreaIntel</h3>
               </div>
               <span id="listing-search-context" class="pill">ZIP search</span>
             </div>
-            <p class="panel-note">AreaIntel cannot scrape protected listing sites. Use these searches to find active spaces, then save the best listings below for lease-fit analysis.</p>
-            <div id="lease-search-links" class="listing-platform-grid" aria-label="Listing search links"></div>
+            <p class="panel-note">AreaIntel uses OpenAI web search to find public listing pages and source links. Save promising spaces below for lease-fit analysis.</p>
+            <button id="listing-finder-button" class="memo-button" type="button">Find available spaces</button>
+            <div id="listing-results" class="listing-results" aria-live="polite"></div>
+            <details class="manual-platform-links">
+              <summary>Manual platform fallback</summary>
+              <div id="lease-search-links" class="listing-platform-grid" aria-label="Listing search links"></div>
+            </details>
           </section>
 
           <section class="panel lease-panel">
