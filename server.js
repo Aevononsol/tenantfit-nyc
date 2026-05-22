@@ -23,6 +23,14 @@ const allowedKeyNames = [
 ];
 
 const isHostedProduction = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+const responseCache = new Map();
+const cacheTtl = {
+  census: 24 * 60 * 60 * 1000,
+  openData: 20 * 60 * 1000,
+  google: 20 * 60 * 1000,
+  geocode: 24 * 60 * 60 * 1000,
+  openaiSearch: 6 * 60 * 60 * 1000
+};
 
 const restaurantTerms = {
   deli: ["DELI", "DELICATESSEN", "BODEGA"],
@@ -202,15 +210,58 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchJsonWithTimeout(url, timeoutMs = 5000) {
+function redactedCacheKey(url, suffix = "") {
+  return `${String(url).replace(/([?&]key=)[^&]+/g, "$1__redacted__")}${suffix}`;
+}
+
+function readCache(key) {
+  const cached = responseCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    responseCache.delete(key);
+    return null;
+  }
+  return structuredClone(cached.value);
+}
+
+function writeCache(key, value, ttlMs) {
+  if (!ttlMs || ttlMs <= 0) return;
+  if (responseCache.size > 600) {
+    const now = Date.now();
+    for (const [cacheKey, cached] of responseCache) {
+      if (cached.expiresAt <= now || responseCache.size > 450) responseCache.delete(cacheKey);
+    }
+  }
+  responseCache.set(key, {
+    expiresAt: Date.now() + ttlMs,
+    value: structuredClone(value)
+  });
+}
+
+async function cachedJsonFetch(url, { headers = {}, timeoutMs = 5000, ttlMs = 0, cacheSuffix = "" } = {}) {
+  const key = redactedCacheKey(url, cacheSuffix);
+  const cached = readCache(key);
+  if (cached) return cached;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    return { response, data: await response.json() };
+    const response = await fetch(url, { headers, signal: controller.signal });
+    const data = await response.json();
+    const result = { ok: response.ok, status: response.status, data };
+    if (response.ok) writeCache(key, result, ttlMs);
+    return result;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchJsonWithTimeout(url, timeoutMs = 5000) {
+  const result = await cachedJsonFetch(url, { timeoutMs, ttlMs: cacheTtl.google });
+  return {
+    response: { ok: result.ok, status: result.status },
+    data: result.data
+  };
 }
 
 function distanceMiles(aLat, aLng, bLat, bLng) {
@@ -240,22 +291,30 @@ async function socrataJson(resource, params) {
     headers["X-App-Token"] = process.env.NYC_OPEN_DATA_APP_TOKEN;
   }
 
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    throw new Error(`NYC Open Data ${resource} returned ${response.status}`);
+  const result = await cachedJsonFetch(url, {
+    headers,
+    timeoutMs: 6500,
+    ttlMs: cacheTtl.openData,
+    cacheSuffix: process.env.NYC_OPEN_DATA_APP_TOKEN ? ":token" : ":public"
+  });
+  if (!result.ok) {
+    throw new Error(`NYC Open Data ${resource} returned ${result.status}`);
   }
-  return response.json();
+  return result.data;
 }
 
 async function dataNyJson(resource, params) {
   const url = new URL(`https://data.ny.gov/resource/${resource}.json`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`NY Open Data ${resource} returned ${response.status}`);
+  const result = await cachedJsonFetch(url, {
+    timeoutMs: 6500,
+    ttlMs: cacheTtl.openData
+  });
+  if (!result.ok) {
+    throw new Error(`NY Open Data ${resource} returned ${result.status}`);
   }
-  return response.json();
+  return result.data;
 }
 
 function firstCount(row) {
@@ -311,9 +370,13 @@ async function fetchCensusProfile(zip) {
   url.searchParams.set("for", `zip code tabulation area:${zip}`);
   if (process.env.CENSUS_API_KEY) url.searchParams.set("key", process.env.CENSUS_API_KEY);
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Census returned ${response.status}`);
-  const rows = await response.json();
+  const censusResult = await cachedJsonFetch(url, {
+    timeoutMs: 6500,
+    ttlMs: cacheTtl.census,
+    cacheSuffix: process.env.CENSUS_API_KEY ? ":key" : ":public"
+  });
+  if (!censusResult.ok) throw new Error(`Census returned ${censusResult.status}`);
+  const rows = censusResult.data;
   if (!Array.isArray(rows) || rows.length < 2) throw new Error("No Census row");
 
   const headers = rows[0];
@@ -717,9 +780,12 @@ async function geocodeAddress(address) {
   url.searchParams.set("components", "administrative_area:NY|country:US");
   url.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Google Geocoding returned ${response.status}`);
-  const data = await response.json();
+  const geocodeResult = await cachedJsonFetch(url, {
+    timeoutMs: 5500,
+    ttlMs: cacheTtl.geocode
+  });
+  if (!geocodeResult.ok) throw new Error(`Google Geocoding returned ${geocodeResult.status}`);
+  const data = geocodeResult.data;
   if (data.status !== "OK" || !data.results?.[0]) {
     return geocodeAddressWithPlaces(address);
   }
@@ -744,9 +810,12 @@ async function geocodeAddressWithPlaces(address) {
   url.searchParams.set("query", `${address}, New York, NY`);
   url.searchParams.set("key", process.env.GOOGLE_PLACES_API_KEY);
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Google Places address lookup returned ${response.status}`);
-  const data = await response.json();
+  const placesResult = await cachedJsonFetch(url, {
+    timeoutMs: 5500,
+    ttlMs: cacheTtl.geocode
+  });
+  if (!placesResult.ok) throw new Error(`Google Places address lookup returned ${placesResult.status}`);
+  const data = placesResult.data;
   if (data.status && !["OK", "ZERO_RESULTS"].includes(data.status)) {
     throw new Error(`Google Places address lookup status ${data.status}`);
   }
@@ -911,6 +980,10 @@ async function siteIntelligence(zip, location = null) {
   const liquorTotal = firstCount(liquorTotalRows[0]);
   const mtaTotal = mtaRows.reduce((total, row) => total + typedNumber(row.sum_ridership), 0);
   const plutoSummary = plutoSummaryRows[0] || {};
+  const averageYearBuilt = Math.round(typedNumber(plutoSummary.avg_yearbuilt));
+  const validAverageYearBuilt = averageYearBuilt >= 1800 && averageYearBuilt <= new Date().getFullYear()
+    ? averageYearBuilt
+    : null;
 
   return {
     zip,
@@ -954,7 +1027,7 @@ async function siteIntelligence(zip, location = null) {
       retailArea: Math.round(typedNumber(plutoSummary.sum_retailarea)),
       commercialArea: Math.round(typedNumber(plutoSummary.sum_comarea)),
       officeArea: Math.round(typedNumber(plutoSummary.sum_officearea)),
-      averageYearBuilt: Math.round(typedNumber(plutoSummary.avg_yearbuilt)),
+      averageYearBuilt: validAverageYearBuilt,
       landUseMix: plutoLandUseRows.map((row) => ({
         type: landUseLabels[row.landuse] || `Land use ${row.landuse || "unknown"}`,
         count: typedCount(row)
@@ -1095,6 +1168,9 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
     "{\"listings\":[{\"title\":\"\",\"source\":\"\",\"url\":\"\",\"snippet\":\"\"}],\"note\":\"\"}",
     "Limit to 6 useful results. If results are broad directories, say that in the snippet."
   ].join("\n");
+  const cacheKey = `openai:listings:${zip}:${address || ""}:${radiusMiles || ""}:${business || ""}`;
+  const cached = readCache(cacheKey);
+  if (cached) return { ...cached, cached: true };
 
   const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -1145,11 +1221,13 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
         }))
     : [];
 
-  return {
+  const result = {
     listings,
     source: "OpenAI web search",
     note: parsed.note || "Verify every listing with the broker or platform before using it with a client."
   };
+  writeCache(cacheKey, result, cacheTtl.openaiSearch);
+  return result;
 }
 
 async function sendFile(response, pathname) {
