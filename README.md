@@ -1,6 +1,6 @@
-# TenantFit NYC
+# AreaIntel
 
-TenantFit NYC is an MVP web app for real estate agents. Enter a NYC ZIP code and it returns a business category fit report with local demand signals, ranked categories, evidence, competition checks, and an exportable summary.
+AreaIntel is an MVP web app for real estate agents. Enter a NYC ZIP code and it returns a business category fit report with local demand signals, ranked categories, evidence, competition checks, and an exportable summary.
 
 ## Run locally
 

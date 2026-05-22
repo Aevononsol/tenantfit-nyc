@@ -1142,5 +1142,5 @@ createServer(async (request, response) => {
     response.end(statusCode === 404 ? "Not found" : "Server error");
   }
 }).listen(port, () => {
-  console.log(`TenantFit NYC running at http://localhost:${port}`);
+  console.log(`AreaIntel running at http://localhost:${port}`);
 });

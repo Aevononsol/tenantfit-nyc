@@ -716,14 +716,14 @@ function profileForZip(zip) {
     ...base,
     name: `${borough} ZIP ${zip}`,
     verdict:
-      `TenantFit can analyze this ${borough} ZIP. The first pass uses borough-level profile assumptions plus live NYC Open Data business counts; verify the exact block before using it for a lease recommendation.`,
+      `AreaIntel can analyze this ${borough} ZIP. The first pass uses borough-level profile assumptions plus live NYC Open Data business counts; verify the exact block before using it for a lease recommendation.`,
     talkingPoints: [
       "Use the live competition count as the first screen for tenant saturation.",
       "Validate the exact avenue, corner visibility, frontage, and nearby anchors.",
       "Treat borough-level customer profile as directional until Census and Google Places are connected."
     ],
     evidence: [
-      "ZIP is recognized as an NYC ZIP code in TenantFit.",
+      "ZIP is recognized as an NYC ZIP code in AreaIntel.",
       "Business checker can query live NYC Open Data for licensed businesses and restaurant records.",
       "Customer profile is borough-level until Census ZIP data is connected."
     ]
@@ -1545,7 +1545,7 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
   elements.businessMeter.value = loading ? 0 : saturation;
   elements.businessMix.textContent = loading ? "Checking" : mix;
   elements.businessMixCopy.textContent = loading
-    ? "TenantFit is checking connected sources before scoring the market."
+    ? "AreaIntel is checking connected sources before scoring the market."
     : mix === "Mostly local"
       ? "Independent operators can compete here if they understand the neighborhood and price correctly."
       : mix === "Chain-friendly"
@@ -1640,7 +1640,7 @@ async function renderBusinessCheck() {
       count,
       business,
       isLive: false,
-      sourceNote: "Live lookup failed, so TenantFit is clearly marking this as a modeled estimate."
+      sourceNote: "Live lookup failed, so AreaIntel is clearly marking this as a modeled estimate."
     });
     const updatedRecommendations = buildRecommendations(profile);
     renderDecisionStrip(profile, updatedRecommendations);
@@ -1830,7 +1830,7 @@ function exportSummary() {
         "City-record matches: live check not completed yet"
       ];
   const lines = [
-    `TenantFit NYC report for ZIP ${state.zip} - ${profile.name}`,
+    `AreaIntel report for ZIP ${state.zip} - ${profile.name}`,
     "",
     "Agent answer:",
     `${decision.answer}. ${decision.copy}`,
@@ -1873,7 +1873,7 @@ function exportSummary() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `tenantfit-nyc-${state.zip}.txt`;
+  anchor.download = `areaintel-${state.zip}.txt`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
