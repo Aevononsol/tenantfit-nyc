@@ -507,6 +507,8 @@ const elements = {
   scenarioAnalysis: document.querySelector("#scenario-analysis"),
   rawDataList: document.querySelector("#raw-data-list"),
   missingDataList: document.querySelector("#missing-data-list"),
+  conditionsList: document.querySelector("#conditions-list"),
+  alternativesList: document.querySelector("#alternatives-list"),
   customerProfile: document.querySelector("#customer-profile"),
   chainTitle: document.querySelector("#chain-title"),
   chainCopy: document.querySelector("#chain-copy"),
@@ -1987,6 +1989,26 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     "Laundry / wash-and-fold": 70000
   }[top.name] || 85000;
   const demandMultiplier = Math.max(0.55, Math.min(1.35, top.score / 75));
+  const maxRentShare = profile.rent >= 82 ? "6-8% of projected sales" : profile.rent >= 65 ? "8-10% of projected sales" : "10-12% of projected sales";
+  const requiredTraffic = profile.transit >= 80 || state.location ? "prove block-level walk-in traffic during lunch, evening, and weekend windows" : "prove repeat local customer demand because transit pull is limited";
+  const marginCondition = top.name.includes("Restaurant") || top.name.includes("lunch")
+    ? "restaurant concept must show labor, food cost, delivery, and rent economics before recommendation"
+    : "tenant must show enough gross margin to survive slow months and marketing ramp";
+  const conditions = [
+    `Max rent: ${maxRentShare} ESTIMATE`,
+    `Minimum demand: ${requiredTraffic}`,
+    `Margins: ${marginCondition}`,
+    "Operator quality: reviews, credit, execution history, and differentiation must be verified",
+    "Site diligence: confirm frontage, signage, venting, loading, ADA, zoning/use, and lease term"
+  ];
+  const topRisks = [
+    profile.rent >= 78 && "High rent pressure can erase demand advantage",
+    (businessResult?.registryExact ? saturationFromCount(businessResult.count, profile) : profile.competition) >= 78 && "Direct competition or saturation is elevated",
+    !address && "ZIP-level view may hide weak side-street conditions",
+    !google && "Google review/rating visibility is not confirmed",
+    civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
+    "Operator financials and exact lease economics are not verified"
+  ].filter(Boolean);
 
   return {
     rawData: [
@@ -2017,6 +2039,8 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       : `${top.name} is the current highest-probability use, but the final answer still depends on the exact lease, frontage, operator strength, and block visibility.`,
     topRecommendation: top,
     alternatives: recommendations.slice(1, 4).map((item) => item.name),
+    conditions,
+    topRisks,
     scenarios: [
       {
         name: "BEST CASE",
@@ -2078,6 +2102,12 @@ function renderInstitutionalAnalysis(profile, recommendations) {
   elements.rawDataList.innerHTML = analysis.rawData.map((item) => `<li>${escapeText(item)}</li>`).join("");
   const missingItems = [...analysis.validation.missing, ...analysis.validation.conflicts];
   elements.missingDataList.innerHTML = missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("");
+  elements.conditionsList.innerHTML = analysis.conditions.map((item) => `<li>${escapeText(item)}</li>`).join("");
+  elements.alternativesList.innerHTML = [
+    `Top recommendation: ${analysis.topRecommendation.name} (${analysis.topRecommendation.score}/100)`,
+    ...analysis.alternatives.map((item) => `Alternative: ${item}`),
+    ...analysis.topRisks.slice(0, 4).map((item) => `Risk: ${item}`)
+  ].map((item) => `<li>${escapeText(item)}</li>`).join("");
 }
 
 function renderDecisionStrip(profile, recommendations) {
