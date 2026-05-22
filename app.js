@@ -448,6 +448,9 @@ const state = {
   conceptRequestId: 0,
   liveProfiles: {},
   lastBusinessResult: null,
+  lastCivicResult: null,
+  lastSiteIntelResult: null,
+  lastConceptFitResult: null,
   leases: []
 };
 
@@ -1098,6 +1101,7 @@ function miniList(items) {
 }
 
 function renderCivicSignals(data) {
+  state.lastCivicResult = data;
   const radiusText = data.searchContext?.mode === "address-radius"
     ? `within ${data.searchContext.radiusMiles} mile`
     : `in ZIP ${data.zip}`;
@@ -1113,6 +1117,9 @@ function renderCivicSignals(data) {
   elements.permitCopy.textContent =
     `${data.permits.totalRecords.toLocaleString()} DOB permit records in ZIP ${data.zip}. This shows construction/development intensity, not current availability.`;
   elements.permitTypes.innerHTML = miniList(data.permits.topTypes);
+
+  const profile = profileForZip(state.zip);
+  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
 }
 
 async function renderCivicCheck() {
@@ -1135,6 +1142,7 @@ async function renderCivicCheck() {
     renderCivicSignals(data);
   } catch {
     if (requestId !== state.civicRequestId) return;
+    state.lastCivicResult = null;
     elements.complaintLevel.textContent = "Unavailable";
     elements.complaintCopy.textContent = "311 lookup failed. Try again after checking the NYC Open Data connection.";
     elements.permitLevel.textContent = "Unavailable";
@@ -1162,6 +1170,7 @@ function escapeText(value) {
 }
 
 function renderConceptFit(data) {
+  state.lastConceptFitResult = data;
   const concepts = Array.isArray(data.concepts) ? data.concepts : [];
   elements.conceptSource.textContent = data.searchContext?.mode === "address-radius"
     ? `Google + NYC records · ${data.searchContext.radiusMiles} mi`
@@ -1193,6 +1202,9 @@ function renderConceptFit(data) {
       </article>
     `;
   }).join("");
+
+  const profile = profileForZip(state.zip);
+  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
 }
 
 async function renderRestaurantConceptFit() {
@@ -1215,6 +1227,7 @@ async function renderRestaurantConceptFit() {
     renderConceptFit(data);
   } catch {
     if (requestId !== state.conceptRequestId) return;
+    state.lastConceptFitResult = null;
     elements.conceptSource.textContent = "Unavailable";
     elements.conceptFitList.innerHTML = `
       <article class="empty-places">
@@ -1248,6 +1261,7 @@ function numberLabel(value) {
 }
 
 function renderSiteIntelligence(data) {
+  state.lastSiteIntelResult = data;
   elements.siteIntelSource.textContent = data.searchContext?.mode === "address-radius"
     ? "Address radius + ZIP"
     : "ZIP-level sources";
@@ -1282,6 +1296,9 @@ function renderSiteIntelligence(data) {
   elements.plutoCopy.textContent =
     `${numberLabel(data.pluto.retailArea)} sq ft retail area, ${numberLabel(data.pluto.commercialArea)} sq ft commercial area, average year built ${data.pluto.averageYearBuilt || "n/a"}.`;
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
+
+  const profile = profileForZip(state.zip);
+  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
 }
 
 function loadLeases() {
@@ -1708,6 +1725,7 @@ async function renderSiteIntelCheck() {
     renderSiteIntelligence(data);
   } catch {
     if (requestId !== state.siteIntelRequestId) return;
+    state.lastSiteIntelResult = null;
     elements.sidewalkLevel.textContent = "Unavailable";
     elements.sidewalkCopy.textContent = "Sidewalk cafe lookup failed.";
     elements.liquorLevel.textContent = "Unavailable";
@@ -1730,6 +1748,26 @@ function currentBusinessResult() {
     : "zip";
   if (currentLocationKey !== resultLocationKey) return null;
   return state.lastBusinessResult;
+}
+
+function contextMatches(result) {
+  if (!result || result.zip !== state.zip) return false;
+  const currentMode = state.location ? "address-radius" : "zip";
+  if ((result.searchContext?.mode || "zip") !== currentMode) return false;
+  if (!state.location) return true;
+  return String(result.searchContext?.radiusMiles) === String(state.location.radiusMiles);
+}
+
+function currentCivicResult() {
+  return contextMatches(state.lastCivicResult) ? state.lastCivicResult : null;
+}
+
+function currentSiteIntelResult() {
+  return contextMatches(state.lastSiteIntelResult) ? state.lastSiteIntelResult : null;
+}
+
+function currentConceptFitResult() {
+  return contextMatches(state.lastConceptFitResult) ? state.lastConceptFitResult : null;
 }
 
 function decisionFor(profile, recommendations, businessResult) {
@@ -1869,20 +1907,32 @@ function analysisScores(profile, recommendations) {
 
 function buildInstitutionalAnalysis(profile, recommendations) {
   const businessResult = currentBusinessResult();
+  const civicResult = currentCivicResult();
+  const siteIntelResult = currentSiteIntelResult();
+  const conceptFitResult = currentConceptFitResult();
   const liveProfile = Boolean(state.liveProfiles[state.zip]);
   const liveBusiness = Boolean(businessResult?.registryExact);
   const google = Boolean(businessResult?.googlePlaces);
+  const civic = Boolean(civicResult);
+  const siteIntel = Boolean(siteIntelResult);
+  const concepts = Boolean(conceptFitResult?.concepts?.length);
   const address = Boolean(state.location);
   const sources = [
     liveProfile && "Census ACS ZIP profile",
     liveBusiness && "NYC Open Data observed business records",
     google && "Google Places visibility",
+    civic && "NYC 311 and DOB permit risk records",
+    siteIntel && "Sidewalk cafe, liquor, MTA, and PLUTO site intelligence",
+    concepts && "Restaurant cuisine concept fit scan",
     address && "Exact address/radius context"
   ].filter(Boolean);
   const missing = [
     !liveProfile && "Fresh Census ZIP demographics not loaded yet",
     !liveBusiness && "Live observed competitor count not confirmed yet",
     !google && "Google Places ratings/reviews not confirmed yet",
+    !civic && "311 complaint and DOB permit risk signals not loaded yet",
+    !siteIntel && "Sidewalk cafe, liquor, MTA, and PLUTO site signals not loaded yet",
+    !concepts && "Restaurant cuisine concept scan not loaded yet",
     !address && "Exact storefront address, frontage, rent, and block visibility missing",
     "True foot traffic, dwell time, parking, lease terms, and operator financials are not directly verified"
   ].filter(Boolean);
@@ -1891,12 +1941,30 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     const ratio = Math.max(businessResult.openDataCount, businessResult.googleVisibleCount) / Math.max(1, Math.min(businessResult.openDataCount, businessResult.googleVisibleCount));
     if (ratio >= 4) conflicts.push("City record count and Google-visible count differ materially; treat saturation as directional.");
   }
+  if (civicResult?.complaints?.level === "High" && profile.rent >= 78) {
+    conflicts.push("High complaint volume plus high rent pressure raises execution risk.");
+  }
 
-  const completeness = Math.max(20, Math.min(96, 35 + sources.length * 13 + (address ? 8 : 0) - conflicts.length * 8));
-  const freshness = Math.max(35, Math.min(95, 48 + (liveProfile ? 16 : 0) + (liveBusiness ? 17 : 0) + (google ? 14 : 0)));
-  const sourceQuality = Math.max(25, Math.min(95, 35 + sources.length * 14 - conflicts.length * 9));
+  const completeness = Math.max(20, Math.min(96, 28 + sources.length * 9 + (address ? 7 : 0) - conflicts.length * 7));
+  const freshness = Math.max(35, Math.min(95, 44 + (liveProfile ? 10 : 0) + (liveBusiness ? 11 : 0) + (google ? 9 : 0) + (civic ? 9 : 0) + (siteIntel ? 9 : 0) + (concepts ? 7 : 0)));
+  const sourceQuality = Math.max(25, Math.min(95, 30 + sources.length * 9 - conflicts.length * 8));
   const confidenceScore = Math.round(completeness * 0.34 + freshness * 0.28 + sourceQuality * 0.38);
   const scores = analysisScores(profile, recommendations);
+  const riskScoreItem = scores.find((item) => item.name === "Risk");
+  if (civicResult?.complaints?.level === "High") {
+    riskScoreItem.value = Math.min(98, riskScoreItem.value + 8);
+    riskScoreItem.why = `${riskScoreItem.why} FACT: 311 volume is high in the selected area.`;
+  }
+  if (siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000) {
+    const demand = scores.find((item) => item.name === "Demand");
+    demand.value = Math.min(100, demand.value + 6);
+    demand.why = `${demand.why} FACT: nearby MTA ridership is strong.`;
+  }
+  if (siteIntelResult?.pluto?.retailArea > 500000) {
+    const location = scores.find((item) => item.name === "Location");
+    location.value = Math.min(100, location.value + 5);
+    location.why = `${location.why} FACT: PLUTO shows meaningful retail square footage in the ZIP.`;
+  }
   const top = recommendations[0];
   const opportunityScore = Math.round((top.score * 0.46) + (scores.find((item) => item.name === "Demand").value * 0.22) + (scores.find((item) => item.name === "Economic").value * 0.14) + ((100 - scores.find((item) => item.name === "Risk").value) * 0.18));
   const decision = confidenceScore < 70
@@ -1927,7 +1995,9 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Mobility/demand: transit ${profile.transit}/100, office ${profile.office}/100, nightlife ${profile.nightlife}/100, tourist ${profile.tourist}/100`,
       `Competition: ${businessResult?.registryExact ? `${businessResult.count.toLocaleString()} observed ${businessResult.business} records` : `modeled ZIP competition ${profile.competition}/100`}`,
       `Real estate pressure: rent pressure ${profile.rent}/100`,
-      `Consumer signal: ${google ? `${businessResult.googleVisibleCount || 0} Google-visible matches` : "Google Places not confirmed yet"}`
+      `Consumer signal: ${google ? `${businessResult.googleVisibleCount || 0} Google-visible matches` : "Google Places not confirmed yet"}`,
+      `Risk inputs: ${civic ? `${civicResult.complaints.total180Days.toLocaleString()} recent 311 requests and ${civicResult.permits.totalRecords.toLocaleString()} DOB permit records` : "Civic risk sources not loaded yet"}`,
+      `Mobility/real estate: ${siteIntel ? `${siteIntelResult.mta.available ? `${siteIntelResult.mta.totalDecember2024Ridership.toLocaleString()} nearby subway rides; ` : ""}${siteIntelResult.pluto.retailArea.toLocaleString()} retail sq ft in PLUTO` : "Site intelligence sources not loaded yet"}`
     ],
     validation: {
       completeness,
