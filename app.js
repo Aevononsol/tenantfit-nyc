@@ -2438,6 +2438,7 @@ function exportSummary() {
   const businessResult = currentBusinessResult();
   const decision = decisionFor(profile, recommendations, businessResult);
   const confidence = confidenceFor(state.zip, businessResult);
+  const analysis = buildInstitutionalAnalysis(profile, recommendations);
   const businessLines = businessResult
     ? [
         `Business search: ${titleCase(businessResult.business || state.business)}`,
@@ -2458,6 +2459,31 @@ function exportSummary() {
     `${decision.answer}. ${decision.copy}`,
     `Next move: ${decision.next}. ${decision.nextCopy}`,
     `Data confidence: ${confidence.label}. ${confidence.copy}`,
+    "",
+    "AreaIntel engine:",
+    `Decision: ${analysis.decision}`,
+    `Overall opportunity score: ${analysis.opportunityScore}/100`,
+    `Confidence score: ${analysis.confidenceScore}/100`,
+    `Top recommendation: ${analysis.topRecommendation.name} (${analysis.topRecommendation.score}/100)`,
+    `Summary: ${analysis.summary}`,
+    "",
+    "Validation:",
+    `- Completeness: ${analysis.validation.completeness}/100`,
+    `- Freshness: ${analysis.validation.freshness}/100`,
+    `- Source quality: ${analysis.validation.sourceQuality}/100 (${analysis.validation.sourceReliability})`,
+    `- Confidence: ${analysis.validation.confidenceScore}/100`,
+    "",
+    "Score breakdown:",
+    ...analysis.scores.map((score) => `- ${score.name}: ${score.value}/100. ${score.why}`),
+    "",
+    "Scenario analysis:",
+    ...analysis.scenarios.map((scenario) => `- ${scenario.name}: ${scenario.revenue}; ${scenario.traffic}; breakeven ${scenario.breakeven}; failure probability ${scenario.failure}`),
+    "",
+    "Required conditions:",
+    ...analysis.conditions.map((item) => `- ${item}`),
+    "",
+    "Missing data / conflicts:",
+    ...[...analysis.validation.missing, ...analysis.validation.conflicts].map((item) => `- ${item}`),
     "",
     headlineFor(recommendations, profile),
     "",
