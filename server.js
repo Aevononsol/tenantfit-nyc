@@ -112,11 +112,28 @@ const dcwpTerms = {
   laundromat: ["LAUNDRY", "LAUNDROMAT"],
   laundry: ["LAUNDRY", "LAUNDROMAT"],
   gym: ["GYM", "FITNESS", "HEALTH CLUB"],
+  "bike shop": ["BIKE SHOP", "BICYCLE SHOP", "BICYCLE STORE", "BIKE REPAIR"],
   "smoke shop": ["TOBACCO", "ELECTRONIC CIGARETTE", "VAPE"],
   vape: ["TOBACCO", "ELECTRONIC CIGARETTE", "VAPE"],
   daycare: ["DAY CARE", "CHILD CARE"],
   salon: ["SALON", "BARBER", "BEAUTY"],
-  retail: ["RETAIL", "STORE"]
+  barber: ["BARBER"],
+  "nail salon": ["NAIL", "MANICURE", "PEDICURE"],
+  spa: ["SPA", "BEAUTY", "FACIAL"],
+  "dry cleaner": ["DRY CLEAN", "CLEANER", "TAILOR"],
+  pharmacy: ["PHARMACY", "DRUG"],
+  grocery: ["GROCERY", "MARKET", "SUPERMARKET"],
+  retail: ["RETAIL", "STORE"],
+  clothing: ["CLOTHING", "APPAREL", "FASHION"],
+  "pet store": ["PET", "DOG", "GROOMING"],
+  tutoring: ["TUTOR", "LEARNING", "EDUCATION"],
+  "urgent care": ["URGENT CARE", "CLINIC", "MEDICAL"],
+  medical: ["MEDICAL", "DOCTOR", "CLINIC"],
+  dental: ["DENTAL", "DENTIST", "ORTHODONT"],
+  "liquor store": ["LIQUOR", "WINE", "SPIRITS"],
+  hardware: ["HARDWARE", "TOOLS"],
+  electronics: ["ELECTRONICS", "COMPUTER"],
+  "phone repair": ["PHONE REPAIR", "CELL PHONE", "MOBILE REPAIR"]
 };
 
 const knownChains = [
@@ -252,9 +269,28 @@ function normalizeBusiness(value) {
   if (normalized.includes("deli") || normalized.includes("bodega") || normalized.includes("corner store")) return "deli";
   if (normalized.includes("coffee") || normalized.includes("cafe")) return "cafe";
   if (normalized.includes("laundr")) return "laundromat";
+  if (normalized.includes("dry clean") || normalized.includes("tailor")) return "dry cleaner";
   if (normalized.includes("smoke") || normalized.includes("vape") || normalized.includes("tobacco")) return "smoke shop";
   if (normalized.includes("gym") || normalized.includes("fitness")) return "gym";
+  if (normalized.includes("bike") || normalized.includes("bicycle") || normalized.includes("cycling")) return "bike shop";
   if (normalized.includes("daycare") || normalized.includes("child")) return "daycare";
+  if (normalized.includes("barber")) return "barber";
+  if (normalized.includes("nail") || normalized.includes("manicure") || normalized.includes("pedicure")) return "nail salon";
+  if (normalized.includes("spa") || normalized.includes("facial")) return "spa";
+  if (normalized.includes("salon") || normalized.includes("beauty")) return "salon";
+  if (normalized.includes("pharmacy") || normalized.includes("drugstore") || normalized.includes("drug store")) return "pharmacy";
+  if (normalized.includes("grocery") || normalized.includes("supermarket") || normalized.includes("market")) return "grocery";
+  if (normalized.includes("clothing") || normalized.includes("boutique") || normalized.includes("apparel") || normalized.includes("fashion")) return "clothing";
+  if (normalized.includes("pet") || normalized.includes("dog grooming")) return "pet store";
+  if (normalized.includes("tutor") || normalized.includes("learning center") || normalized.includes("test prep")) return "tutoring";
+  if (normalized.includes("urgent care") || normalized.includes("walk-in clinic")) return "urgent care";
+  if (normalized.includes("dental") || normalized.includes("dentist") || normalized.includes("orthodont")) return "dental";
+  if (normalized.includes("medical") || normalized.includes("doctor") || normalized.includes("clinic")) return "medical";
+  if (normalized.includes("liquor") || normalized.includes("wine shop") || normalized.includes("wine store") || normalized.includes("spirits")) return "liquor store";
+  if (normalized.includes("hardware") || normalized.includes("tools")) return "hardware";
+  if (normalized.includes("phone repair") || normalized.includes("cell phone repair") || normalized.includes("mobile repair")) return "phone repair";
+  if (normalized.includes("electronics") || normalized.includes("computer store") || normalized.includes("tech store")) return "electronics";
+  if (normalized.includes("retail") || normalized.includes("store") || normalized.includes("shop")) return "retail";
   if (normalized.includes("bakery") || normalized.includes("bagel")) return "bakery";
   if (
     normalized.includes("restaurant") ||

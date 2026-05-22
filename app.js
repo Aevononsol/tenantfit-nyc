@@ -418,6 +418,158 @@ const businessTypes = {
     chainBias: 66,
     rentSensitivity: 72,
     notes: "Coffee needs morning routes, offices, students, and repeat neighborhood habits."
+  },
+  "bike shop": {
+    aliases: ["bike shop", "bicycle", "bike repair", "cycling"],
+    baseDemand: 58,
+    localBias: 76,
+    chainBias: 36,
+    rentSensitivity: 58,
+    notes: "Bike shops need dense local riders, delivery workers, repair demand, storage room, and visibility near bike lanes."
+  },
+  salon: {
+    aliases: ["salon", "hair salon", "beauty salon"],
+    baseDemand: 68,
+    localBias: 78,
+    chainBias: 34,
+    rentSensitivity: 58,
+    notes: "Hair salons depend on repeat local customers, operator reputation, appointment flow, and neighborhood income."
+  },
+  barber: {
+    aliases: ["barber", "barber shop", "barbershop"],
+    baseDemand: 66,
+    localBias: 82,
+    chainBias: 28,
+    rentSensitivity: 52,
+    notes: "Barber shops work best with repeat neighborhood demand, easy walk-in access, and strong operator loyalty."
+  },
+  "nail salon": {
+    aliases: ["nail salon", "nails", "manicure", "pedicure"],
+    baseDemand: 64,
+    localBias: 74,
+    chainBias: 30,
+    rentSensitivity: 62,
+    notes: "Nail salons need local repeat demand, income fit, strong reviews, and enough appointment volume to cover labor."
+  },
+  spa: {
+    aliases: ["spa", "med spa", "beauty clinic", "facial"],
+    baseDemand: 58,
+    localBias: 62,
+    chainBias: 42,
+    rentSensitivity: 78,
+    notes: "Spa and med-spa concepts need disposable income, trust, appointment flow, and strong branding."
+  },
+  "dry cleaner": {
+    aliases: ["dry cleaner", "dry cleaning", "cleaners", "tailor"],
+    baseDemand: 58,
+    localBias: 78,
+    chainBias: 32,
+    rentSensitivity: 50,
+    notes: "Dry cleaners need dense residential demand, office or commuter habits, and convenient pickup/drop-off access."
+  },
+  pharmacy: {
+    aliases: ["pharmacy", "drugstore", "drug store"],
+    baseDemand: 68,
+    localBias: 46,
+    chainBias: 82,
+    rentSensitivity: 70,
+    notes: "Pharmacies are chain-heavy and need strong population density, insurance demand, and enough space."
+  },
+  grocery: {
+    aliases: ["grocery", "market", "supermarket", "food market"],
+    baseDemand: 76,
+    localBias: 70,
+    chainBias: 62,
+    rentSensitivity: 68,
+    notes: "Grocery demand follows dense households, daily convenience, delivery radius, and frontage/loading constraints."
+  },
+  retail: {
+    aliases: ["retail", "store", "shop"],
+    baseDemand: 56,
+    localBias: 60,
+    chainBias: 58,
+    rentSensitivity: 72,
+    notes: "Retail needs category fit, strong storefront visibility, low rent pressure, and a clear reason to visit in person."
+  },
+  clothing: {
+    aliases: ["clothing", "boutique", "apparel", "fashion"],
+    baseDemand: 52,
+    localBias: 62,
+    chainBias: 54,
+    rentSensitivity: 76,
+    notes: "Clothing boutiques need destination appeal, affluent or style-driven customers, and strong visual merchandising."
+  },
+  "pet store": {
+    aliases: ["pet store", "pet shop", "pet supplies", "dog grooming"],
+    baseDemand: 60,
+    localBias: 72,
+    chainBias: 48,
+    rentSensitivity: 58,
+    notes: "Pet concepts need pet-owning households, repeat supply demand, grooming/service mix, and local loyalty."
+  },
+  tutoring: {
+    aliases: ["tutoring", "learning center", "education center", "test prep"],
+    baseDemand: 58,
+    localBias: 68,
+    chainBias: 50,
+    rentSensitivity: 46,
+    notes: "Tutoring depends on family density, school proximity, income, and trust more than pure walk-in traffic."
+  },
+  "urgent care": {
+    aliases: ["urgent care", "walk-in clinic", "clinic"],
+    baseDemand: 62,
+    localBias: 42,
+    chainBias: 74,
+    rentSensitivity: 70,
+    notes: "Urgent care needs population density, payer mix, accessibility, medical buildout, and regulatory diligence."
+  },
+  medical: {
+    aliases: ["medical", "doctor", "medical office", "clinic"],
+    baseDemand: 60,
+    localBias: 48,
+    chainBias: 68,
+    rentSensitivity: 66,
+    notes: "Medical offices need patient access, insurance fit, elevator/ADA compliance, and suitable buildout."
+  },
+  dental: {
+    aliases: ["dental", "dentist", "orthodontist"],
+    baseDemand: 58,
+    localBias: 54,
+    chainBias: 60,
+    rentSensitivity: 66,
+    notes: "Dental concepts need income fit, family or worker demand, visibility, and expensive specialized buildout."
+  },
+  "liquor store": {
+    aliases: ["liquor store", "wine shop", "wine store", "spirits"],
+    baseDemand: 60,
+    localBias: 66,
+    chainBias: 42,
+    rentSensitivity: 58,
+    notes: "Liquor stores need licensing feasibility, local household demand, low theft risk, and saturation checks."
+  },
+  hardware: {
+    aliases: ["hardware", "hardware store", "tools"],
+    baseDemand: 52,
+    localBias: 70,
+    chainBias: 52,
+    rentSensitivity: 54,
+    notes: "Hardware stores need dense housing, contractor traffic, storage, and practical local repeat demand."
+  },
+  electronics: {
+    aliases: ["electronics", "computer store", "tech store"],
+    baseDemand: 48,
+    localBias: 50,
+    chainBias: 64,
+    rentSensitivity: 70,
+    notes: "Electronics retail is difficult without repair/service revenue, strong visibility, and online competition protection."
+  },
+  "phone repair": {
+    aliases: ["phone repair", "cell phone repair", "mobile repair"],
+    baseDemand: 54,
+    localBias: 74,
+    chainBias: 38,
+    rentSensitivity: 52,
+    notes: "Phone repair needs convenience traffic, trust, fast service, and enough local device repair demand."
   }
 };
 
@@ -2780,8 +2932,12 @@ elements.filter.addEventListener("change", (event) => {
 
 elements.businessForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  state.business = elements.restaurantType?.value || elements.businessInput.value.trim();
+  state.business = elements.businessInput.value.trim() || elements.restaurantType?.value || "";
   elements.businessInput.value = state.business;
+  if (elements.restaurantType) {
+    const hasOption = [...elements.restaurantType.options].some((option) => option.value === state.business);
+    elements.restaurantType.value = hasOption ? state.business : "";
+  }
   if (!state.zip) {
     elements.message.textContent = "Enter a ZIP code before checking a business type.";
     return;

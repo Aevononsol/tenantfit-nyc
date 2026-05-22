@@ -212,80 +212,89 @@
             </div>
           </section>
 
-          <section class="decision-strip">
-            <article>
-              <span class="signal-label">Agent answer</span>
-              <strong id="agent-answer">Research before saying yes</strong>
-              <p id="agent-answer-copy">AreaIntel is checking live sources and lease risk.</p>
-            </article>
-            <article>
-              <span class="signal-label">Data confidence</span>
-              <strong id="data-confidence">Building</strong>
-              <p id="data-confidence-copy">Census, Google Places, and NYC Open Data status will appear here.</p>
-            </article>
-            <article>
-              <span class="signal-label">Next move</span>
-              <strong id="next-move">Walk the block</strong>
-              <p id="next-move-copy">Compare the exact storefront against the ZIP-wide signal.</p>
-            </article>
-          </section>
-
           <section class="panel business-checker">
             <div class="panel-header">
               <div>
-                <p class="section-label">Restaurant concept checker</p>
-                <h3>Pick the exact food concept before judging the area</h3>
+                <p class="section-label">Business fit checker</p>
+                <h3>Pick the exact business before judging the area</h3>
               </div>
               <form id="business-form" class="business-form">
-                <input id="business-input" name="business" placeholder="restaurant, deli, pizza, cafe, gym" required />
-                <select id="restaurant-type" name="restaurantType" aria-label="Restaurant or food type">
-                  <option value="">Choose food type</option>
-                  <option value="restaurant">General restaurant</option>
-                  <option value="pizza">Pizza / slice shop</option>
-                  <option value="deli">Deli / bodega</option>
-                  <option value="cafe">Cafe / coffee</option>
-                  <option value="bakery">Bakery / bagel</option>
-                  <option value="breakfast">Breakfast / brunch</option>
-                  <option value="italian">Italian</option>
-                  <option value="greek">Greek</option>
-                  <option value="mediterranean">Mediterranean / halal</option>
-                  <option value="turkish">Turkish</option>
-                  <option value="french">French</option>
-                  <option value="japanese">Japanese / sushi / ramen</option>
-                  <option value="chinese">Chinese / dim sum</option>
-                  <option value="korean">Korean</option>
-                  <option value="thai">Thai</option>
-                  <option value="vietnamese">Vietnamese / pho</option>
-                  <option value="filipino">Filipino</option>
-                  <option value="indian">Indian</option>
-                  <option value="pakistani">Pakistani / Bangladeshi</option>
-                  <option value="mexican">Mexican / tacos</option>
-                  <option value="latin">Latin American</option>
-                  <option value="dominican">Dominican</option>
-                  <option value="puerto rican">Puerto Rican</option>
-                  <option value="peruvian">Peruvian</option>
-                  <option value="colombian">Colombian</option>
-                  <option value="brazilian">Brazilian</option>
-                  <option value="caribbean">Caribbean / Jamaican</option>
-                  <option value="african">African</option>
-                  <option value="ethiopian">Ethiopian</option>
-                  <option value="american">American</option>
-                  <option value="burger">Burgers</option>
-                  <option value="chicken">Chicken / wings</option>
-                  <option value="bbq">BBQ</option>
-                  <option value="seafood">Seafood</option>
-                  <option value="steakhouse">Steakhouse</option>
-                  <option value="vegan">Vegan / vegetarian</option>
-                  <option value="juice">Juice / smoothie</option>
-                  <option value="dessert">Dessert / ice cream</option>
-                  <option value="bubble tea">Bubble tea</option>
-                  <option value="bar">Bar / pub</option>
-                  <option value="food truck">Food truck / cart</option>
+                <input id="business-input" name="business" placeholder="gym, bike shop, daycare, pizza, salon" required />
+                <select id="restaurant-type" name="businessType" aria-label="Business type">
+                  <option value="">Choose business type</option>
+                  <optgroup label="Food and restaurants">
+                    <option value="restaurant">General restaurant</option>
+                    <option value="pizza">Pizza / slice shop</option>
+                    <option value="deli">Deli / bodega</option>
+                    <option value="cafe">Cafe / coffee</option>
+                    <option value="bakery">Bakery / bagel</option>
+                    <option value="breakfast">Breakfast / brunch</option>
+                    <option value="italian">Italian</option>
+                    <option value="greek">Greek</option>
+                    <option value="mediterranean">Mediterranean / halal</option>
+                    <option value="turkish">Turkish</option>
+                    <option value="french">French</option>
+                    <option value="japanese">Japanese / sushi / ramen</option>
+                    <option value="chinese">Chinese / dim sum</option>
+                    <option value="korean">Korean</option>
+                    <option value="thai">Thai</option>
+                    <option value="vietnamese">Vietnamese / pho</option>
+                    <option value="filipino">Filipino</option>
+                    <option value="indian">Indian</option>
+                    <option value="pakistani">Pakistani / Bangladeshi</option>
+                    <option value="mexican">Mexican / tacos</option>
+                    <option value="latin">Latin American</option>
+                    <option value="dominican">Dominican</option>
+                    <option value="puerto rican">Puerto Rican</option>
+                    <option value="peruvian">Peruvian</option>
+                    <option value="colombian">Colombian</option>
+                    <option value="brazilian">Brazilian</option>
+                    <option value="caribbean">Caribbean / Jamaican</option>
+                    <option value="african">African</option>
+                    <option value="ethiopian">Ethiopian</option>
+                    <option value="american">American</option>
+                    <option value="burger">Burgers</option>
+                    <option value="chicken">Chicken / wings</option>
+                    <option value="bbq">BBQ</option>
+                    <option value="seafood">Seafood</option>
+                    <option value="steakhouse">Steakhouse</option>
+                    <option value="vegan">Vegan / vegetarian</option>
+                    <option value="juice">Juice / smoothie</option>
+                    <option value="dessert">Dessert / ice cream</option>
+                    <option value="bubble tea">Bubble tea</option>
+                    <option value="bar">Bar / pub</option>
+                    <option value="food truck">Food truck / cart</option>
+                  </optgroup>
+                  <optgroup label="Services and retail">
+                    <option value="gym">Gym / fitness studio</option>
+                    <option value="bike shop">Bike shop</option>
+                    <option value="daycare">Daycare / childcare</option>
+                    <option value="salon">Hair salon</option>
+                    <option value="barber">Barber shop</option>
+                    <option value="nail salon">Nail salon</option>
+                    <option value="spa">Spa / med spa</option>
+                    <option value="laundromat">Laundromat</option>
+                    <option value="dry cleaner">Dry cleaner</option>
+                    <option value="pharmacy">Pharmacy</option>
+                    <option value="grocery">Grocery / market</option>
+                    <option value="retail">Retail store</option>
+                    <option value="clothing">Clothing boutique</option>
+                    <option value="pet store">Pet store</option>
+                    <option value="tutoring">Tutoring / learning center</option>
+                    <option value="urgent care">Urgent care</option>
+                    <option value="medical">Medical office</option>
+                    <option value="dental">Dental office</option>
+                    <option value="liquor store">Liquor store</option>
+                    <option value="hardware">Hardware store</option>
+                    <option value="electronics">Electronics store</option>
+                    <option value="phone repair">Phone repair</option>
+                    <option value="smoke shop">Smoke / vape shop</option>
+                  </optgroup>
                 </select>
                 <button type="submit">Check</button>
               </form>
             </div>
-            <p class="panel-note">Use the selector for restaurants, then AreaIntel checks that exact cuisine against NYC restaurant records and Google visibility.</p>
+            <p class="panel-note">Use the selector or type any concept. AreaIntel checks restaurants against NYC restaurant records, service businesses against licenses where available, and all concepts against Google Places visibility.</p>
             <div class="business-results">
               <article class="business-count">
                 <span id="business-count">18</span>
@@ -313,13 +322,32 @@
               <button type="button" data-business="pizza">Pizza</button>
               <button type="button" data-business="mediterranean">Mediterranean</button>
               <button type="button" data-business="japanese">Japanese</button>
-              <button type="button" data-business="mexican">Mexican</button>
-              <button type="button" data-business="thai">Thai</button>
-              <button type="button" data-business="deli">Deli</button>
-              <button type="button" data-business="cafe">Cafe</button>
-              <button type="button" data-business="laundromat">Laundromat</button>
               <button type="button" data-business="gym">Gym</button>
+              <button type="button" data-business="bike shop">Bike shop</button>
+              <button type="button" data-business="daycare">Daycare</button>
+              <button type="button" data-business="salon">Salon</button>
+              <button type="button" data-business="pharmacy">Pharmacy</button>
+              <button type="button" data-business="laundromat">Laundromat</button>
+              <button type="button" data-business="pet store">Pet store</button>
             </div>
+          </section>
+
+          <section class="decision-strip">
+            <article>
+              <span class="signal-label">Agent answer</span>
+              <strong id="agent-answer">Research before saying yes</strong>
+              <p id="agent-answer-copy">AreaIntel is checking live sources and lease risk.</p>
+            </article>
+            <article>
+              <span class="signal-label">Data confidence</span>
+              <strong id="data-confidence">Building</strong>
+              <p id="data-confidence-copy">Census, Google Places, and NYC Open Data status will appear here.</p>
+            </article>
+            <article>
+              <span class="signal-label">Next move</span>
+              <strong id="next-move">Walk the block</strong>
+              <p id="next-move-copy">Compare the exact storefront against the ZIP-wide signal.</p>
+            </article>
           </section>
 
           <section class="panel concept-fit-panel">
