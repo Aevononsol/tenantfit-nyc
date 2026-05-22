@@ -947,14 +947,15 @@ function renderOpportunities(profile) {
   const recommendations = buildRecommendations(profile).slice(0, 5);
   const liveCompetition = currentBusinessResult()?.registryExact;
   elements.opportunitySource.textContent = liveCompetition
-    ? "Live competition + modeled profit"
-    : "Modeled profit ranges";
+    ? "Live competition + estimates"
+    : "Estimate, needs live check";
   elements.opportunityList.innerHTML = recommendations
     .map((item) => {
       const profit = estimateMonthlyProfit(item, profile);
       const competition = opportunityCompetition(state.zip, item.business, profile);
       const risk = item.score >= 72 ? "Good fit" : item.score >= 58 ? "Selective" : "Risky";
       const scoreType = competition.source.includes("live") ? "live-adjusted" : "area-adjusted";
+      const confidence = competition.source.includes("live") ? "Confidence: medium/high" : "Confidence: low/medium";
       return `
         <article class="opportunity-item">
           <div>
@@ -965,6 +966,7 @@ function renderOpportunities(profile) {
           <div class="opportunity-metrics">
             <strong>${profit}</strong>
             <span>${risk} · ${scoreType} score ${item.score}</span>
+            <span>${confidence}</span>
           </div>
         </article>
       `;
