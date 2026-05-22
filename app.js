@@ -453,6 +453,8 @@ const state = {
   lastConceptFitResult: null,
   leases: []
 };
+const leaseStorageKey = "areaintel-leases";
+const legacyLeaseStorageKey = "tenantfit-leases";
 
 const elements = {
   form: document.querySelector("#zip-form"),
@@ -1307,14 +1309,20 @@ function renderSiteIntelligence(data) {
 
 function loadLeases() {
   try {
-    return JSON.parse(localStorage.getItem("tenantfit-leases") || "[]");
+    const saved = localStorage.getItem(leaseStorageKey);
+    if (saved) return JSON.parse(saved);
+    const legacy = localStorage.getItem(legacyLeaseStorageKey);
+    if (!legacy) return [];
+    const leases = JSON.parse(legacy);
+    localStorage.setItem(leaseStorageKey, JSON.stringify(leases));
+    return leases;
   } catch {
     return [];
   }
 }
 
 function saveLeases() {
-  localStorage.setItem("tenantfit-leases", JSON.stringify(state.leases));
+  localStorage.setItem(leaseStorageKey, JSON.stringify(state.leases));
 }
 
 function rentPerSfMonthly(lease) {
