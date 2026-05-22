@@ -763,8 +763,9 @@ function enrichProfileWithCensus(baseProfile, census) {
   };
 }
 
-function opportunityCompetition(zip, business, profile) {
-  const liveResult = currentBusinessResult();
+function opportunityCompetition(zip, business, profile, options = {}) {
+  const includeLiveCompetition = options.includeLiveCompetition !== false;
+  const liveResult = includeLiveCompetition ? currentBusinessResult() : null;
   const liveMatchesBusiness = liveResult?.business === business;
   const count = liveMatchesBusiness && Number.isFinite(Number(liveResult.count))
     ? Number(liveResult.count)
@@ -798,12 +799,12 @@ function opportunityCompetition(zip, business, profile) {
   };
 }
 
-function scoreCategory(profile, model) {
+function scoreCategory(profile, model, options = {}) {
   const raw = Object.entries(model.weights).reduce((total, [metric, weight]) => {
     return total + ((profile[metric] || 50) - 50) * weight * 2.25;
   }, 56);
 
-  const competition = opportunityCompetition(state.zip, model.business, profile);
+  const competition = opportunityCompetition(state.zip, model.business, profile, options);
   const localFit = model.business === "restaurant"
     ? Math.round((profile.nightlife + profile.transit + profile.density - profile.rent * 0.45) / 3)
     : Math.round((profile.localPreference + profile.density - profile.rent * 0.35) / 2.2);
@@ -818,10 +819,10 @@ function bandFor(score) {
   return "weak";
 }
 
-function buildRecommendations(profile) {
+function buildRecommendations(profile, options = {}) {
   return categoryModels
     .map((model) => {
-      const score = scoreCategory(profile, model);
+      const score = scoreCategory(profile, model, options);
       return {
         ...model,
         score,
@@ -1654,9 +1655,15 @@ async function renderBusinessCheck() {
   }
 }
 
-function verdictGrade(profile, recommendations) {
-  const topAverage = recommendations.slice(0, 3).reduce((total, item) => total + item.score, 0) / 3;
-  const riskPenalty = profile.rent > 84 && profile.competition > 78 ? 8 : profile.rent > 84 ? 4 : 0;
+function stableGradeProfile(zip, profile) {
+  return zipProfiles[zip] || profile;
+}
+
+function verdictGrade(profile) {
+  const gradeProfile = stableGradeProfile(state.zip, profile);
+  const stableRecommendations = buildRecommendations(gradeProfile, { includeLiveCompetition: false });
+  const topAverage = stableRecommendations.slice(0, 3).reduce((total, item) => total + item.score, 0) / 3;
+  const riskPenalty = gradeProfile.rent > 84 && gradeProfile.competition > 78 ? 8 : gradeProfile.rent > 84 ? 4 : 0;
   const score = Math.round(topAverage - riskPenalty);
 
   if (score >= 82) return "A";
