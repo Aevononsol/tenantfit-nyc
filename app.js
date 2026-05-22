@@ -507,6 +507,7 @@ const elements = {
   scenarioAnalysis: document.querySelector("#scenario-analysis"),
   rawDataList: document.querySelector("#raw-data-list"),
   missingDataList: document.querySelector("#missing-data-list"),
+  explainabilityList: document.querySelector("#explainability-list"),
   conditionsList: document.querySelector("#conditions-list"),
   alternativesList: document.querySelector("#alternatives-list"),
   customerProfile: document.querySelector("#customer-profile"),
@@ -2010,6 +2011,41 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
     "Operator financials and exact lease economics are not verified"
   ].filter(Boolean);
+  const explainability = [
+    {
+      type: "FACT",
+      items: [
+        liveProfile
+          ? `Census ACS profile loaded for ZIP ${state.zip}: ${profile.name}.`
+          : "Fresh Census profile is not loaded yet.",
+        liveBusiness
+          ? `NYC records found ${businessResult.count.toLocaleString()} observed ${businessResult.business} matches.`
+          : "Observed city-record competition is not confirmed yet.",
+        google
+          ? `Google Places returned ${businessResult.googleVisibleCount || 0} visible search results.`
+          : "Google review visibility is not confirmed yet.",
+        civic
+          ? `NYC civic records show ${civicResult.complaints.total180Days.toLocaleString()} recent 311 requests and ${civicResult.permits.totalRecords.toLocaleString()} permit records.`
+          : "311 and DOB source checks are pending."
+      ]
+    },
+    {
+      type: "INFERENCE",
+      items: [
+        `Demand is inferred from density, transit, office pull, nightlife, tourism, student, and family indicators.`,
+        `Competition pressure is inferred by comparing observed business records, Google visibility, and category saturation.`,
+        `Local-vs-chain fit is inferred from income, renter profile, category type, and observed market structure.`
+      ]
+    },
+    {
+      type: "ESTIMATE",
+      items: [
+        `Scenario revenue and failure probability are screening estimates, not verified operator financials.`,
+        `Max rent guidance is estimated from category economics and area rent pressure.`,
+        `Opportunity score is an evidence-weighted estimate and must be rechecked against the exact lease and storefront.`
+      ]
+    }
+  ];
 
   return {
     rawData: [
@@ -2040,6 +2076,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       : `${top.name} is the current highest-probability use, but the final answer still depends on the exact lease, frontage, operator strength, and block visibility.`,
     topRecommendation: top,
     alternatives: recommendations.slice(1, 4).map((item) => item.name),
+    explainability,
     conditions,
     topRisks,
     scenarios: [
@@ -2103,6 +2140,14 @@ function renderInstitutionalAnalysis(profile, recommendations) {
   elements.rawDataList.innerHTML = analysis.rawData.map((item) => `<li>${escapeText(item)}</li>`).join("");
   const missingItems = [...analysis.validation.missing, ...analysis.validation.conflicts];
   elements.missingDataList.innerHTML = missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("");
+  elements.explainabilityList.innerHTML = analysis.explainability
+    .map((group) => `
+      <article class="explainability-card explainability-${group.type.toLowerCase()}">
+        <strong>${group.type}</strong>
+        <ul>${group.items.map((item) => `<li>${escapeText(item)}</li>`).join("")}</ul>
+      </article>
+    `)
+    .join("");
   elements.conditionsList.innerHTML = analysis.conditions.map((item) => `<li>${escapeText(item)}</li>`).join("");
   elements.alternativesList.innerHTML = [
     `Top recommendation: ${analysis.topRecommendation.name} (${analysis.topRecommendation.score}/100)`,
@@ -2479,6 +2524,12 @@ function exportSummary() {
     "",
     "Scenario analysis:",
     ...analysis.scenarios.map((scenario) => `- ${scenario.name}: ${scenario.revenue}; ${scenario.traffic}; breakeven ${scenario.breakeven}; failure probability ${scenario.failure}`),
+    "",
+    "Explainability:",
+    ...analysis.explainability.flatMap((group) => [
+      `${group.type}:`,
+      ...group.items.map((item) => `- ${item}`)
+    ]),
     "",
     "Required conditions:",
     ...analysis.conditions.map((item) => `- ${item}`),
