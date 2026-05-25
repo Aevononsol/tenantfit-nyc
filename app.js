@@ -2691,7 +2691,7 @@ function render(zip) {
   elements.narrative.textContent = narrativeFor(zip, profile, recommendations);
   elements.confidence.textContent = state.liveProfiles[zip]
     ? "Market data live, model scored"
-    : "Profile estimate";
+    : "Profile model";
   elements.evidence.innerHTML = profile.evidence.map((item) => `<li>${item}</li>`).join("");
   elements.verdictTitle.textContent = verdictTitleFor(profile, recommendations);
   elements.verdictCopy.textContent = profile.verdict;
