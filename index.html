@@ -30,11 +30,94 @@
             <div>
               <p class="eyebrow">Business area intelligence</p>
               <h1 class="brand-title">AreaIntel</h1>
-              <p class="brand-tagline">Will this business succeed here?</p>
+              <p class="brand-tagline">Know before you open.</p>
             </div>
           </div>
 
+          <div class="positioning-card">
+            <p>Predict business success using market intelligence, demand signals, competition, and decision analysis.</p>
+          </div>
+
+          <form id="business-form" class="business-form intake-card">
+            <p class="step-label">1 · Business type</p>
+            <label for="business-input">What business is the client opening?</label>
+            <input id="business-input" name="business" placeholder="restaurant, gym, daycare, bike shop" required />
+            <select id="restaurant-type" name="businessType" aria-label="Business type">
+              <option value="">Choose from common categories</option>
+              <optgroup label="Food and restaurants">
+                <option value="restaurant">General restaurant</option>
+                <option value="pizza">Pizza / slice shop</option>
+                <option value="deli">Deli / bodega</option>
+                <option value="cafe">Cafe / coffee</option>
+                <option value="bakery">Bakery / bagel</option>
+                <option value="breakfast">Breakfast / brunch</option>
+                <option value="italian">Italian</option>
+                <option value="greek">Greek</option>
+                <option value="mediterranean">Mediterranean / halal</option>
+                <option value="turkish">Turkish</option>
+                <option value="french">French</option>
+                <option value="japanese">Japanese / sushi / ramen</option>
+                <option value="chinese">Chinese / dim sum</option>
+                <option value="korean">Korean</option>
+                <option value="thai">Thai</option>
+                <option value="vietnamese">Vietnamese / pho</option>
+                <option value="filipino">Filipino</option>
+                <option value="indian">Indian</option>
+                <option value="pakistani">Pakistani / Bangladeshi</option>
+                <option value="mexican">Mexican / tacos</option>
+                <option value="latin">Latin American</option>
+                <option value="dominican">Dominican</option>
+                <option value="puerto rican">Puerto Rican</option>
+                <option value="peruvian">Peruvian</option>
+                <option value="colombian">Colombian</option>
+                <option value="brazilian">Brazilian</option>
+                <option value="caribbean">Caribbean / Jamaican</option>
+                <option value="african">African</option>
+                <option value="ethiopian">Ethiopian</option>
+                <option value="american">American</option>
+                <option value="burger">Burgers</option>
+                <option value="chicken">Chicken / wings</option>
+                <option value="bbq">BBQ</option>
+                <option value="seafood">Seafood</option>
+                <option value="steakhouse">Steakhouse</option>
+                <option value="vegan">Vegan / vegetarian</option>
+                <option value="juice">Juice / smoothie</option>
+                <option value="dessert">Dessert / ice cream</option>
+                <option value="bubble tea">Bubble tea</option>
+                <option value="bar">Bar / pub</option>
+                <option value="food truck">Food truck / cart</option>
+              </optgroup>
+              <optgroup label="Services and retail">
+                <option value="gym">Gym / fitness studio</option>
+                <option value="bike shop">Bike shop</option>
+                <option value="daycare">Daycare / childcare</option>
+                <option value="salon">Hair salon</option>
+                <option value="barber">Barber shop</option>
+                <option value="nail salon">Nail salon</option>
+                <option value="spa">Spa / med spa</option>
+                <option value="laundromat">Laundromat</option>
+                <option value="dry cleaner">Dry cleaner</option>
+                <option value="pharmacy">Pharmacy</option>
+                <option value="grocery">Grocery / market</option>
+                <option value="retail">Retail store</option>
+                <option value="clothing">Clothing boutique</option>
+                <option value="pet store">Pet store</option>
+                <option value="tutoring">Tutoring / learning center</option>
+                <option value="urgent care">Urgent care</option>
+                <option value="medical">Medical office</option>
+                <option value="dental">Dental office</option>
+                <option value="liquor store">Liquor store</option>
+                <option value="hardware">Hardware store</option>
+                <option value="electronics">Electronics store</option>
+                <option value="phone repair">Phone repair</option>
+                <option value="smoke shop">Smoke / vape shop</option>
+              </optgroup>
+            </select>
+            <button type="submit">Check business</button>
+          </form>
+
           <form id="zip-form" class="search-panel">
+            <p class="step-label">2 · Location</p>
             <label for="zip-input">NYC ZIP code</label>
             <div class="zip-row">
               <input
@@ -55,8 +138,8 @@
           </form>
 
           <form id="address-form" class="address-panel">
-            <p class="section-label">Exact storefront</p>
-            <label for="address-input">Address for radius search</label>
+            <p class="step-label">3 · Exact address</p>
+            <label for="address-input">Address for block-level analysis</label>
             <input id="address-input" name="address" placeholder="123 Main St, Brooklyn, NY" autocomplete="street-address" />
             <div class="address-row">
               <select id="radius-input" name="radius" aria-label="Search radius">
@@ -64,9 +147,10 @@
                 <option value="0.5" selected>0.5 mile</option>
                 <option value="1">1 mile</option>
               </select>
-              <button type="submit">Use address</button>
+              <button type="submit">Analyze address</button>
             </div>
-            <button id="clear-address" class="subtle-button" type="button">Use ZIP only</button>
+            <input id="budget-input" name="budget" type="number" min="0" step="1000" placeholder="Optional startup budget" />
+            <button id="clear-address" class="subtle-button" type="button">Use area only</button>
             <p id="address-message" class="form-message" role="status"></p>
           </form>
 
@@ -74,25 +158,25 @@
 
         <section id="start-screen" class="start-screen">
           <div>
-            <p class="section-label">AreaIntel</p>
-            <h2>Start with a ZIP code or exact storefront address.</h2>
-            <p>AreaIntel will load market demographics, competitive signals, mobility, demand, and local activity after you choose the area.</p>
+            <p class="section-label">Business Success Intelligence</p>
+            <h2>Know before you open.</h2>
+            <p>Enter a business type and location. AreaIntel returns a clear open / conditional / do not open decision with confidence, strengths, risks, conditions, and better alternatives.</p>
           </div>
           <div class="start-steps">
             <article>
               <span>1</span>
-              <strong>Enter a ZIP</strong>
-              <p>Use the ZIP field for neighborhood-level research.</p>
+              <strong>Business type</strong>
+              <p>Start with the exact concept: restaurant, gym, daycare, cafe, salon, or another category.</p>
             </article>
             <article>
               <span>2</span>
-              <strong>Use an address</strong>
-              <p>Add a storefront address when the client wants radius-level competition.</p>
+              <strong>Location</strong>
+              <p>Use a ZIP for market screening or an exact address for block-level analysis.</p>
             </article>
             <article>
               <span>3</span>
-              <strong>Check the business type</strong>
-              <p>Search restaurant, deli, pizza, cafe, gym, daycare, or another business.</p>
+              <strong>Decision</strong>
+              <p>Get success probability, confidence, evidence, risks, conditions, and better alternatives.</p>
             </article>
           </div>
         </section>
@@ -100,40 +184,17 @@
         <section id="results" class="results" aria-live="polite" hidden>
           <section class="hero-report">
             <div>
-              <p class="section-label">AreaIntel live report</p>
+              <p class="section-label">Executive report</p>
               <h2 id="area-title">ZIP 10003</h2>
-              <p id="hero-copy">Analyze whether a business is likely to succeed in a specific area before investing.</p>
+              <p id="hero-copy">Predict whether this business can succeed here using market intelligence, demand signals, competition, and decision analysis.</p>
               <div class="hero-tags">
                 <span id="hero-business">Checking restaurant demand</span>
                 <span id="hero-source">Verified market signals</span>
-                <span id="hero-market">Block-level diligence recommended</span>
+                <span id="hero-market">Decision-ready screening</span>
               </div>
             </div>
             <button id="export-button" class="ghost-button" type="button">Export summary</button>
           </section>
-
-          <div class="summary-grid">
-            <article class="signal-card">
-              <span class="signal-label">Population density</span>
-              <strong id="density-value">Very high</strong>
-              <meter id="density-meter" min="0" max="100" value="92"></meter>
-            </article>
-            <article class="signal-card">
-              <span class="signal-label">Income strength</span>
-              <strong id="income-value">High</strong>
-              <meter id="income-meter" min="0" max="100" value="86"></meter>
-            </article>
-            <article class="signal-card">
-              <span class="signal-label">Transit access</span>
-              <strong id="transit-value">Excellent</strong>
-              <meter id="transit-meter" min="0" max="100" value="94"></meter>
-            </article>
-            <article class="signal-card">
-              <span class="signal-label">Rent pressure</span>
-              <strong id="rent-value">Severe</strong>
-              <meter id="rent-meter" min="0" max="100" value="90"></meter>
-            </article>
-          </div>
 
           <section class="decision-strip executive-decision-strip">
             <article class="decision-main-card">
@@ -154,109 +215,57 @@
             <article>
               <span class="signal-label">Action</span>
               <strong id="next-move">Check the exact business</strong>
-              <p id="next-move-copy">Choose the business type, then verify the exact storefront economics.</p>
+              <p id="next-move-copy">Choose the business type, then verify the exact location economics.</p>
             </article>
           </section>
 
+          <div class="summary-grid">
+            <article class="signal-card">
+              <span class="signal-label">Population density</span>
+              <strong id="density-value">Very high</strong>
+              <meter id="density-meter" min="0" max="100" value="92"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Income strength</span>
+              <strong id="income-value">High</strong>
+              <meter id="income-meter" min="0" max="100" value="86"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Transit access</span>
+              <strong id="transit-value">Excellent</strong>
+              <meter id="transit-meter" min="0" max="100" value="94"></meter>
+            </article>
+            <article class="signal-card">
+              <span class="signal-label">Cost pressure</span>
+              <strong id="rent-value">Severe</strong>
+              <meter id="rent-meter" min="0" max="100" value="90"></meter>
+            </article>
+          </div>
+
           <section class="verdict-panel">
             <div>
-              <p class="section-label">Client verdict</p>
+              <p class="section-label">Executive summary</p>
               <h3 id="verdict-title">Good area for premium daily-use concepts</h3>
               <p id="verdict-copy"></p>
             </div>
             <div class="verdict-score">
               <span id="verdict-grade">A-</span>
-              <small id="verdict-label">Tenant fit</small>
+              <small id="verdict-label">Success fit</small>
             </div>
           </section>
 
           <section class="panel business-checker">
             <div class="panel-header">
               <div>
-                <p class="section-label">Business fit checker</p>
-                <h3>Pick the exact business before judging the area</h3>
+                <p class="section-label">Market fit</p>
+                <h3>Business-specific decision signals</h3>
               </div>
-              <form id="business-form" class="business-form">
-                <input id="business-input" name="business" placeholder="gym, bike shop, daycare, pizza, salon" required />
-                <select id="restaurant-type" name="businessType" aria-label="Business type">
-                  <option value="">Choose business type</option>
-                  <optgroup label="Food and restaurants">
-                    <option value="restaurant">General restaurant</option>
-                    <option value="pizza">Pizza / slice shop</option>
-                    <option value="deli">Deli / bodega</option>
-                    <option value="cafe">Cafe / coffee</option>
-                    <option value="bakery">Bakery / bagel</option>
-                    <option value="breakfast">Breakfast / brunch</option>
-                    <option value="italian">Italian</option>
-                    <option value="greek">Greek</option>
-                    <option value="mediterranean">Mediterranean / halal</option>
-                    <option value="turkish">Turkish</option>
-                    <option value="french">French</option>
-                    <option value="japanese">Japanese / sushi / ramen</option>
-                    <option value="chinese">Chinese / dim sum</option>
-                    <option value="korean">Korean</option>
-                    <option value="thai">Thai</option>
-                    <option value="vietnamese">Vietnamese / pho</option>
-                    <option value="filipino">Filipino</option>
-                    <option value="indian">Indian</option>
-                    <option value="pakistani">Pakistani / Bangladeshi</option>
-                    <option value="mexican">Mexican / tacos</option>
-                    <option value="latin">Latin American</option>
-                    <option value="dominican">Dominican</option>
-                    <option value="puerto rican">Puerto Rican</option>
-                    <option value="peruvian">Peruvian</option>
-                    <option value="colombian">Colombian</option>
-                    <option value="brazilian">Brazilian</option>
-                    <option value="caribbean">Caribbean / Jamaican</option>
-                    <option value="african">African</option>
-                    <option value="ethiopian">Ethiopian</option>
-                    <option value="american">American</option>
-                    <option value="burger">Burgers</option>
-                    <option value="chicken">Chicken / wings</option>
-                    <option value="bbq">BBQ</option>
-                    <option value="seafood">Seafood</option>
-                    <option value="steakhouse">Steakhouse</option>
-                    <option value="vegan">Vegan / vegetarian</option>
-                    <option value="juice">Juice / smoothie</option>
-                    <option value="dessert">Dessert / ice cream</option>
-                    <option value="bubble tea">Bubble tea</option>
-                    <option value="bar">Bar / pub</option>
-                    <option value="food truck">Food truck / cart</option>
-                  </optgroup>
-                  <optgroup label="Services and retail">
-                    <option value="gym">Gym / fitness studio</option>
-                    <option value="bike shop">Bike shop</option>
-                    <option value="daycare">Daycare / childcare</option>
-                    <option value="salon">Hair salon</option>
-                    <option value="barber">Barber shop</option>
-                    <option value="nail salon">Nail salon</option>
-                    <option value="spa">Spa / med spa</option>
-                    <option value="laundromat">Laundromat</option>
-                    <option value="dry cleaner">Dry cleaner</option>
-                    <option value="pharmacy">Pharmacy</option>
-                    <option value="grocery">Grocery / market</option>
-                    <option value="retail">Retail store</option>
-                    <option value="clothing">Clothing boutique</option>
-                    <option value="pet store">Pet store</option>
-                    <option value="tutoring">Tutoring / learning center</option>
-                    <option value="urgent care">Urgent care</option>
-                    <option value="medical">Medical office</option>
-                    <option value="dental">Dental office</option>
-                    <option value="liquor store">Liquor store</option>
-                    <option value="hardware">Hardware store</option>
-                    <option value="electronics">Electronics store</option>
-                    <option value="phone repair">Phone repair</option>
-                    <option value="smoke shop">Smoke / vape shop</option>
-                  </optgroup>
-                </select>
-                <button type="submit">Check</button>
-              </form>
             </div>
-            <p class="panel-note">Use the selector or type any concept. AreaIntel compares category demand, competitive intensity, customer fit, and local activity signals.</p>
+            <p class="panel-note">AreaIntel compares category demand, competitive intensity, customer fit, cost pressure, and local activity signals.</p>
             <div class="business-results">
               <article class="business-count">
                 <span id="business-count">18</span>
-                <small id="business-count-label">similar businesses nearby</small>
+                <small id="business-count-label">market pressure</small>
                 <div id="business-source-tags" class="source-tags" aria-label="Business count sources"></div>
               </article>
               <article>
@@ -280,12 +289,12 @@
           <section class="panel concept-fit-panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Restaurant concept fit</p>
-                <h3>Which cuisines have room near this address?</h3>
+                <p class="section-label">Food concept intelligence</p>
+                <h3>Which cuisines may have room in this market?</h3>
               </div>
               <span id="concept-source" class="pill">Competitive Signals</span>
             </div>
-            <p class="panel-note">Delivery-platform data needs authorized access. AreaIntel uses competitive visibility and local activity first, then flags concepts worth deeper validation.</p>
+            <p class="panel-note">For food businesses, AreaIntel compares cuisine-level activity and competitive visibility, then flags concepts worth deeper validation.</p>
             <div id="concept-fit-list" class="concept-fit-list"></div>
           </section>
 
@@ -301,7 +310,7 @@
               <article>
                 <span class="signal-label">Recommendation</span>
                 <strong id="institutional-decision">CONDITIONAL</strong>
-                <p id="institutional-summary">AreaIntel is validating live sources.</p>
+                <p id="institutional-summary">AreaIntel is validating market signals.</p>
               </article>
               <article>
                 <span class="signal-label">Confidence signals</span>
@@ -352,7 +361,7 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Market map</p>
-                <h3>Address, competitors, local activity, and saved locations</h3>
+                <h3>Location, competition, local activity, and saved options</h3>
               </div>
               <span id="map-status" class="pill">ZIP view</span>
             </div>
@@ -361,7 +370,7 @@
               <span><i class="legend-dot address-dot"></i> Address</span>
               <span><i class="legend-dot competitor-dot"></i> Competitors</span>
               <span><i class="legend-dot registry-dot"></i> Local activity</span>
-              <span><i class="legend-dot lease-dot"></i> Saved locations</span>
+              <span><i class="legend-dot lease-dot"></i> Saved options</span>
             </div>
           </section>
 
@@ -381,7 +390,7 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Best nearby matches</p>
-                <h3 id="places-title">Top reviewed places for this search</h3>
+                <h3 id="places-title">Strong nearby operators for this search</h3>
               </div>
               <span id="places-source" class="pill">Competitive Signals</span>
             </div>
@@ -430,9 +439,9 @@
             <article class="panel diligence-panel">
               <p class="section-label">Before recommending the location</p>
               <ul class="check-list">
-                <li>Compare asking rent against realistic monthly sales.</li>
+                <li>Compare location cost against realistic monthly sales.</li>
                 <li>Walk the block at lunch, evening, and weekend hours.</li>
-                <li>Check signage, corner visibility, delivery access, and storefront width.</li>
+                <li>Check signage, visibility, delivery access, and frontage.</li>
                 <li>Verify licenses, venting, ADA access, and permitted use.</li>
               </ul>
             </article>
@@ -466,7 +475,7 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Site intelligence</p>
-                <h3>Street activity, mobility, and property mix</h3>
+                <h3>Street activity, mobility, and commercial mix</h3>
               </div>
               <span id="site-intel-source" class="pill">Public data</span>
             </div>
@@ -490,7 +499,7 @@
                 <div id="mta-types" class="mini-list"></div>
               </article>
               <article>
-                <span class="signal-label">Property mix</span>
+                <span class="signal-label">Commercial mix</span>
                 <strong id="pluto-level">Checking</strong>
                 <p id="pluto-copy">Loading tax-lot land-use mix.</p>
                 <div id="pluto-types" class="mini-list"></div>
@@ -535,21 +544,21 @@
           </div>
 
           <details class="advanced-tools">
-            <summary>Advanced Site Economics</summary>
+            <summary>Advanced location economics</summary>
             <section class="panel available-spaces-panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Location availability</p>
-                <h3>Find public listing pages inside AreaIntel</h3>
+                <p class="section-label">Location options</p>
+                <h3>Find public location pages inside AreaIntel</h3>
               </div>
               <span id="listing-search-context" class="pill">ZIP search</span>
             </div>
-            <p class="panel-note">AreaIntel can search public listing pages and source links. Save promising locations below for cost-fit analysis.</p>
-            <button id="listing-finder-button" class="memo-button" type="button">Find available locations</button>
+            <p class="panel-note">AreaIntel can search public location pages and source links. Save promising options below for cost-fit analysis.</p>
+            <button id="listing-finder-button" class="memo-button" type="button">Find location options</button>
             <div id="listing-results" class="listing-results" aria-live="polite"></div>
             <details class="manual-platform-links">
               <summary>Manual platform fallback</summary>
-              <div id="lease-search-links" class="listing-platform-grid" aria-label="Listing search links"></div>
+              <div id="lease-search-links" class="listing-platform-grid" aria-label="Public location search links"></div>
             </details>
             </section>
 
@@ -561,8 +570,8 @@
               </div>
             </div>
             <form id="lease-form" class="lease-form">
-              <input id="lease-address" name="address" placeholder="Listing address" required />
-              <input id="lease-rent" name="rent" type="number" min="0" step="100" placeholder="Monthly rent" />
+              <input id="lease-address" name="address" placeholder="Location address" required />
+              <input id="lease-rent" name="rent" type="number" min="0" step="100" placeholder="Monthly location cost" />
               <input id="lease-sf" name="sf" type="number" min="0" step="50" placeholder="Square feet" />
               <select id="lease-use" name="use">
                 <option value="Retail">Retail</option>
@@ -590,23 +599,23 @@
               <input id="lease-sales" name="sales" type="number" min="0" step="1000" placeholder="Expected monthly sales" />
               <input id="lease-buildout" name="buildout" type="number" min="0" step="5000" placeholder="Buildout budget" />
               <input id="lease-frontage" name="frontage" type="number" min="0" step="1" placeholder="Frontage ft" />
-              <input id="lease-link" name="link" type="url" placeholder="Listing link" />
+              <input id="lease-link" name="link" type="url" placeholder="Source link" />
               <textarea id="lease-notes" name="notes" placeholder="Venting, basement, corner, visibility notes"></textarea>
               <button type="submit">Save location</button>
             </form>
-            <p id="lease-message" class="panel-note" role="status">Enter a location to calculate sales needed, cost-to-sales ratio, and financial risk.</p>
+            <p id="lease-message" class="panel-note" role="status">Enter a location option to calculate sales needed, cost-to-sales ratio, and financial risk.</p>
             </section>
 
             <section class="panel lease-panel saved-spaces-panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Saved locations</p>
-                <h3>Compare listings and keep the best options</h3>
+                <p class="section-label">Saved options</p>
+                <h3>Compare saved options and keep the best ones</h3>
               </div>
             </div>
             <div class="listing-feed-note">
-              <strong>Availability feed not connected</strong>
-              <span>Many listing websites block automated pulls. Upload a CSV/export or save locations manually to compare options here.</span>
+              <strong>Live availability feed not connected</strong>
+              <span>Many public listing websites block automated pulls. Upload a CSV/export or save locations manually to compare options here.</span>
             </div>
             <div class="csv-import-row">
               <label for="lease-csv">Import CSV</label>

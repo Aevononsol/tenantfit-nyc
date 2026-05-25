@@ -3174,3 +3174,351 @@ textarea:focus {
 .score.strong * {
   color: #0b6b4b !important;
 }
+
+/* AreaIntel premium product pass */
+:root {
+  --ink: #0f172a;
+  --muted: #667085;
+  --line: rgba(15, 23, 42, 0.1);
+  --panel: #f8fafc;
+  --panel-soft: #eef4f7;
+  --wash: #e8f0f4;
+  --nav: #07111f;
+  --nav-soft: #102238;
+  --teal: #0e7490;
+  --blue: #1d4ed8;
+  --green: #12805c;
+  --red: #a64235;
+  --amber: #b45309;
+  --radius: 14px;
+  --shadow: 0 30px 90px rgba(15, 23, 42, 0.18);
+  --soft-shadow: 0 16px 45px rgba(15, 23, 42, 0.1);
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(14, 116, 144, 0.16), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(29, 78, 216, 0.12), transparent 26%),
+    linear-gradient(145deg, #e8f0f4 0%, #f7fafc 48%, #eaf2f0 100%) !important;
+}
+
+.app-shell {
+  padding: clamp(12px, 2vw, 28px) !important;
+}
+
+.workspace {
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr) !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-radius: 22px !important;
+  background: rgba(248, 250, 252, 0.92) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.sidebar {
+  gap: 20px !important;
+  padding: clamp(22px, 3vw, 34px) !important;
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.9), rgba(6, 20, 31, 0.98)),
+    url("https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1000&q=80") center / cover !important;
+}
+
+.sidebar::before {
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.22), rgba(7, 17, 31, 0.88)),
+    linear-gradient(135deg, rgba(14, 116, 144, 0.22), transparent 48%) !important;
+}
+
+.brand {
+  grid-template-columns: 54px 1fr !important;
+}
+
+.mark {
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.03)),
+    linear-gradient(145deg, #12324a, #0e7490) !important;
+}
+
+.brand-title {
+  font-size: 2rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.brand-tagline {
+  color: #d9e7ee !important;
+  font-size: 1rem !important;
+}
+
+.positioning-card,
+.sidebar .search-panel,
+.sidebar .address-panel,
+.sidebar .business-form {
+  border: 1px solid rgba(226, 232, 240, 0.16) !important;
+  border-radius: 18px !important;
+  background: rgba(8, 20, 34, 0.72) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 46px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(12px);
+}
+
+.positioning-card {
+  padding: 16px !important;
+}
+
+.positioning-card p {
+  margin: 0;
+  color: #dbeafe;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.sidebar .business-form,
+.sidebar .search-panel,
+.sidebar .address-panel {
+  display: grid !important;
+  gap: 10px !important;
+  padding: 16px !important;
+}
+
+.step-label {
+  margin: 0 0 2px;
+  color: #8bd3e6;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sidebar label {
+  color: #f8fafc !important;
+  font-size: 0.88rem !important;
+}
+
+.sidebar input,
+.sidebar select {
+  min-height: 48px !important;
+  border: 1px solid rgba(226, 232, 240, 0.18) !important;
+  border-radius: 12px !important;
+  background: rgba(248, 250, 252, 0.95) !important;
+  box-shadow: none !important;
+}
+
+.sidebar button,
+.sidebar .zip-row button,
+.sidebar .address-row button,
+.sidebar .subtle-button,
+.sidebar .business-form button {
+  min-height: 48px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(145deg, #0e7490, #155e75) !important;
+  color: #fff !important;
+  box-shadow: 0 12px 30px rgba(14, 116, 144, 0.22) !important;
+}
+
+.sidebar .subtle-button {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: none !important;
+}
+
+.results,
+.start-screen {
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.72), rgba(234, 242, 246, 0.9)),
+    linear-gradient(90deg, rgba(14, 116, 144, 0.05), transparent 34%) !important;
+}
+
+.start-screen {
+  align-content: center !important;
+  padding: clamp(28px, 6vw, 84px) !important;
+}
+
+.start-screen h2 {
+  max-width: 760px;
+  color: #0f172a !important;
+  font-size: clamp(3rem, 7vw, 6.3rem) !important;
+  letter-spacing: -0.055em !important;
+  line-height: 0.92 !important;
+}
+
+.start-screen > div:first-child > p:not(.section-label) {
+  max-width: 720px;
+  color: #475569 !important;
+  font-size: clamp(1.05rem, 2vw, 1.35rem) !important;
+}
+
+.start-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  max-width: 960px;
+}
+
+.start-steps article {
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: var(--soft-shadow) !important;
+}
+
+.hero-report {
+  border: 0 !important;
+  border-radius: 22px !important;
+  padding: clamp(24px, 4vw, 42px) !important;
+  background:
+    linear-gradient(135deg, rgba(7, 17, 31, 0.92), rgba(15, 44, 66, 0.86)),
+    url("https://images.unsplash.com/photo-1522083165195-3424ed129620?auto=format&fit=crop&w=1600&q=82") center / cover !important;
+  color: #fff !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.hero-report h2 {
+  color: #fff !important;
+  font-size: clamp(2.1rem, 5vw, 4.8rem) !important;
+  letter-spacing: -0.05em !important;
+}
+
+.hero-report p,
+.hero-tags span {
+  color: #dbeafe !important;
+}
+
+.hero-tags span {
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+
+.panel,
+.summary-grid article,
+.decision-strip article,
+.verdict-panel,
+.institutional-grid article,
+.analysis-columns article,
+.unknown-factors,
+.business-results article,
+.places-list article,
+.opportunity-item,
+.category-item,
+.profile-row,
+.civic-grid article,
+.site-intel-grid article,
+.market-grid article {
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 18px !important;
+  background: rgba(248, 250, 252, 0.78) !important;
+  box-shadow: var(--soft-shadow) !important;
+}
+
+.panel-header {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07) !important;
+  background: linear-gradient(90deg, rgba(14, 116, 144, 0.08), rgba(248, 250, 252, 0.36)) !important;
+}
+
+.decision-strip {
+  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(180px, 1fr)) !important;
+}
+
+.decision-main-card {
+  background:
+    linear-gradient(145deg, rgba(14, 116, 144, 0.18), rgba(248, 250, 252, 0.9)) !important;
+}
+
+.decision-badge {
+  border-radius: 14px !important;
+  font-size: clamp(1.65rem, 3vw, 2.75rem) !important;
+}
+
+.decision-open {
+  background: #dff4e9 !important;
+  color: #087044 !important;
+}
+
+.decision-conditional {
+  background: #e7f0f4 !important;
+  color: #0e7490 !important;
+}
+
+.decision-do-not-open {
+  background: #f6e2de !important;
+  color: #9b3528 !important;
+}
+
+.business-count {
+  background: linear-gradient(145deg, #102238, #0e7490) !important;
+}
+
+.business-count > span {
+  font-size: clamp(2.5rem, 6vw, 4.7rem) !important;
+  line-height: 0.95 !important;
+  word-break: normal !important;
+}
+
+.source-tags span {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #e0f2fe !important;
+}
+
+.map-panel,
+.available-spaces-panel,
+.lease-panel,
+.saved-spaces-panel {
+  background: rgba(248, 250, 252, 0.68) !important;
+}
+
+.advanced-tools {
+  border-radius: 18px !important;
+  background: rgba(248, 250, 252, 0.7) !important;
+}
+
+.ghost-button,
+.memo-button,
+.business-form button,
+.lease-form button {
+  border-radius: 12px !important;
+  background: linear-gradient(145deg, #0e7490, #155e75) !important;
+}
+
+@media (max-width: 1060px) {
+  .workspace {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    position: static !important;
+  }
+
+  .decision-strip,
+  .summary-grid,
+  .business-results,
+  .start-steps {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    padding: 0 !important;
+  }
+
+  .workspace {
+    border-radius: 0 !important;
+    border: 0 !important;
+  }
+
+  .sidebar,
+  .results,
+  .start-screen {
+    padding: 18px !important;
+  }
+
+  .zip-row,
+  .address-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-report,
+  .panel,
+  .verdict-panel,
+  .decision-strip article {
+    border-radius: 16px !important;
+  }
+}

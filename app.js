@@ -738,6 +738,7 @@ const elements = {
   businessVerdict: document.querySelector("#business-verdict"),
   businessReason: document.querySelector("#business-reason"),
   conceptSource: document.querySelector("#concept-source"),
+  conceptPanel: document.querySelector(".concept-fit-panel"),
   conceptFitList: document.querySelector("#concept-fit-list"),
   opportunityList: document.querySelector("#opportunity-list"),
   opportunitySource: document.querySelector("#opportunity-source"),
@@ -889,7 +890,7 @@ function renderMarketMap() {
       record.lat,
       record.lng,
       "registry-marker",
-      `<strong>${record.name}</strong><br>${record.category || "City record"}<br>${record.address || ""}<br><small>${record.source}</small>`
+      `<strong>${record.name}</strong><br>${record.category || "Local activity"}<br>${record.address || ""}<br><small>Local market activity</small>`
     );
   });
 
@@ -910,14 +911,13 @@ function renderMarketMap() {
         lease.lat,
         lease.lng,
         "lease-marker",
-        `<strong>${lease.address}</strong><br>${lease.sf ? `${Number(lease.sf).toLocaleString()} SF` : "SF unknown"} · ${lease.rent ? `$${Number(lease.rent).toLocaleString()}/mo` : "Rent unknown"}`
+        `<strong>${lease.address}</strong><br>${lease.sf ? `${Number(lease.sf).toLocaleString()} SF` : "SF unknown"} · ${lease.rent ? `$${Number(lease.rent).toLocaleString()}/mo` : "Cost unknown"}`
       );
     });
 
-  const mappedCount = records.length + places.length;
   elements.mapStatus.textContent = state.location
-    ? `${mappedCount} pins · ${state.location.radiusMiles} mi`
-    : `${mappedCount} pins · ZIP ${state.zip}`;
+    ? `Address radius · ${state.location.radiusMiles} mi`
+    : `Area view · ZIP ${state.zip}`;
   window.setTimeout(() => map.invalidateSize(), 120);
 }
 
@@ -1173,7 +1173,7 @@ function scoreDrivers(profile, item) {
 
   const competitionCopy = competition.count === null
     ? "competition still modeled"
-    : `${competition.source} suggest a ${competition.label.toLowerCase()} market`;
+    : `${competition.label.toLowerCase()} market pressure`;
 
   return `Driven by ${positiveDrivers.join(" and ")}${drag ? `; watch ${drag}` : ""}. Competition: ${competitionCopy}.`;
 }
@@ -1383,6 +1383,54 @@ function renderConceptLoading() {
   `;
 }
 
+function isFoodBusiness(business) {
+  const normalized = normalizeBusiness(business);
+  const foodTerms = new Set([
+    "restaurant",
+    "pizza",
+    "deli",
+    "cafe",
+    "bakery",
+    "breakfast",
+    "italian",
+    "greek",
+    "mediterranean",
+    "turkish",
+    "french",
+    "japanese",
+    "chinese",
+    "korean",
+    "thai",
+    "vietnamese",
+    "filipino",
+    "indian",
+    "pakistani",
+    "mexican",
+    "latin",
+    "dominican",
+    "puerto rican",
+    "peruvian",
+    "colombian",
+    "brazilian",
+    "caribbean",
+    "african",
+    "ethiopian",
+    "american",
+    "burger",
+    "chicken",
+    "bbq",
+    "seafood",
+    "steakhouse",
+    "vegan",
+    "juice",
+    "dessert",
+    "bubble tea",
+    "bar",
+    "food truck"
+  ]);
+  return foodTerms.has(normalized);
+}
+
 function escapeText(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -1431,6 +1479,13 @@ function renderConceptFit(data) {
 }
 
 async function renderRestaurantConceptFit() {
+  if (!isFoodBusiness(state.business)) {
+    elements.conceptPanel.hidden = true;
+    state.lastConceptFitResult = null;
+    return;
+  }
+
+  elements.conceptPanel.hidden = false;
   const requestId = ++state.conceptRequestId;
   renderConceptLoading();
 
@@ -1475,7 +1530,7 @@ function renderSiteIntelLoading() {
     : "Enter an exact address to calculate nearby mobility signal.";
   elements.mtaTypes.innerHTML = "";
   elements.plutoLevel.textContent = "Checking";
-  elements.plutoCopy.textContent = "Loading property mix.";
+  elements.plutoCopy.textContent = "Loading commercial mix.";
   elements.plutoTypes.innerHTML = "";
 }
 
@@ -1515,10 +1570,10 @@ function renderSiteIntelligence(data) {
     elements.mtaTypes.innerHTML = "<span>Use exact address search</span>";
   }
 
-  elements.plutoLevel.textContent = data.pluto.retailArea > 500000 ? "Strong retail property base" : data.pluto.retailArea > 150000 ? "Moderate retail property base" : "Limited retail property base";
+  elements.plutoLevel.textContent = data.pluto.retailArea > 500000 ? "Strong commercial base" : data.pluto.retailArea > 150000 ? "Moderate commercial base" : "Limited commercial base";
   const averageYearBuilt = data.pluto.averageYearBuilt >= 1800 ? data.pluto.averageYearBuilt : "n/a";
   elements.plutoCopy.textContent =
-    `Property mix suggests ${data.pluto.retailArea > 150000 ? "meaningful" : "limited"} retail/commercial capacity; average building age signal ${averageYearBuilt}.`;
+    `Commercial mix suggests ${data.pluto.retailArea > 150000 ? "meaningful" : "limited"} retail and service capacity; average building age signal ${averageYearBuilt}.`;
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
 
   const profile = profileForZip(state.zip);
@@ -1671,10 +1726,10 @@ function quickSearchUrl(source, zip) {
   const query = encodeURIComponent(listingSearchText());
   const platformQuery = (site, extra = "") => `https://www.google.com/search?q=${encodeURIComponent(`site:${site} ${listingSearchText()} ${extra}`.trim())}`;
   const urls = {
-    loopnet: platformQuery("loopnet.com", "retail space for lease"),
-    commercialCafe: platformQuery("commercialcafe.com", "retail space for lease"),
+    loopnet: platformQuery("loopnet.com", "retail availability"),
+    commercialCafe: platformQuery("commercialcafe.com", "retail availability"),
     storefront: platformQuery("thestorefront.com", "retail pop up space"),
-    crexi: platformQuery("crexi.com/lease", "retail availability"),
+    crexi: platformQuery("crexi.com", "commercial retail availability"),
     craigslist: `https://newyork.craigslist.org/search/off?query=${query}`,
     google: `https://www.google.com/search?q=${query}`
   };
@@ -1683,11 +1738,11 @@ function quickSearchUrl(source, zip) {
 
 function renderLeaseSearchLinks() {
   const links = [
-    ["LoopNet", "Broker listings", quickSearchUrl("loopnet", state.zip)],
-    ["CommercialCafe", "Retail availability search", quickSearchUrl("commercialCafe", state.zip)],
-    ["Storefront", "Pop-up / short-term", quickSearchUrl("storefront", state.zip)],
-    ["Crexi", "Commercial listings", quickSearchUrl("crexi", state.zip)],
-    ["Craigslist", "Owner / local posts", quickSearchUrl("craigslist", state.zip)],
+    ["Market listing search", "Established commercial platforms", quickSearchUrl("loopnet", state.zip)],
+    ["Retail availability", "Commercial space directories", quickSearchUrl("commercialCafe", state.zip)],
+    ["Flexible space", "Pop-up / short-term options", quickSearchUrl("storefront", state.zip)],
+    ["Commercial inventory", "Additional public listings", quickSearchUrl("crexi", state.zip)],
+    ["Local posts", "Owner / local posts", quickSearchUrl("craigslist", state.zip)],
     ["Broad web search", "General public listings", quickSearchUrl("google", state.zip)]
   ];
 
@@ -1807,7 +1862,7 @@ function renderLeases() {
       const rent = Number(lease.rent || 0);
       const sf = Number(lease.sf || 0);
       const link = lease.link
-        ? `<a href="${lease.link}" target="_blank" rel="noreferrer">Open listing</a>`
+        ? `<a href="${lease.link}" target="_blank" rel="noreferrer">Open source</a>`
         : "";
       const neededSales = math.neededSalesLow && math.neededSalesHigh
         ? `$${math.neededSalesLow.toLocaleString()}-${math.neededSalesHigh.toLocaleString()}/mo`
@@ -1819,12 +1874,12 @@ function renderLeases() {
         <article class="lease-card lease-fit-${math.tone}">
           <div>
             <h4>${lease.address}</h4>
-            <p>${lease.use}${lease.concept ? ` · ${conceptLabel}` : ""} · ${sf ? `${sf.toLocaleString()} SF` : "SF unknown"} · ${rent ? `$${rent.toLocaleString()}/mo` : "Rent unknown"}</p>
+            <p>${lease.use}${lease.concept ? ` · ${conceptLabel}` : ""} · ${sf ? `${sf.toLocaleString()} SF` : "SF unknown"} · ${rent ? `$${rent.toLocaleString()}/mo` : "Cost unknown"}</p>
             <div class="lease-fit-grid">
               <span><strong>${fit}</strong><small>Cost fit</small></span>
               <span><strong>${neededSales}</strong><small>Sales needed</small></span>
-              <span><strong>${ratio}</strong><small>Rent-to-sales</small></span>
-              <span><strong>${perSfYear}</strong><small>Annual rent/SF</small></span>
+              <span><strong>${ratio}</strong><small>Cost-to-sales</small></span>
+              <span><strong>${perSfYear}</strong><small>Annual cost/SF</small></span>
             </div>
             <div class="place-meta">
               <span>${rentPressureForLease(lease, profile)}</span>
@@ -1963,7 +2018,7 @@ async function renderSiteIntelCheck() {
     elements.mtaLevel.textContent = "Unavailable";
     elements.mtaCopy.textContent = "Mobility signal lookup failed.";
     elements.plutoLevel.textContent = "Unavailable";
-    elements.plutoCopy.textContent = "Property mix lookup failed.";
+    elements.plutoCopy.textContent = "Commercial mix lookup failed.";
   }
 }
 
@@ -2072,7 +2127,7 @@ function confidenceFor(zip, businessResult) {
   if (sourceCount === 2) {
     return {
       label: "Good",
-      copy: "Two live source groups are connected. Treat remaining modeled scores as directional."
+      copy: "Two market signal groups are connected. Treat remaining modeled scores as directional."
     };
   }
 
@@ -2085,7 +2140,7 @@ function confidenceFor(zip, businessResult) {
 
   return {
     label: "Modeled",
-    copy: "Live sources are still loading or unavailable. Do not present this as verified research yet."
+    copy: "Market signals are still loading or unavailable. Do not present this as verified research yet."
   };
 }
 
@@ -2180,7 +2235,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
     {
       name: "Location quality",
       value: locationScore,
-      why: "Model Insights from mobility access, walkability proxy, street density, office pull, property mix, and exact-address context when provided."
+      why: "Model Insights from mobility access, walkability proxy, street density, office pull, commercial mix, and exact-address context when provided."
     },
     {
       name: "Financial viability",
@@ -2190,7 +2245,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
     {
       name: "Area momentum",
       value: growthScore,
-      why: "Verified Signals / Model Insights from development activity, property base, density, mobility access, and local economic activity."
+      why: "Verified Signals / Model Insights from development activity, commercial base, density, mobility access, and local economic activity."
     },
     {
       name: "Risk",
@@ -2219,7 +2274,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     google && "Competitive Signals",
     demandSignal && "Consumer Demand",
     civic && "Risk and Development Signals",
-    siteIntel && "Mobility and Property Signals",
+    siteIntel && "Mobility and Commercial Mix Signals",
     concepts && "Concept Fit Scan",
     address && "Exact address/radius context"
   ].filter(Boolean);
@@ -2229,7 +2284,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     !google && "Competitive ratings/review visibility not confirmed yet",
     !demandSignal && "Consumer demand momentum not confirmed yet",
     !civic && "Risk and development signals not loaded yet",
-    !siteIntel && "Mobility and property signals not loaded yet",
+    !siteIntel && "Mobility and commercial mix signals not loaded yet",
     !concepts && "Restaurant cuisine concept scan not loaded yet",
     !address && "Exact address, frontage, cost, and block visibility missing",
     "True foot traffic, dwell time, parking, location cost, and operator financials are not directly verified"
@@ -2263,7 +2318,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   if (siteIntelResult?.pluto?.retailArea > 500000) {
     const location = scores.find((item) => item.name === "Location quality");
     location.value = Math.min(100, location.value + 5);
-    location.why = `${location.why} Verified Signals: the area has meaningful retail property capacity.`;
+    location.why = `${location.why} Verified Signals: the area has meaningful commercial capacity.`;
   }
   const opportunityScore = clampScore(
     scores.find((item) => item.name === "Demand").value * businessSuccessWeights.demand +
@@ -2367,7 +2422,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility not confirmed yet"}`,
       `Demand momentum: ${demandMomentumLabel(businessResult)}`,
       `Risk inputs: ${civic ? "local risk and development signals connected" : "risk sources not loaded yet"}`,
-      `Mobility/property: ${siteIntel ? "mobility and property signals connected" : "site intelligence sources not loaded yet"}`
+      `Mobility and commercial mix: ${siteIntel ? "mobility and commercial signals connected" : "site intelligence signals not loaded yet"}`
     ],
     validation: {
       completeness,
@@ -2525,13 +2580,13 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
   elements.businessMeter.value = loading ? 0 : saturation;
   elements.businessMix.textContent = loading ? "Checking" : mix;
   elements.businessMixCopy.textContent = loading
-    ? "AreaIntel is checking connected sources before scoring the market."
+    ? "AreaIntel is checking market signals before scoring the business."
     : mix === "Mostly local"
       ? "Independent operators can compete here if they understand the neighborhood and price correctly."
       : mix === "Chain-friendly"
         ? "Recognized brands may have an advantage because customers can support familiar, consistent operators."
         : "The winner depends more on reviews, visibility, price point, and site economics than brand type.";
-  elements.businessVerdict.textContent = loading ? "Checking connected sources." : businessVerdictFor(saturation, profile, config);
+  elements.businessVerdict.textContent = loading ? "Checking market signals." : businessVerdictFor(saturation, profile, config);
   elements.businessReason.textContent = `${titleCase(business)} demand: ${config.notes} ${sourceNote || (isLive ? "Verified signals are connected." : "Modeled local estimate.")}`;
   elements.heroBusiness.textContent = loading
     ? `Checking ${titleCase(business)} demand`
@@ -2602,7 +2657,7 @@ async function renderBusinessCheck() {
         business: result.business || business,
         isLive: true,
         result,
-        sourceNote: "Connected sources found limited exact matches for this area and search term. Try a broader term or verify the exact block."
+        sourceNote: "Market signals found limited exact matches for this area and search term. Try a broader term or verify the exact block."
       });
       const updatedRecommendations = buildRecommendations(profile);
       renderDecisionStrip(profile, updatedRecommendations);
@@ -2713,7 +2768,7 @@ function render(zip) {
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
   elements.input.value = zip;
-  elements.message.textContent = "Loading live sources...";
+  elements.message.textContent = "Loading market signals...";
   elements.analyzeButton.disabled = true;
   elements.analyzeButton.textContent = "Analyzing...";
   elements.areaTitle.textContent = state.location
@@ -2937,7 +2992,7 @@ elements.addressForm.addEventListener("submit", async (event) => {
     elements.addressMessage.textContent = `Using ${result.address} within ${state.location.radiusMiles} mile.`;
     render(result.zip);
   } catch {
-    elements.addressMessage.textContent = "Could not find that address. Check the Google key and try a fuller address.";
+    elements.addressMessage.textContent = "Could not find that address. Try a fuller address or use ZIP-level analysis.";
   }
 });
 
@@ -3041,8 +3096,8 @@ elements.leaseCsv.addEventListener("change", async () => {
   try {
     const count = await importLeaseCsv(file);
     elements.leaseMessage.textContent = count
-      ? `Imported ${count} spaces from CSV.`
-      : "No spaces imported. Make sure the CSV has an address column.";
+      ? `Imported ${count} options from CSV.`
+      : "No options imported. Make sure the CSV has an address column.";
   } catch {
     elements.leaseMessage.textContent = "Could not import CSV. Check the headers and try again.";
   } finally {
@@ -3062,7 +3117,7 @@ elements.listingResults.addEventListener("click", (event) => {
   elements.leaseAddress.value = listing.title || "";
   elements.leaseLink.value = listing.url || "";
   elements.leaseNotes.value = [listing.source, listing.snippet].filter(Boolean).join(" - ");
-  elements.leaseMessage.textContent = "Listing link copied into the calculator. Add cost and square feet, then save.";
+  elements.leaseMessage.textContent = "Location link copied into the calculator. Add cost and square feet, then save.";
   elements.leaseAddress.focus();
 });
 
