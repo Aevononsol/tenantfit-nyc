@@ -1195,7 +1195,7 @@ async function sendPlacePhoto(response, photoRef) {
 async function clientMemo({ zip, business, profile, businessResult }) {
   if (!process.env.OPENAI_API_KEY) {
     return {
-      memo: "OpenAI key is not connected, so the client memo could not be generated.",
+      memo: "Decision report service is not connected, so the report could not be generated.",
       source: "fallback"
     };
   }
@@ -1204,29 +1204,29 @@ async function clientMemo({ zip, business, profile, businessResult }) {
     "You are AreaIntel, an enterprise-grade location intelligence, market research, site selection, and business fit decision engine.",
     "Your job is to determine the probability that a business succeeds in a specific geographic area using evidence-based analysis.",
     "Never generate random business ideas. Never optimize for popularity. Optimize for probability of long-term business success.",
-    "Separate FACT, INFERENCE, and ESTIMATE. Do not fabricate numbers. Do not present estimates as facts.",
+    "Separate Verified Signals, Model Insights, and Estimated Factors. Do not fabricate numbers. Do not present estimates as facts.",
     "If the supplied evidence is too weak for a confident recommendation, write INSUFFICIENT DATA and explain what is missing.",
     "",
     `Location: ZIP ${zip}`,
     `Business category: ${business}`,
     "",
-    "Write a concise commercial real estate client memo with these sections:",
+    "Write a concise business success decision report with these sections:",
     "EXECUTIVE SUMMARY",
     "OVERALL OPPORTUNITY SCORE",
     "CONFIDENCE SCORE",
     "TOP RECOMMENDATION",
     "TOP RISKS",
-    "FACTS",
-    "INFERENCES",
-    "ESTIMATES",
+    "VERIFIED SIGNALS",
+    "MODEL INSIGHTS",
+    "ESTIMATED FACTORS",
     "SCENARIO ANALYSIS: best case, base case, worst case",
     "DECISION: YES, NO, or CONDITIONAL",
     "REQUIRED CONDITIONS: traffic, max rent, minimum demand, margins, and next diligence steps",
     "",
-    "Use plain English for a client deciding whether this business should lease in the area.",
-    "Do not overpromise. Exact block, rent, frontage, visibility, lease terms, and operator quality still matter.",
+    "Use plain English for a client deciding whether this business should open in the area.",
+    "Do not overpromise. Exact block, cost, frontage, visibility, commitment terms, and operator quality still matter.",
     "",
-    `Census/profile data: ${JSON.stringify(profile)}`,
+    `Market profile data: ${JSON.stringify(profile)}`,
     `Competition data: ${JSON.stringify(businessResult)}`
   ].join("\n");
 
@@ -1245,7 +1245,7 @@ async function clientMemo({ zip, business, profile, businessResult }) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI returned ${response.status}: ${errorText.slice(0, 180)}`);
+    throw new Error(`Decision report service returned ${response.status}: ${errorText.slice(0, 180)}`);
   }
   const data = await response.json();
   const outputText =
@@ -1254,8 +1254,8 @@ async function clientMemo({ zip, business, profile, businessResult }) {
     "";
 
   return {
-    memo: outputText || "OpenAI returned an empty memo.",
-    source: "OpenAI"
+    memo: outputText || "Decision report service returned an empty report.",
+    source: "Decision Report"
   };
 }
 
@@ -1278,7 +1278,7 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
     return {
       listings: [],
       source: "fallback",
-      note: "OpenAI key is not connected, so AreaIntel cannot search public listing pages inside the app yet."
+      note: "Search service is not connected, so AreaIntel cannot search public listing pages inside the app yet."
     };
   }
 
@@ -1327,7 +1327,7 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
 
   if (!openaiResponse.ok) {
     const errorText = await openaiResponse.text();
-    throw new Error(`OpenAI listing search returned ${openaiResponse.status}: ${errorText.slice(0, 180)}`);
+    throw new Error(`Listing search returned ${openaiResponse.status}: ${errorText.slice(0, 180)}`);
   }
 
   const data = await openaiResponse.json();
@@ -1344,14 +1344,14 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
           title: String(listing.title || "Listing source").slice(0, 140),
           source: String(listing.source || "Web result").slice(0, 80),
           url: String(listing.url),
-          snippet: String(listing.snippet || "Open source and confirm availability with the broker.").slice(0, 260)
+          snippet: String(listing.snippet || "Open source and confirm availability with the listing contact.").slice(0, 260)
         }))
     : [];
 
   const result = {
     listings,
-    source: "OpenAI web search",
-    note: parsed.note || "Verify every listing with the broker or platform before using it with a client."
+    source: "Public listing search",
+    note: parsed.note || "Verify every listing with the listing contact or platform before using it with a client."
   };
   writeCache(cacheKey, result, cacheTtl.openaiSearch);
   return result;
@@ -1574,7 +1574,7 @@ createServer(async (request, response) => {
         sendJson(response, 200, await clientMemo({ zip, business, profile, businessResult }));
       } catch (error) {
         sendJson(response, 502, {
-          memo: "OpenAI could not generate the memo right now. The rest of the live data is connected.",
+          memo: "Decision report service could not generate the report right now. The rest of the live data is connected.",
           error: error.message
         });
       }

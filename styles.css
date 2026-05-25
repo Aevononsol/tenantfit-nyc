@@ -787,6 +787,44 @@ textarea:focus {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
+.unknown-factors {
+  padding: 16px;
+  border: 1px solid rgba(14, 116, 144, 0.14);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, #f6fafb, #e9f1f4);
+}
+
+.methodology-details,
+.advanced-tools {
+  border: 1px solid rgba(14, 116, 144, 0.16);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.methodology-details summary,
+.advanced-tools summary {
+  cursor: pointer;
+  padding: 16px;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.methodology-details[open],
+.advanced-tools[open] {
+  padding-bottom: 14px;
+}
+
+.methodology-details .analysis-columns,
+.advanced-tools .panel {
+  margin: 0 14px 14px;
+}
+
+.trust-note {
+  margin: 0 16px 14px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .institutional-grid strong {
   display: block;
   margin-top: 6px;

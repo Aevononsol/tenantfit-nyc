@@ -25,9 +25,9 @@ const zipProfiles = {
     ],
     verdict: "Good area for premium daily-use concepts, fast service, beauty, fitness, and differentiated food. Risk is not demand; risk is rent, competition, and weak branding.",
     talkingPoints: [
-      "Pitch tenants with strong brand identity, high repeat purchase, or premium ticket size.",
+      "Favor operators with strong brand identity, high repeat purchase, or premium ticket size.",
       "Avoid generic food or retail concepts unless the operator already has reviews, delivery volume, or a clear niche.",
-      "Ask the tenant how they will survive rent pressure during slow months."
+      "Confirm how the business will survive cost pressure during slow months."
     ],
     evidence: [
       "Very high pedestrian demand and train access support grab-and-go concepts.",
@@ -89,7 +89,7 @@ const zipProfiles = {
     ],
     verdict: "Good area for operators that serve routine weekly demand: coffee, lunch, fitness, convenience, pet care, and neighborhood services. Less proven for tourist-heavy or destination retail.",
     talkingPoints: [
-      "Show tenants the gap between growing density and lower competition.",
+      "Show operators the gap between growing density and lower competition.",
       "Favor businesses that can build repeat weekly habits.",
       "Validate the exact block because LIC demand changes quickly from avenue to avenue."
     ],
@@ -154,13 +154,13 @@ const zipProfiles = {
     verdict: "Selective area. It can be good for local services with low overhead, but weak for businesses that require heavy tourist flow or luxury spending.",
     talkingPoints: [
       "Use lower rent and lower competition as the upside.",
-      "Push tenants to prove repeat local demand before signing.",
+      "Push operators to prove repeat local demand before investing.",
       "Be cautious with businesses that need constant walk-in traffic."
     ],
     evidence: [
       "Lower competition and lower rent can help neighborhood services break even.",
       "Demand is more local and repeat-driven than tourist or office-driven.",
-      "Foot traffic assumptions should be validated block by block before lease signing."
+      "Foot traffic assumptions should be validated block by block before committing."
     ]
   }
 };
@@ -216,7 +216,7 @@ const boroughProfiles = {
     chainFit: 72,
     affluenceLabel: "Manhattan demand mix with high rent and strong transit",
     audience: [
-      ["Money profile", "Generally strong spending power, but rent forces tenants to protect margins."],
+      ["Money profile", "Generally strong spending power, but cost pressure forces operators to protect margins."],
       ["Street life", "Transit-rich, dense, and highly dependent on the exact block."],
       ["Best customer type", "Professionals, renters, visitors, and convenience-driven daily customers."]
     ]
@@ -361,7 +361,7 @@ const businessTypes = {
     localBias: 72,
     chainBias: 58,
     rentSensitivity: 82,
-    notes: "Restaurants are a core NYC tenant type. Validate cuisine gap, venting, liquor fit, reviews, delivery demand, labor costs, and late-night/weekend traffic."
+    notes: "Restaurants are a core NYC business type. Validate cuisine gap, venting, license fit, reviews, delivery demand, labor costs, and late-night/weekend traffic."
   },
   deli: {
     aliases: ["deli", "bodega", "corner store", "convenience store"],
@@ -489,7 +489,7 @@ const businessTypes = {
     localBias: 60,
     chainBias: 58,
     rentSensitivity: 72,
-    notes: "Retail needs category fit, strong storefront visibility, low rent pressure, and a clear reason to visit in person."
+    notes: "Retail needs category fit, strong storefront visibility, manageable cost pressure, and a clear reason to visit in person."
   },
   clothing: {
     aliases: ["clothing", "boutique", "apparel", "fashion"],
@@ -949,16 +949,16 @@ function profileForZip(zip) {
     ...base,
     name: `${borough} ZIP ${zip}`,
     verdict:
-      `AreaIntel can analyze this ${borough} ZIP. The first pass uses borough-level profile assumptions plus live NYC Open Data business counts; verify the exact block before using it for a lease recommendation.`,
+      `AreaIntel can analyze this ${borough} ZIP. The first pass uses market profile assumptions plus live local activity signals; verify the exact block before making a final business decision.`,
     talkingPoints: [
-      "Use the live competition count as the first screen for tenant saturation.",
+      "Use competitive intensity as the first screen for category saturation.",
       "Validate the exact avenue, corner visibility, frontage, and nearby anchors.",
-      "Treat borough-level customer profile as directional until Census and Google Places are connected."
+      "Treat broad customer profile signals as directional until stronger area evidence is connected."
     ],
     evidence: [
       "ZIP is recognized as an NYC ZIP code in AreaIntel.",
-      "Business checker can query live NYC Open Data for licensed businesses and restaurant records.",
-      "Customer profile is borough-level until Census ZIP data is connected."
+      "Business checker can query local market activity and competitive signals.",
+      "Customer profile is directional until market demographics are connected."
     ]
   };
 }
@@ -981,18 +981,18 @@ function enrichProfileWithCensus(baseProfile, census) {
     student: census.signals?.student ?? baseProfile.student,
     chainFit: census.signals?.chainFit ?? baseProfile.chainFit,
     localPreference: census.signals?.localPreference ?? baseProfile.localPreference,
-    affluenceLabel: `Census ZIP profile with median income ${medianIncome}, median age ${medianAge}, and renter share ${renterShare}`,
+    affluenceLabel: `market demographics profile with median income ${medianIncome}, median age ${medianAge}, and renter share ${renterShare}`,
     audience: [
       ["Money profile", `Median household income is ${medianIncome}; median gross rent is ${medianRent}.`],
       ["Household profile", `Population is ${census.population?.toLocaleString() || "not available"} with ${census.households?.toLocaleString() || "not available"} households and ${renterShare} renter occupancy.`],
       ["Education / age", `Median age is ${medianAge}; bachelor-plus education share is ${bachelorShare}.`]
     ],
     evidence: [
-      `${census.source}: median household income ${medianIncome}.`,
-      `${census.source}: renter share ${renterShare}, median gross rent ${medianRent}.`,
-      `${census.source}: population ${census.population?.toLocaleString() || "not available"}, median age ${medianAge}.`
+      `Market Demographics: median household income ${medianIncome}.`,
+      `Market Demographics: renter share ${renterShare}, median gross rent ${medianRent}.`,
+      `Market Demographics: population ${census.population?.toLocaleString() || "not available"}, median age ${medianAge}.`
     ],
-    verdict: `${baseProfile.verdict} Census data is now connected for income, age, households, rent, renter profile, and education.`
+    verdict: `${baseProfile.verdict} Market demographics are now connected for income, age, households, rent, renter profile, and education.`
   };
 }
 
@@ -1026,7 +1026,7 @@ function opportunityCompetition(zip, business, profile, options = {}) {
 
   return {
     count: Number(count),
-    source: liveMatchesBusiness ? "live city records" : "modeled competitor baseline",
+    source: liveMatchesBusiness ? "verified market signals" : "modeled competitor baseline",
     adjustment,
     label: saturationLabel(saturation)
   };
@@ -1090,7 +1090,7 @@ function modeledBusinessConfig(business) {
       localBias: 62,
       chainBias: 50,
       rentSensitivity: 60,
-      notes: "This is a modeled category until Google Places is connected for live competitor search."
+      notes: "This is a modeled category until competitive signals are connected for live market research."
     }
   );
 }
@@ -1134,15 +1134,12 @@ function estimateMonthlyProfit(item, profile) {
 }
 
 function sourceTagsForResult(result, isLive) {
-  if (!isLive) return ["Modeled estimate"];
+  if (!isLive) return ["Modeled market signal"];
 
   const tags = [];
-  if (result?.openDataCount > 0) tags.push(`${result.openDataCount} city-record matches`);
-  if (result?.googleVisibleCount > 0) {
-    const radius = result.searchContext?.mode === "address-radius" ? ` within ${result.searchContext.radiusMiles} mi` : "";
-    tags.push(`${result.googleVisibleCount} Google visible results${radius}`);
-  }
-  if (!tags.length) tags.push("No verified matches found");
+  if (result?.openDataCount > 0) tags.push("Local Market Activity");
+  if (result?.googleVisibleCount > 0) tags.push("Competitive Signals");
+  if (!tags.length) tags.push("Limited verified signal");
   return tags;
 }
 
@@ -1162,7 +1159,7 @@ function scoreDrivers(profile, item) {
 
   const competitionCopy = competition.count === null
     ? "competition still modeled"
-    : `${competition.count.toLocaleString()} ${competition.source} · ${competition.label.toLowerCase()}`;
+    : `${competition.source} suggest a ${competition.label.toLowerCase()} market`;
 
   return `Driven by ${positiveDrivers.join(" and ")}${drag ? `; watch ${drag}` : ""}. Competition: ${competitionCopy}.`;
 }
@@ -1171,15 +1168,15 @@ function renderOpportunities(profile) {
   const recommendations = buildRecommendations(profile).slice(0, 5);
   const liveCompetition = currentBusinessResult()?.registryExact;
   elements.opportunitySource.textContent = liveCompetition
-    ? "Live competition + estimates"
-    : "Estimate, needs live check";
+    ? "Verified signals + model ranges"
+    : "Directional model";
   elements.opportunityList.innerHTML = recommendations
     .map((item) => {
       const profit = estimateMonthlyProfit(item, profile);
       const competition = opportunityCompetition(state.zip, item.business, profile);
       const risk = item.score >= 72 ? "Good fit" : item.score >= 58 ? "Selective" : "Risky";
-      const scoreType = competition.source.includes("live") ? "live-adjusted" : "area-adjusted";
-      const confidence = competition.source.includes("live") ? "Confidence: medium/high" : "Confidence: low/medium";
+      const scoreType = competition.source.includes("verified") ? "signal-adjusted" : "area-adjusted";
+      const confidence = competition.source.includes("verified") ? "Confidence: medium/high" : "Confidence: low/medium";
       return `
         <article class="opportunity-item">
           <div>
@@ -1206,8 +1203,8 @@ function renderCategoryList(recommendations) {
   const liveCompetition = currentBusinessResult()?.registryExact;
 
   elements.categorySource.textContent = liveCompetition
-    ? `Live-adjusted for ${currentBusinessResult().business}`
-    : "Area model, waiting for live check";
+    ? `Signal-adjusted for ${currentBusinessResult().business}`
+    : "Directional area model";
   elements.categoryList.innerHTML = visibleRecommendations
     .map(
       (item) => `
@@ -1225,15 +1222,15 @@ function renderCategoryList(recommendations) {
 
 function renderTopPlaces(result) {
   const places = result?.googlePlaces?.topPlaces || [];
-  elements.placesTitle.textContent = `Top reviewed ${result?.business || state.business} places`;
+  elements.placesTitle.textContent = `Best nearby competitive examples`;
   elements.placesSource.textContent = result?.searchContext?.mode === "address-radius"
-    ? `Google within ${result.searchContext.radiusMiles} mi`
-    : result?.googlePlaces ? "Google top results" : "Waiting for Google Places";
+    ? `Competitive Signals · ${result.searchContext.radiusMiles} mi`
+    : result?.googlePlaces ? "Competitive Signals" : "Waiting for competitive signals";
 
   if (!places.length) {
     elements.placesList.innerHTML = `
       <article class="empty-places">
-        <strong>No Google Places matches yet</strong>
+        <strong>No competitive examples yet</strong>
         <p>Try a common term like pizza, deli, cafe, gym, or laundromat.</p>
       </article>
     `;
@@ -1295,20 +1292,20 @@ function renderMarketPulse(profile) {
 }
 
 function renderCivicLoading() {
-  elements.civicSource.textContent = state.location ? "NYC Open Data + address radius" : "NYC Open Data by ZIP";
+  elements.civicSource.textContent = state.location ? "Local activity + address radius" : "Local Market Activity";
   elements.complaintLevel.textContent = "Checking";
-  elements.complaintCopy.textContent = "Loading recent 311 complaints.";
+  elements.complaintCopy.textContent = "Loading recent quality-of-life signals.";
   elements.complaintTypes.innerHTML = "";
   elements.permitLevel.textContent = "Checking";
-  elements.permitCopy.textContent = "Loading DOB permit records.";
+  elements.permitCopy.textContent = "Loading development activity.";
   elements.permitTypes.innerHTML = "";
 }
 
 function miniList(items) {
-  if (!items?.length) return "<span>No records returned</span>";
+  if (!items?.length) return "<span>No verified signal returned</span>";
   return items
     .slice(0, 4)
-    .map((item) => `<span>${item.type}: ${Number(item.count || 0).toLocaleString()}</span>`)
+    .map((item) => `<span>${item.type}</span>`)
     .join("");
 }
 
@@ -1319,15 +1316,15 @@ function renderCivicSignals(data) {
     : `in ZIP ${data.zip}`;
 
   elements.civicSource.textContent = data.searchContext?.mode === "address-radius"
-    ? `311 radius + DOB ZIP`
-    : "ZIP-level records";
-  elements.complaintLevel.textContent = `${data.complaints.level} 311 volume`;
+    ? "Address radius + area signal"
+    : "Area-level signals";
+  elements.complaintLevel.textContent = `${data.complaints.level} local activity`;
   elements.complaintCopy.textContent =
-    `${data.complaints.total180Days.toLocaleString()} 311 requests ${radiusText} in the last 180 days. Use this as a quality-of-life risk signal, not a foot-traffic count.`;
+    `Recent quality-of-life signal ${radiusText}. Use this as a risk indicator, not a foot-traffic count.`;
   elements.complaintTypes.innerHTML = miniList(data.complaints.topTypes);
   elements.permitLevel.textContent = `${data.permits.level} permit activity`;
   elements.permitCopy.textContent =
-    `${data.permits.totalRecords.toLocaleString()} DOB permit records in ZIP ${data.zip}. This shows construction/development intensity, not current availability.`;
+    `Development activity signal in ZIP ${data.zip}. This shows area momentum, not current availability.`;
   elements.permitTypes.innerHTML = miniList(data.permits.topTypes);
 
   const profile = profileForZip(state.zip);
@@ -1356,18 +1353,18 @@ async function renderCivicCheck() {
     if (requestId !== state.civicRequestId) return;
     state.lastCivicResult = null;
     elements.complaintLevel.textContent = "Unavailable";
-    elements.complaintCopy.textContent = "311 lookup failed. Try again after checking the NYC Open Data connection.";
+    elements.complaintCopy.textContent = "Quality-of-life signal lookup failed. Try again later.";
     elements.permitLevel.textContent = "Unavailable";
-    elements.permitCopy.textContent = "DOB lookup failed. Try again after checking the NYC Open Data connection.";
+    elements.permitCopy.textContent = "Development activity lookup failed. Try again later.";
   }
 }
 
 function renderConceptLoading() {
-  elements.conceptSource.textContent = state.location ? "Address radius" : "ZIP-level scan";
+  elements.conceptSource.textContent = state.location ? "Address radius" : "Area concept scan";
   elements.conceptFitList.innerHTML = `
     <article class="empty-places">
       <strong>Checking cuisine gaps</strong>
-      <p>AreaIntel is comparing Google Places visibility with NYC restaurant cuisine records.</p>
+      <p>AreaIntel is comparing competitive visibility with local restaurant activity.</p>
     </article>
   `;
 }
@@ -1385,13 +1382,13 @@ function renderConceptFit(data) {
   state.lastConceptFitResult = data;
   const concepts = Array.isArray(data.concepts) ? data.concepts : [];
   elements.conceptSource.textContent = data.searchContext?.mode === "address-radius"
-    ? `Google + NYC records · ${data.searchContext.radiusMiles} mi`
-    : "Google + NYC records";
+    ? `Competitive Signals · ${data.searchContext.radiusMiles} mi`
+    : "Competitive Signals";
 
   if (!concepts.length) {
     elements.conceptFitList.innerHTML = `
       <article class="empty-places">
-        <strong>No cuisine data returned</strong>
+        <strong>No concept signal returned</strong>
         <p>Try checking a specific restaurant type in the Business Checker.</p>
       </article>
     `;
@@ -1401,13 +1398,13 @@ function renderConceptFit(data) {
   elements.conceptFitList.innerHTML = concepts.slice(0, 6).map((concept) => {
     const topNames = concept.topNames?.length
       ? concept.topNames.slice(0, 3).map(escapeText).join(", ")
-      : "No top Google matches returned";
+      : "No visible examples returned";
     return `
       <article class="concept-card concept-${concept.tone}">
         <div>
           <span class="signal-label">${escapeText(concept.verdict)}</span>
           <h4>${escapeText(concept.label)}</h4>
-          <p>${concept.cityCount.toLocaleString()} NYC cuisine records · ${concept.googleCount} Google-visible matches${concept.avgRating ? ` · ${concept.avgRating} avg rating` : ""}</p>
+          <p>${concept.verdict} competitive intensity${concept.avgRating ? ` · ${concept.avgRating} average rating signal` : ""}</p>
           <small>Visible examples: ${topNames}</small>
         </div>
         <strong>${concept.score}</strong>
@@ -1444,27 +1441,27 @@ async function renderRestaurantConceptFit() {
     elements.conceptFitList.innerHTML = `
       <article class="empty-places">
         <strong>Concept fit unavailable</strong>
-        <p>Google Places or NYC Open Data did not return concept data right now.</p>
+        <p>Competitive and local activity signals did not return concept data right now.</p>
       </article>
     `;
   }
 }
 
 function renderSiteIntelLoading() {
-  elements.siteIntelSource.textContent = state.location ? "Address + ZIP sources" : "ZIP-level sources";
+  elements.siteIntelSource.textContent = state.location ? "Address + area signals" : "Area-level signals";
   elements.sidewalkLevel.textContent = "Checking";
-  elements.sidewalkCopy.textContent = "Loading sidewalk cafe records.";
+  elements.sidewalkCopy.textContent = "Loading outdoor dining activity.";
   elements.sidewalkTypes.innerHTML = "";
   elements.liquorLevel.textContent = "Checking";
-  elements.liquorCopy.textContent = "Loading NYS liquor license records.";
+  elements.liquorCopy.textContent = "Loading license activity.";
   elements.liquorTypes.innerHTML = "";
   elements.mtaLevel.textContent = state.location ? "Checking" : "Needs address";
   elements.mtaCopy.textContent = state.location
-    ? "Loading nearby station ridership."
-    : "Enter an exact address to calculate nearby subway ridership.";
+    ? "Loading nearby mobility signal."
+    : "Enter an exact address to calculate nearby mobility signal.";
   elements.mtaTypes.innerHTML = "";
   elements.plutoLevel.textContent = "Checking";
-  elements.plutoCopy.textContent = "Loading tax-lot land-use mix.";
+  elements.plutoCopy.textContent = "Loading property mix.";
   elements.plutoTypes.innerHTML = "";
 }
 
@@ -1475,39 +1472,39 @@ function numberLabel(value) {
 function renderSiteIntelligence(data) {
   state.lastSiteIntelResult = data;
   elements.siteIntelSource.textContent = data.searchContext?.mode === "address-radius"
-    ? "Address radius + ZIP"
-    : "ZIP-level sources";
+    ? "Address radius + area"
+    : "Area-level signals";
 
-  elements.sidewalkLevel.textContent = `${numberLabel(data.sidewalkCafe.active)} active cafe records`;
+  elements.sidewalkLevel.textContent = data.sidewalkCafe.active > 20 ? "Strong outdoor dining signal" : data.sidewalkCafe.active > 5 ? "Moderate outdoor dining signal" : "Limited outdoor dining signal";
   elements.sidewalkCopy.textContent =
-    `${numberLabel(data.sidewalkCafe.totalApplications)} sidewalk cafe license/application records in ZIP ${data.zip}. Useful for outdoor dining fit, not a full restaurant count.`;
+    `Outdoor dining activity in ZIP ${data.zip}. Useful for restaurant fit, not a full restaurant count.`;
   elements.sidewalkTypes.innerHTML = miniList(
     data.sidewalkCafe.statusBreakdown.map((item) => ({ type: item.status, count: item.count }))
   );
 
-  elements.liquorLevel.textContent = `${numberLabel(data.liquor.total)} active liquor licenses`;
+  elements.liquorLevel.textContent = data.liquor.total > 80 ? "High license activity" : data.liquor.total > 25 ? "Moderate license activity" : "Limited license activity";
   elements.liquorCopy.textContent =
-    `Liquor license records ${data.liquor.scope}. Useful for restaurant/bar saturation and nightlife compatibility.`;
+    `License activity ${data.liquor.scope}. Useful for restaurant/bar saturation and nightlife compatibility.`;
   elements.liquorTypes.innerHTML = miniList(data.liquor.topTypes);
 
   if (data.mta.available) {
-    elements.mtaLevel.textContent = `${numberLabel(data.mta.totalDecember2024Ridership)} subway rides`;
+    elements.mtaLevel.textContent = data.mta.totalDecember2024Ridership > 250000 ? "Strong mobility signal" : "Moderate mobility signal";
     elements.mtaCopy.textContent =
-      `Estimated December 2024 station ridership ${data.mta.scope}. Use as a transit foot-traffic proxy.`;
+      `Nearby transit activity ${data.mta.scope}. Use as a mobility proxy, not exact foot traffic.`;
     elements.mtaTypes.innerHTML = data.mta.topStations
       .slice(0, 4)
-      .map((item) => `<span>${item.station}: ${numberLabel(item.ridership)}</span>`)
+      .map((item) => `<span>${item.station}</span>`)
       .join("");
   } else {
     elements.mtaLevel.textContent = "Needs address";
     elements.mtaCopy.textContent = data.mta.scope;
-    elements.mtaTypes.innerHTML = "<span>Use exact storefront search</span>";
+    elements.mtaTypes.innerHTML = "<span>Use exact address search</span>";
   }
 
-  elements.plutoLevel.textContent = `${numberLabel(data.pluto.taxLots)} tax lots`;
+  elements.plutoLevel.textContent = data.pluto.retailArea > 500000 ? "Strong retail property base" : data.pluto.retailArea > 150000 ? "Moderate retail property base" : "Limited retail property base";
   const averageYearBuilt = data.pluto.averageYearBuilt >= 1800 ? data.pluto.averageYearBuilt : "n/a";
   elements.plutoCopy.textContent =
-    `${numberLabel(data.pluto.retailArea)} sq ft retail area, ${numberLabel(data.pluto.commercialArea)} sq ft commercial area, average year built ${averageYearBuilt}.`;
+    `Property mix suggests ${data.pluto.retailArea > 150000 ? "meaningful" : "limited"} retail/commercial capacity; average building age signal ${averageYearBuilt}.`;
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
 
   const profile = profileForZip(state.zip);
@@ -1542,7 +1539,7 @@ const leaseConceptModels = {
   retail: { label: "Retail", rentShare: [0.08, 0.12], buildoutPerSf: [60, 140], note: "Retail can usually tolerate a moderate rent share if frontage and visibility are strong." },
   cafe: { label: "Cafe", rentShare: [0.08, 0.12], buildoutPerSf: [120, 250], note: "Cafe economics depend heavily on morning flow, repeat customers, and labor control." },
   medical: { label: "Medical", rentShare: [0.07, 0.11], buildoutPerSf: [110, 240], note: "Medical users can pay for access and household income, but appointment demand must be proven." },
-  office: { label: "Office", rentShare: [0.07, 0.1], buildoutPerSf: [50, 130], note: "Office fit depends more on layout, access, and tenant credit than walk-in demand." },
+  office: { label: "Office", rentShare: [0.07, 0.1], buildoutPerSf: [50, 130], note: "Office fit depends more on layout, access, and operator credit than walk-in demand." },
   industrial: { label: "Industrial", rentShare: [0.05, 0.09], buildoutPerSf: [40, 120], note: "Industrial fit depends on loading, access, ceiling height, and logistics." },
   restaurant: { label: "Restaurant", rentShare: [0.06, 0.1], buildoutPerSf: [250, 550], note: "General restaurant economics need strong sales because kitchen buildout and labor are heavy." },
   "full-service": { label: "Full-service restaurant", rentShare: [0.06, 0.09], buildoutPerSf: [300, 650], note: "Full-service needs higher check average, staff discipline, liquor fit, and strong dinner/weekend demand." },
@@ -1590,7 +1587,7 @@ function leaseFitMath(lease, profile) {
   let tone = "unknown";
   if (salesRatio !== null) {
     if (salesRatio <= targetLow) {
-      verdict = "Strong lease fit";
+      verdict = "Strong cost fit";
       tone = "good";
     } else if (salesRatio <= targetHigh) {
       verdict = "Workable but tight";
@@ -1652,8 +1649,8 @@ function leaseFitLabel(lease, profile) {
 }
 
 function listingSearchText() {
-  if (state.location?.address) return `${state.location.address} retail space for lease`;
-  return `retail storefront space for lease ${state.zip} NYC`;
+  if (state.location?.address) return `${state.location.address} retail storefront availability`;
+  return `retail storefront availability ${state.zip} NYC`;
 }
 
 function quickSearchUrl(source, zip) {
@@ -1663,7 +1660,7 @@ function quickSearchUrl(source, zip) {
     loopnet: platformQuery("loopnet.com", "retail space for lease"),
     commercialCafe: platformQuery("commercialcafe.com", "retail space for lease"),
     storefront: platformQuery("thestorefront.com", "retail pop up space"),
-    crexi: platformQuery("crexi.com/lease", "retail lease"),
+    crexi: platformQuery("crexi.com/lease", "retail availability"),
     craigslist: `https://newyork.craigslist.org/search/off?query=${query}`,
     google: `https://www.google.com/search?q=${query}`
   };
@@ -1673,11 +1670,11 @@ function quickSearchUrl(source, zip) {
 function renderLeaseSearchLinks() {
   const links = [
     ["LoopNet", "Broker listings", quickSearchUrl("loopnet", state.zip)],
-    ["CommercialCafe", "Retail lease search", quickSearchUrl("commercialCafe", state.zip)],
+    ["CommercialCafe", "Retail availability search", quickSearchUrl("commercialCafe", state.zip)],
     ["Storefront", "Pop-up / short-term", quickSearchUrl("storefront", state.zip)],
     ["Crexi", "Commercial listings", quickSearchUrl("crexi", state.zip)],
     ["Craigslist", "Owner / local posts", quickSearchUrl("craigslist", state.zip)],
-    ["Google", "Broad web search", quickSearchUrl("google", state.zip)]
+    ["Broad web search", "General public listings", quickSearchUrl("google", state.zip)]
   ];
 
   elements.listingSearchContext.textContent = state.location?.address
@@ -1719,7 +1716,7 @@ function renderListingResults(result) {
       const title = listing.title || "Listing source";
       const source = listing.source || "Web result";
       const url = listing.url || "#";
-      const snippet = listing.snippet || "Open this source and confirm rent, size, and availability with the broker.";
+      const snippet = listing.snippet || "Open this source and confirm cost, size, and availability with the listing contact.";
       return `
         <article class="listing-result-card">
           <div>
@@ -1769,7 +1766,7 @@ async function findAvailableSpaces() {
     });
   } finally {
     elements.listingFinderButton.disabled = false;
-    elements.listingFinderButton.textContent = "Find available spaces";
+  elements.listingFinderButton.textContent = "Find available locations";
   }
 }
 
@@ -1781,7 +1778,7 @@ function renderLeases() {
   if (!leases.length) {
     elements.leaseList.innerHTML = `
       <article class="empty-places">
-        <strong>No saved spaces for ZIP ${state.zip} yet</strong>
+        <strong>No saved locations for ZIP ${state.zip} yet</strong>
         <p>Add a listing manually, or use the quick links to search public listing sites.</p>
       </article>
     `;
@@ -1810,7 +1807,7 @@ function renderLeases() {
             <h4>${lease.address}</h4>
             <p>${lease.use}${lease.concept ? ` · ${conceptLabel}` : ""} · ${sf ? `${sf.toLocaleString()} SF` : "SF unknown"} · ${rent ? `$${rent.toLocaleString()}/mo` : "Rent unknown"}</p>
             <div class="lease-fit-grid">
-              <span><strong>${fit}</strong><small>Lease fit</small></span>
+              <span><strong>${fit}</strong><small>Cost fit</small></span>
               <span><strong>${neededSales}</strong><small>Sales needed</small></span>
               <span><strong>${ratio}</strong><small>Rent-to-sales</small></span>
               <span><strong>${perSfYear}</strong><small>Annual rent/SF</small></span>
@@ -1946,13 +1943,13 @@ async function renderSiteIntelCheck() {
     if (requestId !== state.siteIntelRequestId) return;
     state.lastSiteIntelResult = null;
     elements.sidewalkLevel.textContent = "Unavailable";
-    elements.sidewalkCopy.textContent = "Sidewalk cafe lookup failed.";
+    elements.sidewalkCopy.textContent = "Outdoor dining activity lookup failed.";
     elements.liquorLevel.textContent = "Unavailable";
-    elements.liquorCopy.textContent = "Liquor license lookup failed.";
+    elements.liquorCopy.textContent = "License activity lookup failed.";
     elements.mtaLevel.textContent = "Unavailable";
-    elements.mtaCopy.textContent = "MTA ridership lookup failed.";
+    elements.mtaCopy.textContent = "Mobility signal lookup failed.";
     elements.plutoLevel.textContent = "Unavailable";
-    elements.plutoCopy.textContent = "PLUTO property lookup failed.";
+    elements.plutoCopy.textContent = "Property mix lookup failed.";
   }
 }
 
@@ -1996,10 +1993,10 @@ function decisionFor(profile, recommendations, businessResult) {
 
   if (analysis.decision === "OPEN") {
     return {
-      answer: "Open if lease checks out",
+      answer: "Recommended with conditions",
       copy: `${titleCase(state.business)} has a ${analysis.successProbability}/100 success probability screen with enough evidence to support a qualified recommendation.`,
-      next: "Price the lease",
-      nextCopy: "Ask for rent, frontage, term, buildout cost, and expected monthly sales before final advice."
+      next: "Verify economics",
+      nextCopy: "Ask for location cost, frontage, commitment terms, buildout cost, and expected monthly sales before final advice."
     };
   }
 
@@ -2008,7 +2005,7 @@ function decisionFor(profile, recommendations, businessResult) {
       answer: "Insufficient data",
       copy: "AreaIntel does not have enough independent evidence yet to recommend this business for the area.",
       next: "Load more evidence",
-      nextCopy: "Use an exact storefront address, check the business category, and verify lease terms before advising a client."
+      nextCopy: "Use an exact address, check the business category, and verify location economics before advising a client."
     };
   }
 
@@ -2025,7 +2022,7 @@ function decisionFor(profile, recommendations, businessResult) {
     answer: "Don't open yet",
     copy: `${titleCase(state.business)} does not currently clear the success threshold for this location.`,
     next: "Find a better fit",
-    nextCopy: "Look for a stronger customer base, lower rent pressure, or a clearer gap in competition."
+    nextCopy: "Look for a stronger customer base, lower cost pressure, or a clearer gap in competition."
   };
 }
 
@@ -2038,7 +2035,7 @@ function confidenceFor(zip, businessResult) {
   if (sourceCount === 3) {
     return {
       label: "Strong",
-      copy: "Census demographics, observed business records, and Google Places visibility are connected."
+      copy: "Market demographics, observed local activity, and competitive visibility are connected."
     };
   }
 
@@ -2136,37 +2133,37 @@ function buildBusinessSuccessModel(profile, recommendations) {
     {
       name: "Demand",
       value: demandScore,
-      why: "FACT/INFERENCE from category demand, existing activity, Google review momentum, density, transit, office, tourism, nightlife, and student signals."
+      why: "Verified Signals / Model Insights from category demand, existing activity, review momentum, density, mobility, office, tourism, nightlife, and student signals."
     },
     {
       name: "Customer fit",
       value: customerFitScore,
-      why: "FACT/INFERENCE from population profile, income, households, education proxy, lifestyle fit, local preference, and business category compatibility."
+      why: "Verified Signals / Model Insights from population profile, income, households, education proxy, lifestyle fit, local preference, and business category compatibility."
     },
     {
       name: "Competition",
       value: competitionScore,
-      why: `${businessResult?.registryExact ? "FACT from live city records plus Google visibility" : "ESTIMATE until live business check finishes"}; market appears ${competitionCondition(competitionScore)}.`
+      why: `${businessResult?.registryExact ? "Verified Signals from local activity and competitive visibility" : "Estimated Factors until live business check finishes"}; market appears ${competitionCondition(competitionScore)}.`
     },
     {
       name: "Location quality",
       value: locationScore,
-      why: "INFERENCE from transit access, walkability proxy, street density, office pull, retail property area, and exact-address context when provided."
+      why: "Model Insights from mobility access, walkability proxy, street density, office pull, property mix, and exact-address context when provided."
     },
     {
       name: "Financial viability",
       value: financialScore,
-      why: "ESTIMATE from rent pressure, income support, category rent sensitivity, margin potential, and likely operating difficulty."
+      why: "Estimated Factors from cost pressure, income support, category sensitivity, margin potential, and likely operating difficulty."
     },
     {
       name: "Area momentum",
       value: growthScore,
-      why: "FACT/INFERENCE from permits, construction/development signal, property base, density, transit access, and local economic activity."
+      why: "Verified Signals / Model Insights from development activity, property base, density, mobility access, and local economic activity."
     },
     {
       name: "Risk",
       value: riskScore,
-      why: "ESTIMATE where higher means safer risk-adjusted conditions after rent, saturation, civic complaints, transit weakness, and ZIP-level uncertainty."
+      why: "Estimated Factors where higher means safer risk-adjusted conditions after cost pressure, saturation, local friction, mobility weakness, and area-level uncertainty."
     }
   ]};
 }
@@ -2184,31 +2181,31 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const concepts = Boolean(conceptFitResult?.concepts?.length);
   const address = Boolean(state.location);
   const sources = [
-    liveProfile && "Census ACS ZIP profile",
-    liveBusiness && "NYC Open Data observed business records",
-    google && "Google Places visibility",
-    civic && "NYC 311 and DOB permit risk records",
-    siteIntel && "Sidewalk cafe, liquor, MTA, and PLUTO site intelligence",
-    concepts && "Restaurant cuisine concept fit scan",
+    liveProfile && "Market Demographics",
+    liveBusiness && "Local Market Activity",
+    google && "Competitive Signals",
+    civic && "Risk and Development Signals",
+    siteIntel && "Mobility and Property Signals",
+    concepts && "Concept Fit Scan",
     address && "Exact address/radius context"
   ].filter(Boolean);
   const missing = [
-    !liveProfile && "Fresh Census ZIP demographics not loaded yet",
-    !liveBusiness && "Live observed competitor count not confirmed yet",
-    !google && "Google Places ratings/reviews not confirmed yet",
-    !civic && "311 complaint and DOB permit risk signals not loaded yet",
-    !siteIntel && "Sidewalk cafe, liquor, MTA, and PLUTO site signals not loaded yet",
+    !liveProfile && "Fresh market demographics not loaded yet",
+    !liveBusiness && "Observed local activity not confirmed yet",
+    !google && "Competitive ratings/review visibility not confirmed yet",
+    !civic && "Risk and development signals not loaded yet",
+    !siteIntel && "Mobility and property signals not loaded yet",
     !concepts && "Restaurant cuisine concept scan not loaded yet",
-    !address && "Exact storefront address, frontage, rent, and block visibility missing",
-    "True foot traffic, dwell time, parking, lease terms, and operator financials are not directly verified"
+    !address && "Exact address, frontage, cost, and block visibility missing",
+    "True foot traffic, dwell time, parking, location cost, and operator financials are not directly verified"
   ].filter(Boolean);
   const conflicts = [];
   if (businessResult?.openDataCount > 0 && businessResult?.googleVisibleCount > 0) {
     const ratio = Math.max(businessResult.openDataCount, businessResult.googleVisibleCount) / Math.max(1, Math.min(businessResult.openDataCount, businessResult.googleVisibleCount));
-    if (ratio >= 4) conflicts.push("City record count and Google-visible count differ materially; treat saturation as directional.");
+    if (ratio >= 4) conflicts.push("Competitive signal sources disagree materially; treat saturation as directional.");
   }
   if (civicResult?.complaints?.level === "High" && profile.rent >= 78) {
-    conflicts.push("High complaint volume plus high rent pressure raises execution risk.");
+    conflicts.push("High local friction plus high cost pressure raises execution risk.");
   }
 
   const completeness = Math.max(20, Math.min(96, 28 + sources.length * 9 + (address ? 7 : 0) - conflicts.length * 7));
@@ -2220,17 +2217,17 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const riskScoreItem = scores.find((item) => item.name === "Risk");
   if (civicResult?.complaints?.level === "High") {
     riskScoreItem.value = Math.max(0, riskScoreItem.value - 8);
-    riskScoreItem.why = `${riskScoreItem.why} FACT: 311 volume is high in the selected area.`;
+    riskScoreItem.why = `${riskScoreItem.why} Verified Signals: local friction is high in the selected area.`;
   }
   if (siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000) {
     const demand = scores.find((item) => item.name === "Demand");
     demand.value = Math.min(100, demand.value + 6);
-    demand.why = `${demand.why} FACT: nearby MTA ridership is strong.`;
+    demand.why = `${demand.why} Verified Signals: nearby mobility is strong.`;
   }
   if (siteIntelResult?.pluto?.retailArea > 500000) {
     const location = scores.find((item) => item.name === "Location quality");
     location.value = Math.min(100, location.value + 5);
-    location.why = `${location.why} FACT: PLUTO shows meaningful retail square footage in the ZIP.`;
+    location.why = `${location.why} Verified Signals: the area has meaningful retail property capacity.`;
   }
   const opportunityScore = clampScore(
     scores.find((item) => item.name === "Demand").value * businessSuccessWeights.demand +
@@ -2265,56 +2262,56 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const requiredTraffic = profile.transit >= 80 || state.location ? "prove block-level walk-in traffic during lunch, evening, and weekend windows" : "prove repeat local customer demand because transit pull is limited";
   const marginCondition = ["restaurant", "pizza", "deli", "cafe"].includes(successModel.business)
     ? "restaurant concept must show labor, food cost, delivery, and rent economics before recommendation"
-    : "tenant must show enough gross margin to survive slow months and marketing ramp";
+    : "business must show enough gross margin to survive slow months and marketing ramp";
   const conditions = [
-    `Max rent: ${maxRentShare} ESTIMATE`,
-    `Minimum revenue: ${moneyRange(revenueBase * demandMultiplier * 0.68, revenueBase * demandMultiplier * 1.02)}/mo base-case ESTIMATE`,
+    `Maximum location cost: ${maxRentShare} estimated factor`,
+    `Minimum revenue: ${moneyRange(revenueBase * demandMultiplier * 0.68, revenueBase * demandMultiplier * 1.02)}/mo base-case estimated factor`,
     `Target customer: ${profile.audience?.[2]?.[1] || "local customers that match the business category"}`,
-    `Store size: use the lease calculator; smaller footprint is safer when rent pressure is high`,
+    `Store size: use the unit economics calculator; smaller footprint is safer when cost pressure is high`,
     `Operational assumptions: ${marginCondition}`,
     `Minimum demand: ${requiredTraffic}`,
     "Operator quality: reviews, credit, execution history, and differentiation must be verified",
-    "Site diligence: confirm frontage, signage, venting, loading, ADA, zoning/use, and lease term"
+    "Site diligence: confirm frontage, signage, venting, loading, ADA, zoning/use, and commitment terms"
   ];
   const topRisks = [
-    profile.rent >= 78 && "High rent pressure can erase demand advantage",
+    profile.rent >= 78 && "High cost pressure can erase demand advantage",
     successModel.competitionPressure >= 78 && `Direct competition is ${successModel.condition}; saturation is elevated`,
     !address && "ZIP-level view may hide weak side-street conditions",
-    !google && "Google review/rating visibility is not confirmed",
+    !google && "Competitive review/rating visibility is not confirmed",
     civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
-    "Operator financials and exact lease economics are not verified"
+    "Operator financials and exact location economics are not verified"
   ].filter(Boolean);
   const explainability = [
     {
-      type: "FACT",
+      type: "Verified Signals",
       items: [
         liveProfile
-          ? `Census ACS profile loaded for ZIP ${state.zip}: ${profile.name}.`
-          : "Fresh Census profile is not loaded yet.",
+          ? `Market demographics loaded for ZIP ${state.zip}: ${profile.name}.`
+          : "Fresh market demographics are not loaded yet.",
         liveBusiness
-          ? `NYC records found ${businessResult.count.toLocaleString()} observed ${businessResult.business} matches.`
-          : "Observed city-record competition is not confirmed yet.",
+          ? `Local market activity confirms observed ${businessResult.business} competition.`
+          : "Observed local competition is not confirmed yet.",
         google
-          ? `Google Places returned ${businessResult.googleVisibleCount || 0} visible search results.`
-          : "Google review visibility is not confirmed yet.",
+          ? `Competitive visibility and review signals are connected.`
+          : "Competitive review visibility is not confirmed yet.",
         civic
-          ? `NYC civic records show ${civicResult.complaints.total180Days.toLocaleString()} recent 311 requests and ${civicResult.permits.totalRecords.toLocaleString()} permit records.`
-          : "311 and DOB source checks are pending."
+          ? `Local risk and development signals are connected.`
+          : "Risk and development signal checks are pending."
       ]
     },
     {
-      type: "INFERENCE",
+      type: "Model Insights",
       items: [
         `${titleCase(successModel.business)} demand is inferred from density, transit, office pull, nightlife, tourism, student, customer profile, category demand, and review momentum.`,
-        `Competition pressure is inferred by comparing observed business records, Google visibility, and category saturation.`,
+        `Competition pressure is inferred by comparing local activity, competitive visibility, and category saturation.`,
         `Local-vs-chain fit is inferred from income, renter profile, category type, and observed market structure.`
       ]
     },
     {
-      type: "ESTIMATE",
+      type: "Estimated Factors",
       items: [
         `Scenario revenue and failure probability are screening estimates, not verified operator financials.`,
-        `Max rent guidance is estimated from category economics and area rent pressure.`,
+        `Maximum location cost guidance is estimated from category economics and area cost pressure.`,
         `Success probability is weighted as Demand 25%, Customer Fit 20%, Competition 15%, Financial 15%, Location 10%, Growth 10%, Risk 5%.`
       ]
     }
@@ -2326,11 +2323,11 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Location: ${state.location ? `${state.location.address} within ${state.location.radiusMiles} mi` : `ZIP ${state.zip} - ${profile.name}`}`,
       `Demographics: density ${profile.density}/100, income ${profile.income}/100, families ${profile.families}/100, student ${profile.student}/100`,
       `Mobility/demand: transit ${profile.transit}/100, office ${profile.office}/100, nightlife ${profile.nightlife}/100, tourist ${profile.tourist}/100`,
-      `Competition: ${businessResult?.registryExact ? `${businessResult.count.toLocaleString()} observed ${businessResult.business} records` : `modeled ZIP competition ${profile.competition}/100`}`,
-      `Real estate pressure: rent pressure ${profile.rent}/100`,
-      `Consumer signal: ${google ? `${businessResult.googleVisibleCount || 0} Google-visible matches` : "Google Places not confirmed yet"}`,
-      `Risk inputs: ${civic ? `${civicResult.complaints.total180Days.toLocaleString()} recent 311 requests and ${civicResult.permits.totalRecords.toLocaleString()} DOB permit records` : "Civic risk sources not loaded yet"}`,
-      `Mobility/real estate: ${siteIntel ? `${siteIntelResult.mta.available ? `${siteIntelResult.mta.totalDecember2024Ridership.toLocaleString()} nearby subway rides; ` : ""}${siteIntelResult.pluto.retailArea.toLocaleString()} retail sq ft in PLUTO` : "Site intelligence sources not loaded yet"}`
+      `Competition: ${businessResult?.registryExact ? `observed ${businessResult.business} market activity connected` : `modeled area competition ${profile.competition}/100`}`,
+      `Cost pressure: ${profile.rent}/100`,
+      `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility not confirmed yet"}`,
+      `Risk inputs: ${civic ? "local risk and development signals connected" : "risk sources not loaded yet"}`,
+      `Mobility/property: ${siteIntel ? "mobility and property signals connected" : "site intelligence sources not loaded yet"}`
     ],
     validation: {
       completeness,
@@ -2347,8 +2344,8 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     confidenceScore,
     decision,
     summary: decision === "INSUFFICIENT DATA"
-      ? "INSUFFICIENT DATA: AreaIntel needs more independent evidence before a final lease recommendation."
-      : `${titleCase(successModel.business)} has a ${opportunityScore}/100 success probability screen in this area. Final advice still depends on exact rent, frontage, operator strength, and block visibility.`,
+      ? "INSUFFICIENT DATA: AreaIntel needs more independent evidence before a final recommendation."
+      : `${titleCase(successModel.business)} has a ${opportunityScore}/100 success probability screen in this area. Final advice still depends on exact cost, frontage, operator strength, and block visibility.`,
     topRecommendation: {
       name: titleCase(successModel.business),
       score: opportunityScore
@@ -2364,23 +2361,23 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       {
         name: "BEST CASE",
         traffic: "High repeat traffic with strong operator execution",
-        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.95, revenueBase * demandMultiplier * 1.35)}/mo ESTIMATE`,
-        breakeven: "6-12 months ESTIMATE",
-        failure: `${Math.max(8, failureBase - 16)}% ESTIMATE`
+        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.95, revenueBase * demandMultiplier * 1.35)}/mo estimated factor`,
+        breakeven: "6-12 months estimated factor",
+        failure: `${Math.max(8, failureBase - 16)}% estimated factor`
       },
       {
         name: "BASE CASE",
         traffic: "Normal neighborhood demand with some direct competition",
-        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.68, revenueBase * demandMultiplier * 1.02)}/mo ESTIMATE`,
-        breakeven: "12-24 months ESTIMATE",
-        failure: `${failureBase}% ESTIMATE`
+        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.68, revenueBase * demandMultiplier * 1.02)}/mo estimated factor`,
+        breakeven: "12-24 months estimated factor",
+        failure: `${failureBase}% estimated factor`
       },
       {
         name: "WORST CASE",
         traffic: "Weak conversion, high rent drag, or saturated category",
-        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.38, revenueBase * demandMultiplier * 0.65)}/mo ESTIMATE`,
-        breakeven: "24+ months or never ESTIMATE",
-        failure: `${Math.min(88, failureBase + 18)}% ESTIMATE`
+        revenue: `${moneyRange(revenueBase * demandMultiplier * 0.38, revenueBase * demandMultiplier * 0.65)}/mo estimated factor`,
+        breakeven: "24+ months or never estimated factor",
+        failure: `${Math.min(88, failureBase + 18)}% estimated factor`
       }
     ]
   };
@@ -2423,7 +2420,7 @@ function renderInstitutionalAnalysis(profile, recommendations) {
   elements.missingDataList.innerHTML = missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("");
   elements.explainabilityList.innerHTML = analysis.explainability
     .map((group) => `
-      <article class="explainability-card explainability-${group.type.toLowerCase()}">
+      <article class="explainability-card explainability-${group.type.toLowerCase().replace(/[^a-z0-9]+/g, "-")}">
         <strong>${group.type}</strong>
         <ul>${group.items.map((item) => `<li>${escapeText(item)}</li>`).join("")}</ul>
       </article>
@@ -2451,7 +2448,7 @@ function renderDecisionStrip(profile, recommendations) {
 }
 
 function businessVerdictFor(score, profile, config) {
-  if (score >= 78 && profile.rent >= 78) return "Risky unless the tenant has a sharp niche.";
+  if (score >= 78 && profile.rent >= 78) return "Risky unless the operator has a sharp niche.";
   if (score >= 78) return "Possible, but competition is heavy.";
   if (score >= 58 && config.baseDemand >= 68) return "Good if the operator is stronger than average.";
   if (score < 38 && config.baseDemand >= 60) return "Potential gap worth validating.";
@@ -2476,10 +2473,10 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
     const hasOption = [...elements.restaurantType.options].some((option) => option.value === business);
     elements.restaurantType.value = hasOption ? business : "";
   }
-  elements.businessCount.textContent = loading ? "..." : String(count);
+  elements.businessCount.textContent = loading ? "..." : saturationLabel(saturation);
   elements.businessCountLabel.textContent = isLive
-    ? `city-record ${business} matches`
-    : `estimated ${business} matches`;
+    ? `${titleCase(business)} market pressure`
+    : `${titleCase(business)} directional pressure`;
   elements.businessSourceTags.innerHTML = sourceTagsForResult(result, isLive)
     .map((tag) => `<span>${tag}</span>`)
     .join("");
@@ -2492,15 +2489,15 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
       ? "Independent operators can compete here if they understand the neighborhood and price correctly."
       : mix === "Chain-friendly"
         ? "Recognized brands may have an advantage because customers can support familiar, consistent operators."
-        : "The winner depends more on reviews, visibility, price point, and lease terms than brand type.";
+        : "The winner depends more on reviews, visibility, price point, and site economics than brand type.";
   elements.businessVerdict.textContent = loading ? "Checking connected sources." : businessVerdictFor(saturation, profile, config);
-  elements.businessReason.textContent = `${titleCase(business)} demand: ${config.notes} ${sourceNote || (isLive ? "Observed source count." : "Modeled local estimate.")}`;
+  elements.businessReason.textContent = `${titleCase(business)} demand: ${config.notes} ${sourceNote || (isLive ? "Verified signals are connected." : "Modeled local estimate.")}`;
   elements.heroBusiness.textContent = loading
     ? `Checking ${titleCase(business)} demand`
-    : `${titleCase(business)} demand · ${count} city records`;
+    : `${titleCase(business)} demand · ${saturationLabel(saturation)} competition`;
   elements.heroSource.textContent = state.location
     ? `Address radius: ${state.location.radiusMiles} mi`
-    : isLive ? "City records + Google visibility" : "Modeled while live sources load";
+    : isLive ? "Verified market signals" : "Modeled while signals load";
   elements.heroMarket.textContent = `${saturationLabel(saturation)} competition`;
 }
 
@@ -2517,7 +2514,7 @@ async function renderBusinessCheck() {
     business,
     isLive: false,
     loading: true,
-    sourceNote: "Checking live NYC Open Data and Google Places now."
+    sourceNote: "Checking connected market signals now."
   });
 
   try {
@@ -2544,7 +2541,7 @@ async function renderBusinessCheck() {
         business: result.business || business,
         isLive: true,
         result,
-        sourceNote: `${result.note} ${result.sources?.length ? `Breakdown: ${result.sources.join("; ")}.` : ""}`
+        sourceNote: "Verified local activity and competitive signals are connected."
       });
       const updatedRecommendations = buildRecommendations(profile);
       renderDecisionStrip(profile, updatedRecommendations);
@@ -2564,7 +2561,7 @@ async function renderBusinessCheck() {
         business: result.business || business,
         isLive: true,
         result,
-        sourceNote: "Connected sources found no exact observed matches for this ZIP and search term. Try a broader term or verify the exact block."
+        sourceNote: "Connected sources found limited exact matches for this area and search term. Try a broader term or verify the exact block."
       });
       const updatedRecommendations = buildRecommendations(profile);
       renderDecisionStrip(profile, updatedRecommendations);
@@ -2631,7 +2628,7 @@ function chainFitCopy(profile) {
     return "Both can work here. National chains benefit from income and brand trust, while strong local operators can win with neighborhood identity and service quality.";
   }
   if (profile.chainFit >= 70) {
-    return "National chains have an advantage because customers can support higher prices and familiar brands. Local tenants need polished execution to compete.";
+    return "National chains have an advantage because customers can support higher prices and familiar brands. Local operators need polished execution to compete.";
   }
   if (profile.localPreference >= 76) {
     return "This area leans local. Customers are likely to reward useful neighborhood businesses, value, convenience, and community familiarity over generic chain concepts.";
@@ -2650,16 +2647,16 @@ function headlineFor(recommendations, profile) {
   const strong = recommendations.filter((item) => item.band === "strong").length;
   const highRisk = profile.rent > 82 || profile.competition > 82;
 
-  if (strong >= 4 && highRisk) return "Strong demand, but rent punishes weak operators.";
+  if (strong >= 4 && highRisk) return "Strong demand, but cost pressure punishes weak operators.";
   if (strong >= 4) return "Multiple categories show real neighborhood demand.";
   if (strong >= 2) return "Selective opportunities are stronger than broad retail bets.";
-  return "This area needs cautious, block-level validation before leasing.";
+  return "This area needs cautious, block-level validation before committing.";
 }
 
 function narrativeFor(zip, profile, recommendations) {
   const top = recommendations[0];
   const weak = [...recommendations].reverse()[0];
-  return `${zip} covers ${profile.name}. This looks like a ${profile.affluenceLabel.toLowerCase()} area. The strongest current fit is ${top.name.toLowerCase()} because the area scores well on the demand signals that category needs. The weakest modeled fit is ${weak.name.toLowerCase()}, mostly because its economics are less protected against this ZIP code's rent, competition, or customer profile. Treat this as a first-pass broker research memo, then verify the exact block, frontage, lease terms, and live competitor data before pitching a tenant.`;
+  return `${zip} covers ${profile.name}. This looks like a ${profile.affluenceLabel.toLowerCase()} area. The strongest current fit is ${top.name.toLowerCase()} because the area scores well on the demand signals that category needs. The weakest modeled fit is ${weak.name.toLowerCase()}, mostly because its economics are less protected against this ZIP code's cost pressure, competition, or customer profile. Treat this as a first-pass business decision screen, then verify the exact block, frontage, cost terms, and live competitor data before making a recommendation.`;
 }
 
 function render(zip) {
@@ -2693,13 +2690,13 @@ function render(zip) {
   elements.headline.textContent = headlineFor(recommendations, profile);
   elements.narrative.textContent = narrativeFor(zip, profile, recommendations);
   elements.confidence.textContent = state.liveProfiles[zip]
-    ? "Census live, model scored"
+    ? "Market data live, model scored"
     : "Profile estimate";
   elements.evidence.innerHTML = profile.evidence.map((item) => `<li>${item}</li>`).join("");
   elements.verdictTitle.textContent = verdictTitleFor(profile, recommendations);
   elements.verdictCopy.textContent = profile.verdict;
   elements.verdictGrade.textContent = verdictGrade(profile, recommendations);
-  elements.verdictLabel.textContent = profile.rent > 82 ? "Good but risky" : "Tenant fit";
+  elements.verdictLabel.textContent = profile.rent > 82 ? "Good but risky" : "Success fit";
   renderDecisionStrip(profile, recommendations);
   renderInstitutionalAnalysis(profile, recommendations);
   elements.customerProfile.innerHTML = profile.audience
@@ -2744,7 +2741,7 @@ async function renderLiveAreaReport(zip) {
 
   try {
     const response = await fetch(`/api/area-report?zip=${encodeURIComponent(zip)}`);
-    if (!response.ok) throw new Error("Census lookup failed");
+    if (!response.ok) throw new Error("Market demographics lookup failed");
     const report = await response.json();
     if (requestId !== state.areaRequestId || state.zip !== zip || !report.census) return;
 
@@ -2753,7 +2750,7 @@ async function renderLiveAreaReport(zip) {
     render(zip);
   } catch {
     if (requestId === state.areaRequestId) {
-      elements.evidence.innerHTML += "<li>Census lookup was unavailable; showing local profile assumptions.</li>";
+      elements.evidence.innerHTML += "<li>Market demographics lookup was unavailable; showing local profile assumptions.</li>";
     }
   } finally {
     if (requestId === state.areaRequestId && state.zip === zip) {
@@ -2774,24 +2771,23 @@ function exportSummary() {
     ? [
         `Business search: ${titleCase(businessResult.business || state.business)}`,
         `Search area: ${businessResult.searchContext?.mode === "address-radius" ? `${businessResult.searchContext.address} within ${businessResult.searchContext.radiusMiles} mile` : `ZIP ${state.zip}`}`,
-        `City-record matches: ${businessResult.count}`,
-        `Google visible results: ${businessResult.googleVisibleCount ?? businessResult.googlePlaces?.count ?? "not available"}`,
-        `Source breakdown: ${businessResult.sources?.join("; ") || "No live source breakdown available"}`,
-        `Source note: ${businessResult.note || "No note available"}`
+        `Competitive pressure: ${saturationLabel(saturationFromCount(businessResult.count || 0, profile))}`,
+        `Signals: ${sourceTagsForResult(businessResult, Boolean(businessResult.registryExact)).join(", ")}`,
+        "Source note: Verified signals are used for screening; exact provider details are hidden in the default report."
       ]
     : [
         `Business search: ${titleCase(state.business)}`,
-        "City-record matches: live check not completed yet"
+        "Competitive pressure: live check not completed yet"
       ];
   const lines = [
     `AreaIntel report for ZIP ${state.zip} - ${profile.name}`,
     "",
-    "Agent answer:",
+    "Executive Decision:",
     `${decision.answer}. ${decision.copy}`,
     `Next move: ${decision.next}. ${decision.nextCopy}`,
-    `Data confidence: ${confidence.label}. ${confidence.copy}`,
+    `Confidence: ${confidence.label}. ${confidence.copy}`,
     "",
-    "AreaIntel engine:",
+    "Business Success Intelligence:",
     `Decision: ${analysis.decision}`,
     `Success probability: ${analysis.successProbability}/100`,
     `Confidence score: ${analysis.confidenceScore}/100`,
@@ -2810,7 +2806,7 @@ function exportSummary() {
     "Scenario analysis:",
     ...analysis.scenarios.map((scenario) => `- ${scenario.name}: ${scenario.revenue}; ${scenario.traffic}; breakeven ${scenario.breakeven}; failure probability ${scenario.failure}`),
     "",
-    "Explainability:",
+    "Methodology:",
     ...analysis.explainability.flatMap((group) => [
       `${group.type}:`,
       ...group.items.map((item) => `- ${item}`)
@@ -2819,7 +2815,7 @@ function exportSummary() {
     "Required conditions:",
     ...analysis.conditions.map((item) => `- ${item}`),
     "",
-    "Missing data / conflicts:",
+    "Unknown Factors:",
     ...[...analysis.validation.missing, ...analysis.validation.conflicts].map((item) => `- ${item}`),
     "",
     headlineFor(recommendations, profile),
@@ -2838,7 +2834,7 @@ function exportSummary() {
     "Local vs chain fit:",
     `- ${localChainTitle(profile)} ${chainFitCopy(profile)}`,
     "",
-    "Agent talking points:",
+    "Decision talking points:",
     ...profile.talkingPoints.map((item) => `- ${item}`),
     "",
     "Alternative businesses:",
@@ -2851,7 +2847,7 @@ function exportSummary() {
     ...profile.evidence.map((item) => `- ${item}`),
     "",
     "Important caution:",
-    "This report is a ZIP-level research screen. Before advising a client, verify the exact storefront, rent, frontage, nearby competitors, allowed use, licensing, and operator quality."
+    "This report is a location research screen. Before advising a client, verify the exact address, cost, frontage, nearby competitors, allowed use, licensing, and operator quality."
   ];
 
   const blob = new Blob([lines.join("\n")], { type: "text/plain" });
@@ -2974,7 +2970,7 @@ elements.leaseForm.addEventListener("submit", async (event) => {
     createdAt: new Date().toISOString()
   };
 
-  elements.leaseMessage.textContent = "Saving and locating space...";
+  elements.leaseMessage.textContent = "Saving and locating option...";
   const resolvedLease = await geocodeLeaseIfNeeded(lease);
   state.leases.unshift(resolvedLease);
   saveLeases();
@@ -2990,7 +2986,7 @@ elements.leaseList.addEventListener("click", (event) => {
 
   state.leases = state.leases.filter((lease) => lease.id !== button.dataset.leaseId);
   saveLeases();
-  elements.leaseMessage.textContent = "Space removed.";
+  elements.leaseMessage.textContent = "Location removed.";
   renderLeases();
   renderMarketMap();
 });
@@ -3024,7 +3020,7 @@ elements.listingResults.addEventListener("click", (event) => {
   elements.leaseAddress.value = listing.title || "";
   elements.leaseLink.value = listing.url || "";
   elements.leaseNotes.value = [listing.source, listing.snippet].filter(Boolean).join(" - ");
-  elements.leaseMessage.textContent = "Listing link copied into the calculator. Add rent and square feet, then save.";
+  elements.leaseMessage.textContent = "Listing link copied into the calculator. Add cost and square feet, then save.";
   elements.leaseAddress.focus();
 });
 
@@ -3042,13 +3038,13 @@ elements.memoButton.addEventListener("click", async () => {
 
     const result = await response.json();
     if (!response.ok && result.memo) {
-      elements.memoCopy.textContent = `${result.memo} ${result.error?.includes("quota") ? "OpenAI says this key is out of quota or billing is not enabled." : ""}`;
+      elements.memoCopy.textContent = `${result.memo} ${result.error?.includes("quota") ? "The decision report service says this key is out of quota or billing is not enabled." : ""}`;
       return;
     }
     if (!response.ok) throw new Error("Memo failed");
     elements.memoCopy.textContent = result.memo || "No memo returned.";
   } catch {
-    elements.memoCopy.textContent = "Could not generate the memo. Check that the OpenAI key is connected and the server is running.";
+    elements.memoCopy.textContent = "Could not generate the report. Check that the decision report service is connected and the server is running.";
   }
 });
 
