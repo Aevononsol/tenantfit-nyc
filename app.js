@@ -1139,8 +1139,22 @@ function sourceTagsForResult(result, isLive) {
   const tags = [];
   if (result?.openDataCount > 0) tags.push("Local Market Activity");
   if (result?.googleVisibleCount > 0) tags.push("Competitive Signals");
+  if (result?.demandMomentum?.available) tags.push("Demand Momentum");
   if (!tags.length) tags.push("Limited verified signal");
   return tags;
+}
+
+function demandMomentumForResult(result) {
+  return result?.demandMomentum?.available ? result.demandMomentum : null;
+}
+
+function demandMomentumLabel(result) {
+  return demandMomentumForResult(result)?.label || "Demand unavailable";
+}
+
+function demandMomentumScore(result) {
+  const signal = demandMomentumForResult(result);
+  return signal ? Number(signal.momentumScore || 50) : 50;
 }
 
 function scoreDrivers(profile, item) {
@@ -2030,12 +2044,13 @@ function confidenceFor(zip, businessResult) {
   const liveProfile = Boolean(state.liveProfiles[zip]);
   const liveBusiness = Boolean(businessResult?.registryExact);
   const google = Boolean(businessResult?.googlePlaces);
-  const sourceCount = [liveProfile, liveBusiness, google].filter(Boolean).length;
+  const demand = Boolean(businessResult?.demandMomentum?.available);
+  const sourceCount = [liveProfile, liveBusiness, google, demand].filter(Boolean).length;
 
-  if (sourceCount === 3) {
+  if (sourceCount >= 3) {
     return {
       label: "Strong",
-      copy: "Market demographics, observed local activity, and competitive visibility are connected."
+      copy: "Market demographics, local activity, competitive visibility, and demand momentum are connected where available."
     };
   }
 
@@ -2097,6 +2112,8 @@ function buildBusinessSuccessModel(profile, recommendations) {
     : profile.competition;
   const googleReviews = Number(businessResult?.googlePlaces?.reviewCount || 0);
   const googleRating = Number(businessResult?.googlePlaces?.avgRating || 0);
+  const demandSignalLabel = demandMomentumLabel(businessResult);
+  const demandSignalScore = demandMomentumScore(businessResult);
   const reviewMomentum = businessResult?.googlePlaces
     ? clampScore(Math.min(100, Math.log10(googleReviews + 1) * 24 + googleRating * 7))
     : 45;
@@ -2105,7 +2122,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
   const permitBoost = civicResult?.permits?.level === "Heavy" ? 10 : civicResult?.permits?.level === "Active" ? 6 : 2;
   const propertyBoost = siteIntelResult?.pluto?.retailArea > 500000 ? 6 : siteIntelResult?.pluto?.retailArea > 150000 ? 3 : 0;
   const transitBoost = siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000 ? 8 : 0;
-  const demandScore = clampScore(profile.density * 0.2 + profile.transit * 0.16 + profile.office * 0.1 + profile.nightlife * 0.08 + profile.tourist * 0.06 + profile.student * 0.06 + config.baseDemand * 0.2 + reviewMomentum * 0.14);
+  const demandScore = clampScore(profile.density * 0.18 + profile.transit * 0.14 + profile.office * 0.09 + profile.nightlife * 0.07 + profile.tourist * 0.05 + profile.student * 0.05 + config.baseDemand * 0.18 + reviewMomentum * 0.14 + demandSignalScore * 0.1);
   const customerFitScore = clampScore(profile.income * 0.24 + profile.families * 0.14 + profile.student * 0.08 + profile.office * 0.12 + profile.localPreference * 0.16 + profile.chainFit * 0.1 + categoryFit * 0.16);
   const competitionScore = clampScore(100 - competitionPressure * 0.78 + (businessResult?.googlePlaces?.avgRating >= 4.5 ? 4 : 0));
   const locationScore = clampScore(profile.transit * 0.34 + profile.density * 0.22 + profile.office * 0.12 + (100 - profile.rent) * 0.1 + propertyBoost + transitBoost + (state.location ? 6 : 0));
@@ -2133,7 +2150,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
     {
       name: "Demand",
       value: demandScore,
-      why: "Verified Signals / Model Insights from category demand, existing activity, review momentum, density, mobility, office, tourism, nightlife, and student signals."
+      why: `Verified Signals / Model Insights from category demand, existing activity, review momentum, demand momentum (${demandSignalLabel}), density, mobility, office, tourism, nightlife, and student signals.`
     },
     {
       name: "Customer fit",
@@ -2176,6 +2193,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const liveProfile = Boolean(state.liveProfiles[state.zip]);
   const liveBusiness = Boolean(businessResult?.registryExact);
   const google = Boolean(businessResult?.googlePlaces);
+  const demandSignal = Boolean(businessResult?.demandMomentum?.available);
   const civic = Boolean(civicResult);
   const siteIntel = Boolean(siteIntelResult);
   const concepts = Boolean(conceptFitResult?.concepts?.length);
@@ -2184,6 +2202,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     liveProfile && "Market Demographics",
     liveBusiness && "Local Market Activity",
     google && "Competitive Signals",
+    demandSignal && "Consumer Demand",
     civic && "Risk and Development Signals",
     siteIntel && "Mobility and Property Signals",
     concepts && "Concept Fit Scan",
@@ -2193,6 +2212,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     !liveProfile && "Fresh market demographics not loaded yet",
     !liveBusiness && "Observed local activity not confirmed yet",
     !google && "Competitive ratings/review visibility not confirmed yet",
+    !demandSignal && "Consumer demand momentum not confirmed yet",
     !civic && "Risk and development signals not loaded yet",
     !siteIntel && "Mobility and property signals not loaded yet",
     !concepts && "Restaurant cuisine concept scan not loaded yet",
@@ -2209,9 +2229,10 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   }
 
   const completeness = Math.max(20, Math.min(96, 28 + sources.length * 9 + (address ? 7 : 0) - conflicts.length * 7));
-  const freshness = Math.max(35, Math.min(95, 44 + (liveProfile ? 10 : 0) + (liveBusiness ? 11 : 0) + (google ? 9 : 0) + (civic ? 9 : 0) + (siteIntel ? 9 : 0) + (concepts ? 7 : 0)));
+  const freshness = Math.max(35, Math.min(95, 44 + (liveProfile ? 10 : 0) + (liveBusiness ? 11 : 0) + (google ? 9 : 0) + (demandSignal ? 5 : 0) + (civic ? 9 : 0) + (siteIntel ? 9 : 0) + (concepts ? 7 : 0)));
   const sourceQuality = Math.max(25, Math.min(95, 30 + sources.length * 9 - conflicts.length * 8));
-  const confidenceScore = Math.round(completeness * 0.34 + freshness * 0.28 + sourceQuality * 0.38);
+  const demandPenalty = demandSignal ? 0 : 4;
+  const confidenceScore = Math.max(20, Math.round(completeness * 0.34 + freshness * 0.28 + sourceQuality * 0.38 - demandPenalty));
   const successModel = buildBusinessSuccessModel(profile, recommendations);
   const scores = successModel.scores;
   const riskScoreItem = scores.find((item) => item.name === "Risk");
@@ -2278,6 +2299,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     successModel.competitionPressure >= 78 && `Direct competition is ${successModel.condition}; saturation is elevated`,
     !address && "ZIP-level view may hide weak side-street conditions",
     !google && "Competitive review/rating visibility is not confirmed",
+    !demandSignal && "Consumer demand momentum is unavailable or only partially estimated",
     civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
     "Operator financials and exact location economics are not verified"
   ].filter(Boolean);
@@ -2294,6 +2316,9 @@ function buildInstitutionalAnalysis(profile, recommendations) {
         google
           ? `Competitive visibility and review signals are connected.`
           : "Competitive review visibility is not confirmed yet.",
+        demandSignal
+          ? `${demandMomentumLabel(businessResult)} is connected as a demand signal.`
+          : "Consumer demand momentum is unavailable.",
         civic
           ? `Local risk and development signals are connected.`
           : "Risk and development signal checks are pending."
@@ -2302,7 +2327,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     {
       type: "Model Insights",
       items: [
-        `${titleCase(successModel.business)} demand is inferred from density, transit, office pull, nightlife, tourism, student, customer profile, category demand, and review momentum.`,
+        `${titleCase(successModel.business)} demand is inferred from density, transit, office pull, nightlife, tourism, student, customer profile, category demand, review momentum, and lightly weighted demand momentum.`,
         `Competition pressure is inferred by comparing local activity, competitive visibility, and category saturation.`,
         `Local-vs-chain fit is inferred from income, renter profile, category type, and observed market structure.`
       ]
@@ -2326,6 +2351,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Competition: ${businessResult?.registryExact ? `observed ${businessResult.business} market activity connected` : `modeled area competition ${profile.competition}/100`}`,
       `Cost pressure: ${profile.rent}/100`,
       `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility not confirmed yet"}`,
+      `Demand momentum: ${demandMomentumLabel(businessResult)}`,
       `Risk inputs: ${civic ? "local risk and development signals connected" : "risk sources not loaded yet"}`,
       `Mobility/property: ${siteIntel ? "mobility and property signals connected" : "site intelligence sources not loaded yet"}`
     ],
@@ -2772,6 +2798,7 @@ function exportSummary() {
         `Business search: ${titleCase(businessResult.business || state.business)}`,
         `Search area: ${businessResult.searchContext?.mode === "address-radius" ? `${businessResult.searchContext.address} within ${businessResult.searchContext.radiusMiles} mile` : `ZIP ${state.zip}`}`,
         `Competitive pressure: ${saturationLabel(saturationFromCount(businessResult.count || 0, profile))}`,
+        `Demand momentum: ${demandMomentumLabel(businessResult)}`,
         `Signals: ${sourceTagsForResult(businessResult, Boolean(businessResult.registryExact)).join(", ")}`,
         "Source note: Verified signals are used for screening; exact provider details are hidden in the default report."
       ]

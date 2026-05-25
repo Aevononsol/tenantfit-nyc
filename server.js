@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchDemandMomentum } from "./services/googleTrends.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 5174);
@@ -784,12 +785,13 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
 
 async function businessCount(zip, businessInput, location = null) {
   const business = normalizeBusiness(businessInput);
-  const [restaurantCount, dcwpCount, googlePlaces, tenure, mapRecords] = await Promise.all([
+  const [restaurantCount, dcwpCount, googlePlaces, tenure, mapRecords, demandMomentum] = await Promise.all([
     countRestaurants(zip, business).catch(() => 0),
     countDcwpBusinesses(zip, business).catch(() => 0),
     googlePlaceSignals(zip, businessInput, location).catch(() => null),
     businessTenure(zip, business).catch(() => null),
-    cityMapRecords(zip, business, location).catch(() => [])
+    cityMapRecords(zip, business, location).catch(() => []),
+    fetchDemandMomentum({ keyword: businessInput || business, region: "US-NY" }).catch(() => null)
   ]);
   const countedOpenDataTotal = restaurantCount + dcwpCount;
   const mappedOpenDataTotal = mapRecords.length;
@@ -815,6 +817,7 @@ async function businessCount(zip, businessInput, location = null) {
         }
       : { mode: "zip", radiusMiles: null },
     googlePlaces,
+    demandMomentum,
     mapRecords,
     tenure,
     sources: [

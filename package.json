@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "google-trends-api": "^4.9.2"
+  },
   "scripts": {
     "start": "node server.js"
   }
