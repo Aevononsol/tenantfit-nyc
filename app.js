@@ -710,6 +710,8 @@ const elements = {
   dataConfidenceCopy: document.querySelector("#data-confidence-copy"),
   nextMove: document.querySelector("#next-move"),
   nextMoveCopy: document.querySelector("#next-move-copy"),
+  evidenceSource: document.querySelector("#evidence-source"),
+  evidenceSignalGrid: document.querySelector("#evidence-signal-grid"),
   institutionalConfidence: document.querySelector("#institutional-confidence"),
   institutionalDecision: document.querySelector("#institutional-decision"),
   institutionalSummary: document.querySelector("#institutional-summary"),
@@ -2547,6 +2549,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
 
 function renderInstitutionalAnalysis(profile, recommendations) {
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  renderEvidenceCoverage(analysis);
   elements.institutionalConfidence.textContent = `Confidence ${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
   elements.institutionalDecision.textContent = analysis.decision;
   elements.institutionalDecision.className = `decision-badge decision-${analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -2600,6 +2603,100 @@ function renderInstitutionalAnalysis(profile, recommendations) {
     `Primary screen: ${analysis.topRecommendation.name} (${formatScore(analysis.topRecommendation.score)})`,
     ...analysis.alternatives.map((item) => `Alternative: ${item}`)
   ].map((item) => `<li>${escapeText(item)}</li>`).join("");
+}
+
+function renderEvidenceCoverage(analysis) {
+  if (!elements.evidenceSignalGrid) return;
+
+  const businessResult = currentBusinessResult();
+  const civicResult = currentCivicResult();
+  const siteIntelResult = currentSiteIntelResult();
+  const conceptFitResult = currentConceptFitResult();
+  const liveProfile = Boolean(state.liveProfiles[state.zip]);
+  const hasCompetitiveExamples = Boolean(businessResult?.googlePlaces?.topPlaces?.length);
+  const hasLocalActivity = Boolean(businessResult?.registryExact);
+  const hasDemandMomentum = Boolean(businessResult?.demandMomentum?.available);
+  const hasSiteSignals = Boolean(siteIntelResult);
+  const hasRiskSignals = Boolean(civicResult);
+  const hasConceptSignals = Boolean(conceptFitResult?.concepts?.length);
+  const localMatches = safeNumber(businessResult?.count, null);
+
+  const cards = [
+    {
+      title: "Market demographics",
+      status: liveProfile ? "Connected" : "Profile model",
+      tone: liveProfile ? "good" : "partial",
+      copy: liveProfile
+        ? "Income, age, households, rent pressure, renter profile, and education are loaded."
+        : "Using area profile assumptions until fresh demographic signals return."
+    },
+    {
+      title: "Competitive signals",
+      status: hasCompetitiveExamples || hasLocalActivity ? "Connected" : "Checking",
+      tone: hasCompetitiveExamples || hasLocalActivity ? "good" : "partial",
+      copy: hasCompetitiveExamples
+        ? "Nearby operators surfaced with ratings, reviews, and location visibility."
+        : hasLocalActivity
+          ? "Observed category activity is connected for this market."
+          : "Competitive visibility is still being checked."
+    },
+    {
+      title: "Consumer demand",
+      status: hasDemandMomentum ? demandMomentumLabel(businessResult) : "Estimated",
+      tone: hasDemandMomentum ? "good" : "partial",
+      copy: hasDemandMomentum
+        ? "Demand momentum is included as a light signal in the success score."
+        : "Demand momentum is estimated from broader market and category signals."
+    },
+    {
+      title: "Local market activity",
+      status: hasLocalActivity ? "Connected" : "Estimated",
+      tone: hasLocalActivity ? "good" : "partial",
+      copy: localMatches !== null
+        ? "Verified local activity matches inform category pressure."
+        : "AreaIntel is using modeled activity until verified matches return."
+    },
+    {
+      title: "Mobility and site signals",
+      status: hasSiteSignals ? "Connected" : "Checking",
+      tone: hasSiteSignals ? "good" : "partial",
+      copy: hasSiteSignals
+        ? "Transit access, commercial mix, licenses, and outdoor activity signals are available."
+        : "Block-level mobility and commercial mix are still loading."
+    },
+    {
+      title: "Risk and development",
+      status: hasRiskSignals ? "Connected" : "Checking",
+      tone: hasRiskSignals ? "good" : "partial",
+      copy: hasRiskSignals
+        ? "Quality-of-life, development activity, and permit signals are included."
+        : "Risk and development activity are still loading."
+    },
+    {
+      title: "Concept fit",
+      status: hasConceptSignals ? "Connected" : "Broader signal",
+      tone: hasConceptSignals ? "good" : "partial",
+      copy: hasConceptSignals
+        ? "Sub-category fit is visible for this business type where enough signal exists."
+        : "AreaIntel is using broader business-category signals for this search."
+    }
+  ];
+
+  if (elements.evidenceSource) {
+    elements.evidenceSource.textContent = `Confidence ${formatScore(analysis.confidenceScore)}`;
+  }
+
+  elements.evidenceSignalGrid.innerHTML = cards
+    .map((card) => `
+      <article class="evidence-signal-card evidence-${card.tone}">
+        <div>
+          <strong>${escapeText(card.title)}</strong>
+          <span>${escapeText(card.status)}</span>
+        </div>
+        <p>${escapeText(card.copy)}</p>
+      </article>
+    `)
+    .join("");
 }
 
 function scoreSignalCopy(score) {
