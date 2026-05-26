@@ -9,7 +9,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23142536'/%3E%3Cpath d='M28 8h8l2 11H26l2-11ZM18 20h28l-4 7H22l-4-7ZM24 29h16l4 26H20l4-26ZM32 11 22 3l2 13M32 11 42 3l-2 13M32 10V1M23 55h18' fill='none' stroke='%23f3c744' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260526-report-density-4" />
+    <link rel="stylesheet" href="./styles.css?v=20260526-evidence-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -41,7 +41,7 @@
           <form id="business-form" class="business-form intake-card">
             <p class="step-label">1 · Business type</p>
             <label for="business-input">What business is the client opening?</label>
-            <input id="business-input" name="business" placeholder="restaurant, gym, daycare, bike shop" required />
+            <input id="business-input" name="business" placeholder="restaurant, gym, daycare, bike shop" autocomplete="off" autocapitalize="none" spellcheck="false" required />
             <select id="restaurant-type" name="businessType" aria-label="Business type">
               <option value="">Choose from common categories</option>
               <optgroup label="Food and restaurants">
@@ -242,6 +242,17 @@
             </article>
           </div>
 
+          <section class="panel evidence-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Live evidence</p>
+                <h3>Signals connected for this decision</h3>
+              </div>
+              <span id="evidence-source" class="pill">Checking evidence</span>
+            </div>
+            <div id="evidence-signal-grid" class="evidence-signal-grid"></div>
+          </section>
+
           <section class="verdict-panel">
             <div>
               <p class="section-label">Executive summary</p>
@@ -296,6 +307,17 @@
             </div>
             <p class="panel-note">For food businesses, AreaIntel compares cuisine-level activity and competitive visibility, then flags concepts worth deeper validation.</p>
             <div id="concept-fit-list" class="concept-fit-list"></div>
+          </section>
+
+          <section class="panel places-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Best nearby matches</p>
+                <h3 id="places-title">Strong nearby operators for this search</h3>
+              </div>
+              <span id="places-source" class="pill">Competitive Signals</span>
+            </div>
+            <div id="places-list" class="places-list"></div>
           </section>
 
           <section class="panel institutional-panel">
@@ -384,17 +406,6 @@
             </div>
             <p class="panel-note">AreaIntel separates verified signals, model insights, and estimated factors. Rankings are screening decisions, not promises; weak evidence lowers confidence.</p>
             <div id="opportunity-list" class="opportunity-list"></div>
-          </section>
-
-          <section class="panel places-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Best nearby matches</p>
-                <h3 id="places-title">Strong nearby operators for this search</h3>
-              </div>
-              <span id="places-source" class="pill">Competitive Signals</span>
-            </div>
-            <div id="places-list" class="places-list"></div>
           </section>
 
           <div class="insight-grid">
