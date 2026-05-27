@@ -15,7 +15,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23142536'/%3E%3Cpath d='M28 8h8l2 11H26l2-11ZM18 20h28l-4 7H22l-4-7ZM24 29h16l4 26H20l4-26ZM32 11 22 3l2 13M32 11 42 3l-2 13M32 10V1M23 55h18' fill='none' stroke='%23f3c744' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260526-accordion-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260526-combobox-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -47,78 +47,75 @@
           <form id="business-form" class="business-form intake-card">
             <p class="step-label">1 · Business type</p>
             <label for="business-input">What business is the client opening?</label>
-            <input id="business-input" name="business" placeholder="restaurant, gym, daycare, bike shop" autocomplete="off" autocapitalize="none" spellcheck="false" required />
-            <select id="restaurant-type" name="businessType" aria-label="Business type">
-              <option value="">Choose from common categories</option>
-              <optgroup label="Food and restaurants">
-                <option value="restaurant">General restaurant</option>
-                <option value="pizza">Pizza / slice shop</option>
-                <option value="deli">Deli / bodega</option>
-                <option value="cafe">Cafe / coffee</option>
-                <option value="bakery">Bakery / bagel</option>
-                <option value="breakfast">Breakfast / brunch</option>
-                <option value="italian">Italian</option>
-                <option value="greek">Greek</option>
-                <option value="mediterranean">Mediterranean / halal</option>
-                <option value="turkish">Turkish</option>
-                <option value="french">French</option>
-                <option value="japanese">Japanese / sushi / ramen</option>
-                <option value="chinese">Chinese / dim sum</option>
-                <option value="korean">Korean</option>
-                <option value="thai">Thai</option>
-                <option value="vietnamese">Vietnamese / pho</option>
-                <option value="filipino">Filipino</option>
-                <option value="indian">Indian</option>
-                <option value="pakistani">Pakistani / Bangladeshi</option>
-                <option value="mexican">Mexican / tacos</option>
-                <option value="latin">Latin American</option>
-                <option value="dominican">Dominican</option>
-                <option value="puerto rican">Puerto Rican</option>
-                <option value="peruvian">Peruvian</option>
-                <option value="colombian">Colombian</option>
-                <option value="brazilian">Brazilian</option>
-                <option value="caribbean">Caribbean / Jamaican</option>
-                <option value="african">African</option>
-                <option value="ethiopian">Ethiopian</option>
-                <option value="american">American</option>
-                <option value="burger">Burgers</option>
-                <option value="chicken">Chicken / wings</option>
-                <option value="bbq">BBQ</option>
-                <option value="seafood">Seafood</option>
-                <option value="steakhouse">Steakhouse</option>
-                <option value="vegan">Vegan / vegetarian</option>
-                <option value="juice">Juice / smoothie</option>
-                <option value="dessert">Dessert / ice cream</option>
-                <option value="bubble tea">Bubble tea</option>
-                <option value="bar">Bar / pub</option>
-                <option value="food truck">Food truck / cart</option>
-              </optgroup>
-              <optgroup label="Services and retail">
-                <option value="gym">Gym / fitness studio</option>
-                <option value="bike shop">Bike shop</option>
-                <option value="daycare">Daycare / childcare</option>
-                <option value="salon">Hair salon</option>
-                <option value="barber">Barber shop</option>
-                <option value="nail salon">Nail salon</option>
-                <option value="spa">Spa / med spa</option>
-                <option value="laundromat">Laundromat</option>
-                <option value="dry cleaner">Dry cleaner</option>
-                <option value="pharmacy">Pharmacy</option>
-                <option value="grocery">Grocery / market</option>
-                <option value="retail">Retail store</option>
-                <option value="clothing">Clothing boutique</option>
-                <option value="pet store">Pet store</option>
-                <option value="tutoring">Tutoring / learning center</option>
-                <option value="urgent care">Urgent care</option>
-                <option value="medical">Medical office</option>
-                <option value="dental">Dental office</option>
-                <option value="liquor store">Liquor store</option>
-                <option value="hardware">Hardware store</option>
-                <option value="electronics">Electronics store</option>
-                <option value="phone repair">Phone repair</option>
-                <option value="smoke shop">Smoke / vape shop</option>
-              </optgroup>
-            </select>
+            <input id="business-input" name="business" list="business-options"
+              placeholder="Type or pick a category…"
+              autocomplete="off" autocapitalize="none" spellcheck="false" required />
+            <datalist id="business-options">
+              <option value="General restaurant">
+              <option value="Pizza / slice shop">
+              <option value="Deli / bodega">
+              <option value="Cafe / coffee">
+              <option value="Bakery / bagel">
+              <option value="Breakfast / brunch">
+              <option value="Italian restaurant">
+              <option value="Greek restaurant">
+              <option value="Mediterranean / halal">
+              <option value="Turkish restaurant">
+              <option value="French restaurant">
+              <option value="Japanese / sushi / ramen">
+              <option value="Chinese / dim sum">
+              <option value="Korean restaurant">
+              <option value="Thai restaurant">
+              <option value="Vietnamese / pho">
+              <option value="Filipino restaurant">
+              <option value="Indian restaurant">
+              <option value="Pakistani / Bangladeshi">
+              <option value="Mexican / tacos">
+              <option value="Latin American restaurant">
+              <option value="Dominican restaurant">
+              <option value="Puerto Rican restaurant">
+              <option value="Peruvian restaurant">
+              <option value="Colombian restaurant">
+              <option value="Brazilian restaurant">
+              <option value="Caribbean / Jamaican">
+              <option value="African restaurant">
+              <option value="Ethiopian restaurant">
+              <option value="American / diner">
+              <option value="Burgers">
+              <option value="Chicken / wings">
+              <option value="BBQ restaurant">
+              <option value="Seafood restaurant">
+              <option value="Steakhouse">
+              <option value="Vegan / vegetarian">
+              <option value="Juice / smoothie">
+              <option value="Dessert / ice cream">
+              <option value="Bubble tea">
+              <option value="Bar / pub">
+              <option value="Food truck / cart">
+              <option value="Gym / fitness studio">
+              <option value="Bike shop">
+              <option value="Daycare / childcare">
+              <option value="Hair salon">
+              <option value="Barber shop">
+              <option value="Nail salon">
+              <option value="Spa / med spa">
+              <option value="Laundromat">
+              <option value="Dry cleaner">
+              <option value="Pharmacy">
+              <option value="Grocery / market">
+              <option value="Retail store">
+              <option value="Clothing boutique">
+              <option value="Pet store">
+              <option value="Tutoring / learning center">
+              <option value="Urgent care">
+              <option value="Medical office">
+              <option value="Dental office">
+              <option value="Liquor store">
+              <option value="Hardware store">
+              <option value="Electronics store">
+              <option value="Phone repair">
+              <option value="Smoke / vape shop">
+            </datalist>
             <button type="submit">Check business</button>
           </form>
 
@@ -147,6 +144,7 @@
             <p class="step-label">3 · Exact address</p>
             <label for="address-input">Address for block-level analysis</label>
             <input id="address-input" name="address" placeholder="123 Main St, Brooklyn, NY" autocomplete="street-address" />
+            <input id="budget-input" name="budget" type="number" min="0" step="1000" placeholder="Optional startup budget ($)" />
             <div class="address-row">
               <select id="radius-input" name="radius" aria-label="Search radius">
                 <option value="0.25">0.25 mile</option>
@@ -155,7 +153,6 @@
               </select>
               <button type="submit">Analyze address</button>
             </div>
-            <input id="budget-input" name="budget" type="number" min="0" step="1000" placeholder="Optional startup budget" />
             <button id="clear-address" class="subtle-button" type="button">Use area only</button>
             <p id="address-message" class="form-message" role="status"></p>
           </form>

@@ -968,6 +968,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .map-panel { display: grid; gap: 12px; }
 
 .market-map {
+  position: relative;
   min-height: 500px;
   border-radius: var(--radius);
   background: #dbe4ea;
