@@ -1794,7 +1794,11 @@ function renderCivicSignals(data) {
   elements.permitTypes.innerHTML = permitMiniList(data.permits.topTypes);
 
   const profile = profileForZip(state.zip);
-  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
+  if (profile) {
+    const recommendations = buildRecommendations(profile);
+    renderDecisionStrip(profile, recommendations);
+    renderInstitutionalAnalysis(profile, recommendations);
+  }
 }
 
 async function renderCivicCheck() {
@@ -1941,7 +1945,11 @@ function renderConceptFit(data) {
   }).join("");
 
   const profile = profileForZip(state.zip);
-  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
+  if (profile) {
+    const recommendations = buildRecommendations(profile);
+    renderDecisionStrip(profile, recommendations);
+    renderInstitutionalAnalysis(profile, recommendations);
+  }
 }
 
 async function renderRestaurantConceptFit() {
@@ -2047,8 +2055,10 @@ function renderSiteIntelligence(data) {
 
   const profile = profileForZip(state.zip);
   if (profile) {
+    const recommendations = buildRecommendations(profile);
     renderFootTrafficIntelligence(profile);
-    renderInstitutionalAnalysis(profile, buildRecommendations(profile));
+    renderDecisionStrip(profile, recommendations);
+    renderInstitutionalAnalysis(profile, recommendations);
   }
 }
 
@@ -2548,7 +2558,7 @@ function decisionCopyFor(decision, successProbability, confidenceScore, riskScor
   if (confidenceScore < 70) {
     return `Opportunity exists, but confidence is ${formatScore(confidenceScore)}. More proof is needed before a yes.`;
   }
-  return `Opportunity exists with a ${formatScore(successProbability)} success probability, but conditions must be met.`;
+  return `Evidence is strong enough to screen this as conditional: ${formatScore(successProbability)} success probability, with conditions that must be met before opening.`;
 }
 
 function decisionFor(profile, recommendations, businessResult) {
@@ -2868,7 +2878,11 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       scoreValue("Risk") * businessSuccessWeights.risk
   );
   const riskScore = scoreValue("Risk");
-  const severeRisk = riskScore < 35 || (civicResult?.complaints?.level === "High" && successModel.competitionPressure >= 82);
+  const financialScore = scoreValue("Financial viability");
+  const severeRisk =
+    riskScore < 25 ||
+    (riskScore < 35 && financialScore < 45 && opportunityScore < 62) ||
+    (civicResult?.complaints?.level === "High" && successModel.competitionPressure >= 92 && financialScore < 45);
   const decision = confidenceScore < 45
     ? "NEEDS MORE DATA"
     : opportunityScore < 55 || severeRisk
@@ -3020,13 +3034,13 @@ function buildInstitutionalAnalysis(profile, recommendations) {
 function renderInstitutionalAnalysis(profile, recommendations) {
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
   renderEvidenceCoverage(analysis);
-  elements.institutionalConfidence.textContent = `Confidence ${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
+  elements.institutionalConfidence.textContent = `Evidence confidence ${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
   elements.institutionalDecision.textContent = analysis.decision;
   elements.institutionalDecision.className = `decision-badge decision-${analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   elements.institutionalSummary.textContent = analysis.summary;
   elements.validationGrid.innerHTML = [
     ["Success probability", formatScore(analysis.successProbability)],
-    ["Confidence", formatScore(analysis.confidenceScore)],
+    ["Evidence confidence", formatScore(analysis.confidenceScore)],
     ["Freshness", formatScore(analysis.validation.freshness)],
     ["Source quality", formatScore(analysis.validation.sourceQuality)]
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
