@@ -537,6 +537,35 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .decision-do-not-open    { background: #f9e4df; color: #963226; }
 .decision-needs-more-data{ background: #eef2f6; color: #334155; }
 
+.data-connected-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(19, 74, 83, 0.16);
+  background: #f7fbfa;
+  color: #334155;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.data-connected-strip strong {
+  margin-right: 2px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.data-connected-strip span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e7f3f1;
+  color: var(--teal);
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
 /* 9. Summary Signal Cards
    ========================================================================== */
 .summary-grid {
