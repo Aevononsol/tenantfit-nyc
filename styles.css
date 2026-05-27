@@ -257,6 +257,38 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   gap: 9px;
 }
 
+/* Budget + radius side-by-side, de-emphasised relative to action buttons */
+.address-aux-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.address-aux-row input,
+.address-aux-row select {
+  font-size: 0.78rem;
+  min-height: 36px;
+  padding: 6px 10px;
+  color: #374151;
+}
+
+/* Primary action button — full-width, more visual weight */
+.sidebar .primary-button {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(14, 116, 144, 0.5);
+  background: linear-gradient(145deg, #0e7490, #0f5568);
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 28px rgba(14, 116, 144, 0.28);
+  white-space: normal;
+}
+
 .sidebar button,
 .sidebar .zip-row button,
 .sidebar .address-row button,

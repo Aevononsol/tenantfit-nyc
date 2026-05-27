@@ -144,15 +144,15 @@
             <p class="step-label">3 · Exact address</p>
             <label for="address-input">Address for block-level analysis</label>
             <input id="address-input" name="address" placeholder="123 Main St, Brooklyn, NY" autocomplete="street-address" />
-            <input id="budget-input" name="budget" type="number" min="0" step="1000" placeholder="Optional startup budget ($)" />
-            <div class="address-row">
+            <div class="address-aux-row">
+              <input id="budget-input" name="budget" type="number" min="0" step="1000" placeholder="Budget ($) optional" />
               <select id="radius-input" name="radius" aria-label="Search radius">
-                <option value="0.25">0.25 mile</option>
-                <option value="0.5" selected>0.5 mile</option>
-                <option value="1">1 mile</option>
+                <option value="0.25">0.25 mi</option>
+                <option value="0.5" selected>0.5 mi</option>
+                <option value="1">1 mi</option>
               </select>
-              <button type="submit">Analyze address</button>
             </div>
+            <button type="submit" class="primary-button">Analyze address</button>
             <button id="clear-address" class="subtle-button" type="button">Use area only</button>
             <p id="address-message" class="form-message" role="status"></p>
           </form>

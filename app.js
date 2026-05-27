@@ -829,23 +829,6 @@ function mapCenterForZip(zip) {
   return boroughCenters[borough] || [40.7128, -74.0060];
 }
 
-function ensureMap() {
-  if (!window.L || !elements.map) {
-    elements.mapStatus.textContent = "Map library loading";
-    return null;
-  }
-
-  if (!marketMap) {
-    marketMap = L.map(elements.map, { scrollWheelZoom: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
-    }).addTo(marketMap);
-  }
-
-  return marketMap;
-}
-
 function clearMapLayers() {
   mapLayers.forEach((layer) => layer.remove());
   mapLayers = [];
@@ -867,9 +850,28 @@ function addMapMarker(lat, lng, className, html) {
 }
 
 function renderMarketMap() {
-  const map = ensureMap();
-  if (!map) return;
+  if (!window.L || !elements.map) {
+    elements.mapStatus.textContent = "Map library loading";
+    return;
+  }
 
+  if (!marketMap) {
+    requestAnimationFrame(() => {
+      marketMap = L.map(elements.map, { scrollWheelZoom: false });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(marketMap);
+      _finishRenderMap();
+    });
+    return;
+  }
+
+  _finishRenderMap();
+}
+
+function _finishRenderMap() {
+  const map = marketMap;
   clearMapLayers();
   const center = mapCenterForZip(state.zip);
   map.setView(center, state.location ? 15 : 13);
