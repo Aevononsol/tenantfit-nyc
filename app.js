@@ -2826,23 +2826,23 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     address && "Exact address/radius context"
   ].filter(Boolean);
   const missing = [
-    !liveProfile && "Fresh market demographics not loaded yet",
-    !liveBusiness && "Observed local activity not confirmed yet",
-    !google && "Competitive ratings/review visibility not confirmed yet",
-    !demandSignal && "Consumer demand momentum not confirmed yet",
-    !civic && "Risk and development signals not loaded yet",
-    !siteIntel && "Mobility and commercial mix signals not loaded yet",
-    foodBusiness && !concepts && "Concept-specific market data is limited; broader market and competition signals are being used",
-    !address && "Exact address, frontage, cost, and block visibility missing",
-    "True foot traffic, dwell time, parking, location cost, and operator financials are not directly verified"
+    !liveProfile && "Market demographics need confirmation before a final decision.",
+    !liveBusiness && "Observed nearby business activity needs confirmation.",
+    !google && "Competitive ratings and review strength need confirmation.",
+    !demandSignal && "Consumer demand momentum needs independent confirmation.",
+    !civic && "Local risk and development activity need confirmation.",
+    !siteIntel && "Block-level mobility and commercial mix need confirmation.",
+    foodBusiness && !concepts && "Cuisine-specific market gaps are limited; broader food and competition signals are being used.",
+    !address && "Exact storefront, frontage, visibility, and block position are not verified.",
+    "True foot traffic, dwell time, parking, rent, buildout cost, and operator financials are not directly verified."
   ].filter(Boolean);
   const conflicts = [];
   if (businessResult?.openDataCount > 0 && businessResult?.googleVisibleCount > 0) {
     const ratio = Math.max(businessResult.openDataCount, businessResult.googleVisibleCount) / Math.max(1, Math.min(businessResult.openDataCount, businessResult.googleVisibleCount));
-    if (ratio >= 4) conflicts.push("Competitive signal sources disagree materially; treat saturation as directional.");
+    if (ratio >= 4) conflicts.push("Competition intensity is directional because public records and visible search results measure different parts of the market.");
   }
   if (civicResult?.complaints?.level === "High" && profile.rent >= 78) {
-    conflicts.push("High local friction plus high cost pressure raises execution risk.");
+    conflicts.push("High local friction plus high cost pressure may raise execution risk.");
   }
 
   const completeness = Math.max(20, Math.min(96, 28 + sources.length * 9 + (address ? 7 : 0) - conflicts.length * 7));
@@ -2932,13 +2932,13 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       items: [
         liveProfile
           ? `Market demographics loaded for ZIP ${state.zip}: ${profile.name}.`
-          : "Fresh market demographics are not loaded yet.",
+          : "Market demographics need confirmation.",
         liveBusiness
           ? `Local market activity confirms observed ${businessResult.business} competition.`
-          : "Observed local competition is not confirmed yet.",
+          : "Observed local competition needs confirmation.",
         google
           ? `Competitive visibility and review signals are connected.`
-          : "Competitive review visibility is not confirmed yet.",
+          : "Competitive review visibility needs confirmation.",
         demandSignal
           ? `${demandMomentumLabel(businessResult)} is connected as a demand signal.`
           : "Consumer demand momentum needs more confirmation.",
@@ -2973,10 +2973,10 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Mobility/demand: transit ${formatScore(profile.transit)}, office ${formatScore(profile.office)}, nightlife ${formatScore(profile.nightlife)}, tourist ${formatScore(profile.tourist)}`,
       `Competition: ${businessResult?.registryExact ? `observed ${businessResult.business} market activity connected` : `modeled area competition ${formatScore(profile.competition)}`}`,
       `Cost pressure: ${formatScore(profile.rent)}`,
-      `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility not confirmed yet"}`,
+      `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility confirmation needed"}`,
       `Demand momentum: ${demandMomentumLabel(businessResult)}`,
-      `Risk inputs: ${civic ? "local risk and development signals connected" : "risk sources not loaded yet"}`,
-      `Mobility and commercial mix: ${siteIntel ? "mobility and commercial signals connected" : "site intelligence signals not loaded yet"}`
+      `Risk inputs: ${civic ? "local risk and development signals connected" : "risk and development confirmation needed"}`,
+      `Mobility and commercial mix: ${siteIntel ? "mobility and commercial signals connected" : "mobility and commercial confirmation needed"}`
     ],
     validation: {
       completeness,
@@ -3074,7 +3074,9 @@ function renderInstitutionalAnalysis(profile, recommendations) {
   }
   elements.rawDataList.innerHTML = analysis.rawData.map((item) => `<li>${escapeText(item)}</li>`).join("");
   const missingItems = [...analysis.validation.missing, ...analysis.validation.conflicts];
-  elements.missingDataList.innerHTML = missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("");
+  elements.missingDataList.innerHTML = missingItems.length
+    ? missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("")
+    : "<li>No major unknown factors detected from the connected signals. Still verify rent, operator strength, and final lease terms before committing.</li>";
   elements.explainabilityList.innerHTML = analysis.explainability
     .map((group) => `
       <article class="explainability-card explainability-${group.type.toLowerCase().replace(/[^a-z0-9]+/g, "-")}">
