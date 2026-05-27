@@ -878,7 +878,8 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 }
 
 .institutional-grid article,
-.analysis-columns article {
+.analysis-columns article,
+.score-drivers-card {
   padding: 18px;
   border-radius: var(--radius);
   border: 1px solid #d8e2e8;
@@ -888,6 +889,57 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
 .institutional-grid strong { display: block; margin-top: 6px; font-size: 1.35rem; color: var(--ink); }
 .institutional-grid p      { margin: 8px 0 0; color: var(--muted); line-height: 1.45; }
+
+.score-drivers-card {
+  display: grid;
+  gap: 14px;
+}
+
+.score-drivers-card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.score-drivers-card strong {
+  color: var(--ink);
+  font-size: 1.12rem;
+}
+
+.score-driver-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.score-driver-row {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7fafb;
+  border: 1px solid #dce6eb;
+}
+
+.score-driver-row span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.score-driver-row strong {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.score-driver-row small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.score-driver-row.positive strong { color: var(--green); }
+.score-driver-row.negative strong { color: var(--brick); }
 
 .unknown-factors {
   padding: 18px;
@@ -1888,6 +1940,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .foot-traffic-grid,
   .revenue-input-grid,
   .revenue-output-grid,
+  .score-driver-list,
   .institutional-grid,
   .analysis-columns { grid-template-columns: 1fr; }
 

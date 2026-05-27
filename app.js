@@ -715,6 +715,8 @@ const elements = {
   institutionalConfidence: document.querySelector("#institutional-confidence"),
   institutionalDecision: document.querySelector("#institutional-decision"),
   institutionalSummary: document.querySelector("#institutional-summary"),
+  scoreDriverTitle: document.querySelector("#score-driver-title"),
+  scoreDriverList: document.querySelector("#score-driver-list"),
   validationGrid: document.querySelector("#validation-grid"),
   scoreBreakdown: document.querySelector("#score-breakdown"),
   scenarioAnalysis: document.querySelector("#scenario-analysis"),
@@ -2805,6 +2807,7 @@ function renderInstitutionalAnalysis(profile, recommendations) {
     ["Freshness", formatScore(analysis.validation.freshness)],
     ["Source quality", formatScore(analysis.validation.sourceQuality)]
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+  renderScoreDrivers(analysis);
   elements.scoreBreakdown.innerHTML = analysis.scores
     .filter((score) => ["Demand", "Customer fit", "Location quality", "Area momentum"].includes(score.name) && safeNumber(score.value) >= 55)
     .slice(0, 4)
@@ -2848,6 +2851,43 @@ function renderInstitutionalAnalysis(profile, recommendations) {
     `Primary screen: ${analysis.topRecommendation.name} (${formatScore(analysis.topRecommendation.score)})`,
     ...analysis.alternatives.map((item) => `Alternative: ${item}`)
   ].map((item) => `<li>${escapeText(item)}</li>`).join("");
+}
+
+function renderScoreDrivers(analysis) {
+  if (!elements.scoreDriverList) return;
+  const weights = {
+    Demand: businessSuccessWeights.demand,
+    "Customer fit": businessSuccessWeights.customerFit,
+    Competition: businessSuccessWeights.competition,
+    "Financial viability": businessSuccessWeights.financial,
+    "Location quality": businessSuccessWeights.location,
+    "Area momentum": businessSuccessWeights.growth,
+    Risk: businessSuccessWeights.risk
+  };
+  const drivers = analysis.scores
+    .map((score) => {
+      const value = safeNumber(score.value, 50);
+      const contribution = Math.round((value - 50) * (weights[score.name] || 0));
+      return {
+        name: score.name,
+        contribution,
+        why: scoreSignalCopy(score)
+      };
+    })
+    .filter((driver) => driver.contribution !== 0)
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
+    .slice(0, 6);
+
+  elements.scoreDriverTitle.textContent = `Why ${formatScore(analysis.successProbability)}?`;
+  elements.scoreDriverList.innerHTML = drivers.length
+    ? drivers.map((driver) => `
+      <div class="score-driver-row ${driver.contribution >= 0 ? "positive" : "negative"}">
+        <span>${escapeText(driver.name)}</span>
+        <strong>${driver.contribution >= 0 ? "+" : ""}${driver.contribution}</strong>
+        <small>${escapeText(driver.why)}</small>
+      </div>
+    `).join("")
+    : `<div class="empty-places">Needs more data before showing score drivers.</div>`;
 }
 
 function renderEvidenceCoverage(analysis) {
