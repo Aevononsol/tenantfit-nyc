@@ -1060,6 +1060,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
 .address-dot,    .address-marker    { background: var(--blue); }
 .competitor-dot, .competitor-marker { background: var(--brick); }
+.density-dot                         { background: linear-gradient(135deg, var(--brick), var(--amber)); }
 .registry-dot,   .registry-marker   { background: #c99a14; }
 .lease-dot,      .lease-marker      { background: var(--green); }
 

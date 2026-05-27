@@ -858,6 +858,29 @@ function addMapMarker(lat, lng, className, html) {
   mapLayers.push(marker);
 }
 
+function densityColor(score) {
+  const value = clampScore(score);
+  if (value >= 78) return "#963226";
+  if (value >= 58) return "#c99a14";
+  if (value >= 38) return "#117c7d";
+  return "#177a50";
+}
+
+function addDensityCircle(lat, lng, score, popupHtml) {
+  if (!marketMap || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return;
+  const value = clampScore(score);
+  const color = densityColor(value);
+  const circle = L.circle([Number(lat), Number(lng)], {
+    radius: 115 + value * 2.1,
+    color,
+    fillColor: color,
+    fillOpacity: 0.1,
+    weight: 1
+  }).bindPopup(popupHtml);
+  circle.addTo(marketMap);
+  mapLayers.push(circle);
+}
+
 function renderMarketMap() {
   if (!window.L || !elements.map) {
     elements.mapStatus.textContent = "Map library loading";
@@ -899,23 +922,53 @@ function _finishRenderMap() {
   }
 
   const businessResult = currentBusinessResult();
+  const business = normalizeBusiness(state.business || "business");
+  const profile = profileForZip(state.zip);
+  const categorySaturation = businessResult?.count && profile
+    ? saturationFromCount(businessResult.count, profile)
+    : profile?.competition || 50;
+  const saturation = saturationLabel(categorySaturation);
+  if (profile) {
+    const aggregateCircle = L.circle(center, {
+      radius: state.location ? Number(state.location.radiusMiles || 0.5) * 1609.344 : 1250,
+      color: densityColor(categorySaturation),
+      fillColor: densityColor(categorySaturation),
+      fillOpacity: 0.045,
+      weight: 2,
+      dashArray: "6 6"
+    }).bindPopup(`<strong>${titleCase(business)} saturation</strong><br>${saturation} market pressure<br><small>Modeled competition density layer</small>`);
+    aggregateCircle.addTo(map);
+    mapLayers.push(aggregateCircle);
+  }
+
   const records = businessResult?.mapRecords || [];
   records.forEach((record) => {
+    const popup = `<strong>${record.name}</strong><br>${record.category || "Local activity"}<br>${record.address || ""}<br><small>Local market activity · ${saturation} category saturation</small>`;
+    addDensityCircle(record.lat, record.lng, categorySaturation, popup);
     addMapMarker(
       record.lat,
       record.lng,
       "registry-marker",
-      `<strong>${record.name}</strong><br>${record.category || "Local activity"}<br>${record.address || ""}<br><small>Local market activity</small>`
+      popup
     );
   });
 
   const places = businessResult?.googlePlaces?.mapPlaces || businessResult?.googlePlaces?.topPlaces || [];
   places.forEach((place) => {
+    const rating = safeNumber(place.rating);
+    const reviews = safeNumber(place.reviews, 0);
+    const placePressure = clampScore(categorySaturation + Math.min(18, Math.log10(reviews + 1) * 6) + (rating >= 4.5 ? 4 : 0));
+    const popup = `
+      <strong>${place.name}</strong><br>
+      ${rating === null ? "No rating" : `${rating} rating`} · ${formatInteger(reviews, "0")} reviews<br>
+      <small>${saturationLabel(placePressure)} competitor density · ${saturation} category saturation</small>
+    `;
+    addDensityCircle(place.lat, place.lng, placePressure, popup);
     addMapMarker(
       place.lat,
       place.lng,
       "competitor-marker",
-      `<strong>${place.name}</strong><br>${safeNumber(place.rating) === null ? "No" : safeNumber(place.rating)} rating · ${formatInteger(place.reviews, "0")} reviews`
+      popup
     );
   });
 
