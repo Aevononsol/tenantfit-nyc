@@ -660,6 +660,7 @@ const state = {
   civicRequestId: 0,
   siteIntelRequestId: 0,
   conceptRequestId: 0,
+  mapRetryCount: 0,
   liveProfiles: {},
   lastBusinessResult: null,
   lastCivicResult: null,
@@ -669,6 +670,111 @@ const state = {
 };
 const leaseStorageKey = "areaintel-leases";
 const legacyLeaseStorageKey = "tenantfit-leases";
+
+function logIntegrationError(source, error, context = {}) {
+  const detail = error?.name === "AbortError" ? "request timed out" : error?.message || String(error);
+  console.warn(`[AreaIntel] ${source} failed: ${detail}`, context);
+}
+
+function safeUiUpdate(source, callback) {
+  try {
+    return callback();
+  } catch (error) {
+    logIntegrationError(`${source} render`, error);
+    return null;
+  }
+}
+
+async function fetchJsonWithTimeout(url, { timeoutMs = 9000, retries = 1, source = "request", options = {} } = {}) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!response.ok) {
+        throw new Error(data?.error || `${response.status} ${response.statusText}`);
+      }
+      return data;
+    } catch (error) {
+      lastError = error;
+      logIntegrationError(source, error, { url: String(url), attempt: attempt + 1 });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+  throw lastError;
+}
+
+function fallbackSearchContext() {
+  return state.location
+    ? {
+        mode: "address-radius",
+        address: state.location.address,
+        radiusMiles: state.location.radiusMiles,
+        lat: state.location.lat,
+        lng: state.location.lng
+      }
+    : { mode: "zip" };
+}
+
+function fallbackCivicSignals() {
+  return {
+    zip: state.zip,
+    fallback: true,
+    searchContext: fallbackSearchContext(),
+    complaints: {
+      total180Days: null,
+      level: "Lower",
+      topTypes: [],
+      source: "Fallback risk signal"
+    },
+    permits: {
+      totalRecords: null,
+      level: "Light",
+      topTypes: [],
+      source: "Fallback development signal"
+    }
+  };
+}
+
+function fallbackSiteIntelligence() {
+  return {
+    zip: state.zip,
+    fallback: true,
+    searchContext: fallbackSearchContext(),
+    sidewalkCafe: {
+      active: 0,
+      totalApplications: 0,
+      statusBreakdown: [],
+      source: "Fallback outdoor activity signal"
+    },
+    liquor: {
+      total: 0,
+      scope: state.location ? `within ${state.location.radiusMiles} mile` : `in ZIP ${state.zip}`,
+      topTypes: [],
+      source: "Fallback license signal"
+    },
+    mta: {
+      available: false,
+      totalDecember2024Ridership: 0,
+      scope: state.location ? `within ${state.location.radiusMiles} mile` : "Enter an address to calculate nearby station ridership",
+      topStations: [],
+      source: "Fallback mobility signal"
+    },
+    pluto: {
+      taxLots: 0,
+      retailArea: 0,
+      commercialArea: 0,
+      officeArea: 0,
+      averageYearBuilt: null,
+      landUseMix: [],
+      source: "Fallback commercial mix signal"
+    }
+  };
+}
 
 const elements = {
   form: document.querySelector("#zip-form"),
@@ -833,6 +939,20 @@ const zipCenters = {
   "10301": [40.6312, -74.0929]
 };
 
+function renderStaticMapFallback(reason = "Map tiles are taking longer than expected.") {
+  if (!elements.map) return;
+  const center = mapCenterForZip(state.zip || "10003");
+  elements.map.classList.add("map-fallback");
+  elements.map.innerHTML = `
+    <div class="static-map-fallback">
+      <strong>Map preview available</strong>
+      <span>${escapeText(reason)}</span>
+      <small>Area center: ${center.map((value) => Number(value).toFixed(4)).join(", ")}</small>
+    </div>
+  `;
+  elements.mapStatus.textContent = "Map preview";
+}
+
 function mapCenterForZip(zip) {
   if (state.location) return [Number(state.location.lat), Number(state.location.lng)];
   if (zipCenters[zip]) return zipCenters[zip];
@@ -892,23 +1012,43 @@ function addDensityCircle(lat, lng, score, popupHtml) {
 
 function renderMarketMap() {
   if (!window.L || !elements.map) {
-    elements.mapStatus.textContent = "Map library loading";
+    elements.mapStatus.textContent = "Map loading";
+    renderStaticMapFallback("Interactive map library is still loading. AreaIntel will retry automatically.");
+    if (state.mapRetryCount < 4) {
+      state.mapRetryCount += 1;
+      window.setTimeout(renderMarketMap, 650);
+    }
     return;
   }
 
   if (!marketMap) {
     requestAnimationFrame(() => {
-      marketMap = L.map(elements.map, { scrollWheelZoom: false });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      }).addTo(marketMap);
-      _finishRenderMap();
+      try {
+        elements.map.classList.remove("map-fallback");
+        elements.map.innerHTML = "";
+        marketMap = L.map(elements.map, { scrollWheelZoom: false });
+        const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        });
+        tiles.on("tileerror", (error) => logIntegrationError("map tiles", error, { zip: state.zip }));
+        tiles.addTo(marketMap);
+        _finishRenderMap();
+      } catch (error) {
+        logIntegrationError("map render", error, { zip: state.zip });
+        renderStaticMapFallback("Interactive map could not initialize. Market signals still loaded below.");
+      }
     });
     return;
   }
 
-  _finishRenderMap();
+  try {
+    elements.map.classList.remove("map-fallback");
+    _finishRenderMap();
+  } catch (error) {
+    logIntegrationError("map update", error, { zip: state.zip });
+    renderStaticMapFallback("Interactive map update failed. Market signals still loaded below.");
+  }
 }
 
 function _finishRenderMap() {
@@ -1335,7 +1475,7 @@ function renderTopPlaces(result) {
       const photo = place.photoRef
         ? `<img src="/api/place-photo?ref=${encodeURIComponent(place.photoRef)}" alt="${place.name}" loading="lazy" />`
         : `<div class="place-photo-fallback">NYC</div>`;
-      const tenure = result.tenure?.text || "Business age unavailable";
+      const tenure = result.tenure?.text || "Business age needs confirmation";
       return `
         <article class="place-card">
           ${photo}
@@ -1498,9 +1638,9 @@ function renderRevenueEstimator(profile) {
   const category = elements.revenueCategory.value || state.business || "retail";
 
   if (!profile || rent === null || rent <= 0 || size === null || size <= 0) {
-    elements.revenueProjection.textContent = "Unavailable";
-    elements.revenueBreakeven.textContent = "Unavailable";
-    elements.revenueRentPercent.textContent = "Unavailable";
+    elements.revenueProjection.textContent = "Needs inputs";
+    elements.revenueBreakeven.textContent = "Needs inputs";
+    elements.revenueRentPercent.textContent = "Needs inputs";
     elements.revenueNote.textContent = "Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.";
     return;
   }
@@ -1605,18 +1745,21 @@ async function renderCivicCheck() {
   }
 
   try {
-    const response = await fetch(`/api/civic-signals?${params.toString()}`);
-    if (!response.ok) throw new Error("Civic lookup failed");
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(`/api/civic-signals?${params.toString()}`, {
+      source: "risk and development signals",
+      timeoutMs: 16000,
+      retries: 1
+    });
     if (requestId !== state.civicRequestId) return;
     renderCivicSignals(data);
-  } catch {
+  } catch (error) {
     if (requestId !== state.civicRequestId) return;
-    state.lastCivicResult = null;
-    elements.complaintLevel.textContent = "Unavailable";
-    elements.complaintCopy.textContent = "Signal check unavailable for this area.";
-    elements.permitLevel.textContent = "Unavailable";
-    elements.permitCopy.textContent = "Development activity lookup failed. Try again later.";
+    logIntegrationError("risk and development fallback", error, { zip: state.zip });
+    renderCivicSignals(fallbackCivicSignals());
+    elements.complaintLevel.textContent = "Estimated local risk";
+    elements.complaintCopy.textContent = "Risk signal did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.permitLevel.textContent = "Estimated permit activity";
+    elements.permitCopy.textContent = "Development signal did not return in time. AreaIntel is using a neutral fallback until retry.";
   }
 }
 
@@ -1749,13 +1892,16 @@ async function renderRestaurantConceptFit() {
   }
 
   try {
-    const response = await fetch(`/api/restaurant-concepts?${params.toString()}`);
-    if (!response.ok) throw new Error("Concept lookup failed");
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(`/api/restaurant-concepts?${params.toString()}`, {
+      source: "food concept intelligence",
+      timeoutMs: 16000,
+      retries: 1
+    });
     if (requestId !== state.conceptRequestId) return;
     renderConceptFit(data);
-  } catch {
+  } catch (error) {
     if (requestId !== state.conceptRequestId) return;
+    logIntegrationError("food concept fallback", error, { zip: state.zip, business: state.business });
     state.lastConceptFitResult = null;
     elements.conceptSource.textContent = "Broader signals";
     elements.conceptFitList.innerHTML = `
@@ -2258,22 +2404,27 @@ async function renderSiteIntelCheck() {
   }
 
   try {
-    const response = await fetch(`/api/site-intelligence?${params.toString()}`);
-    if (!response.ok) throw new Error("Site intelligence lookup failed");
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(`/api/site-intelligence?${params.toString()}`, {
+      source: "mobility and commercial mix",
+      timeoutMs: 16000,
+      retries: 1
+    });
     if (requestId !== state.siteIntelRequestId) return;
     renderSiteIntelligence(data);
-  } catch {
+  } catch (error) {
     if (requestId !== state.siteIntelRequestId) return;
-    state.lastSiteIntelResult = null;
-    elements.sidewalkLevel.textContent = "Unavailable";
-    elements.sidewalkCopy.textContent = "Outdoor dining activity lookup failed.";
-    elements.liquorLevel.textContent = "Unavailable";
-    elements.liquorCopy.textContent = "License activity lookup failed.";
-    elements.mtaLevel.textContent = "Unavailable";
-    elements.mtaCopy.textContent = "Mobility signal lookup failed.";
-    elements.plutoLevel.textContent = "Unavailable";
-    elements.plutoCopy.textContent = "Commercial mix lookup failed.";
+    logIntegrationError("mobility and commercial fallback", error, { zip: state.zip });
+    renderSiteIntelligence(fallbackSiteIntelligence());
+    elements.sidewalkLevel.textContent = "Estimated outdoor activity";
+    elements.sidewalkCopy.textContent = "Outdoor activity did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.liquorLevel.textContent = "Estimated license activity";
+    elements.liquorCopy.textContent = "License activity did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.mtaLevel.textContent = state.location ? "Estimated mobility signal" : "Needs address";
+    elements.mtaCopy.textContent = state.location
+      ? "Mobility signal did not return in time. AreaIntel is using a neutral fallback until retry."
+      : "Enter an exact address to calculate nearby mobility signal.";
+    elements.plutoLevel.textContent = "Estimated commercial mix";
+    elements.plutoCopy.textContent = "Commercial mix did not return in time. AreaIntel is using a neutral fallback until retry.";
   }
 }
 
@@ -2577,8 +2728,8 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const liveBusiness = Boolean(businessResult?.registryExact);
   const google = Boolean(businessResult?.googlePlaces);
   const demandSignal = Boolean(businessResult?.demandMomentum?.available);
-  const civic = Boolean(civicResult);
-  const siteIntel = Boolean(siteIntelResult);
+  const civic = Boolean(civicResult && !civicResult.fallback);
+  const siteIntel = Boolean(siteIntelResult && !siteIntelResult.fallback);
   const concepts = Boolean(conceptFitResult?.concepts?.length);
   const foodBusiness = isFoodBusiness(state.business);
   const address = Boolean(state.location);
@@ -2685,7 +2836,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     successModel.competitionPressure >= 78 && `Direct competition is ${successModel.condition}; saturation is elevated`,
     !address && "ZIP-level view may hide weak side-street conditions",
     !google && "Competitive review/rating visibility is not confirmed",
-    !demandSignal && "Consumer demand momentum is unavailable or only partially estimated",
+    !demandSignal && "Consumer demand momentum needs more confirmation",
     civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
     "Operator financials and exact location economics are not verified"
   ].filter(Boolean);
@@ -2704,7 +2855,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
           : "Competitive review visibility is not confirmed yet.",
         demandSignal
           ? `${demandMomentumLabel(businessResult)} is connected as a demand signal.`
-          : "Consumer demand momentum is unavailable.",
+          : "Consumer demand momentum needs more confirmation.",
         civic
           ? `Local risk and development signals are connected.`
           : "Risk and development signal checks are pending."
@@ -2898,11 +3049,12 @@ function renderEvidenceCoverage(analysis) {
   const siteIntelResult = currentSiteIntelResult();
   const conceptFitResult = currentConceptFitResult();
   const liveProfile = Boolean(state.liveProfiles[state.zip]);
+  const businessFallback = Boolean(businessResult?.fallback);
   const hasCompetitiveExamples = Boolean(businessResult?.googlePlaces?.topPlaces?.length);
   const hasLocalActivity = Boolean(businessResult?.registryExact);
   const hasDemandMomentum = Boolean(businessResult?.demandMomentum?.available);
-  const hasSiteSignals = Boolean(siteIntelResult);
-  const hasRiskSignals = Boolean(civicResult);
+  const hasSiteSignals = Boolean(siteIntelResult && !siteIntelResult.fallback);
+  const hasRiskSignals = Boolean(civicResult && !civicResult.fallback);
   const hasConceptSignals = Boolean(conceptFitResult?.concepts?.length);
   const localMatches = safeNumber(businessResult?.count, null);
 
@@ -2917,13 +3069,15 @@ function renderEvidenceCoverage(analysis) {
     },
     {
       title: "Competitive signals",
-      status: hasCompetitiveExamples || hasLocalActivity ? "Connected" : "Checking",
+      status: hasCompetitiveExamples || hasLocalActivity ? "Connected" : businessFallback ? "Estimated" : "Checking",
       tone: hasCompetitiveExamples || hasLocalActivity ? "good" : "partial",
       copy: hasCompetitiveExamples
         ? "Nearby operators surfaced with ratings, reviews, and location visibility."
         : hasLocalActivity
           ? "Observed category activity is connected for this market."
-          : "Competitive visibility is still being checked."
+          : businessFallback
+            ? "Live competitive visibility did not return in time; modeled pressure is active."
+            : "Competitive visibility is still being checked."
     },
     {
       title: "Consumer demand",
@@ -2938,24 +3092,30 @@ function renderEvidenceCoverage(analysis) {
       status: hasLocalActivity ? "Connected" : "Estimated",
       tone: hasLocalActivity ? "good" : "partial",
       copy: localMatches !== null
-        ? "Verified local activity matches inform category pressure."
+        ? businessFallback
+          ? "Modeled local activity is active until live matches return."
+          : "Verified local activity matches inform category pressure."
         : "AreaIntel is using modeled activity until verified matches return."
     },
     {
       title: "Mobility and site signals",
-      status: hasSiteSignals ? "Connected" : "Checking",
+      status: hasSiteSignals ? "Connected" : siteIntelResult?.fallback ? "Estimated" : "Checking",
       tone: hasSiteSignals ? "good" : "partial",
       copy: hasSiteSignals
         ? "Transit access, commercial mix, licenses, and outdoor activity signals are available."
-        : "Block-level mobility and commercial mix are still loading."
+        : siteIntelResult?.fallback
+          ? "Mobility and commercial mix did not return in time; neutral fallback is active."
+          : "Block-level mobility and commercial mix are still loading."
     },
     {
       title: "Risk and development",
-      status: hasRiskSignals ? "Connected" : "Checking",
+      status: hasRiskSignals ? "Connected" : civicResult?.fallback ? "Estimated" : "Checking",
       tone: hasRiskSignals ? "good" : "partial",
       copy: hasRiskSignals
         ? "Quality-of-life, development activity, and permit signals are included."
-        : "Risk and development activity are still loading."
+        : civicResult?.fallback
+          ? "Risk and development data did not return in time; neutral fallback is active."
+          : "Risk and development activity are still loading."
     },
     {
       title: "Concept fit",
@@ -3087,9 +3247,11 @@ async function renderBusinessCheck() {
       params.set("address", state.location.address);
     }
 
-    const response = await fetch(`/api/business-count?${params.toString()}`);
-    if (!response.ok) throw new Error("Live lookup failed");
-    const result = await response.json();
+    const result = await fetchJsonWithTimeout(`/api/business-count?${params.toString()}`, {
+      source: "business competition signals",
+      timeoutMs: 18000,
+      retries: 1
+    });
     if (requestId !== state.businessRequestId) return;
 
     if (typeof result.count === "number" && result.count > 0) {
@@ -3137,12 +3299,27 @@ async function renderBusinessCheck() {
       renderTopPlaces(result);
       renderMarketMap();
     }
-  } catch {
+  } catch (error) {
     if (requestId !== state.businessRequestId) return;
+    logIntegrationError("business competition fallback", error, { zip: state.zip, business: state.business });
+    state.lastBusinessResult = {
+      zip: state.zip,
+      business,
+      count,
+      fallback: true,
+      registryExact: false,
+      openDataCount: 0,
+      googleVisibleCount: 0,
+      googlePlaces: null,
+      mapRecords: [],
+      demandMomentum: { available: false },
+      searchContext: fallbackSearchContext()
+    };
     applyBusinessResult({
       count,
       business,
       isLive: false,
+      result: state.lastBusinessResult,
       sourceNote: "Live lookup failed, so AreaIntel is clearly marking this as a modeled estimate."
     });
     const updatedRecommendations = buildRecommendations(profile);
@@ -3228,7 +3405,7 @@ function narrativeFor(zip, profile, recommendations) {
   return `${zip} covers ${profile.name}. This looks like a ${profile.affluenceLabel.toLowerCase()} area. The strongest current fit is ${top.name.toLowerCase()} because the area scores well on the demand signals that category needs. The weakest modeled fit is ${weak.name.toLowerCase()}, mostly because its economics are less protected against this ZIP code's cost pressure, competition, or customer profile. Treat this as a first-pass business decision screen, then verify the exact block, frontage, cost terms, and live competitor data before making a recommendation.`;
 }
 
-function render(zip) {
+function render(zip, options = {}) {
   const profile = profileForZip(zip);
   if (!profile) {
     elements.message.textContent = "Enter a valid NYC ZIP code.";
@@ -3238,6 +3415,7 @@ function render(zip) {
   }
 
   state.zip = zip;
+  state.mapRetryCount = 0;
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
   elements.input.value = zip;
@@ -3266,32 +3444,36 @@ function render(zip) {
   elements.verdictCopy.textContent = profile.verdict;
   elements.verdictGrade.textContent = verdictGrade(profile, recommendations);
   elements.verdictLabel.textContent = profile.rent > 82 ? "Good but risky" : "Success fit";
-  renderDecisionStrip(profile, recommendations);
-  renderInstitutionalAnalysis(profile, recommendations);
-  elements.customerProfile.innerHTML = profile.audience
-    .map(
-      ([label, copy]) => `
-        <div class="profile-row">
-          <strong>${label}</strong>
-          <span>${copy}</span>
-        </div>
-      `
-    )
-    .join("");
-  elements.chainTitle.textContent = localChainTitle(profile);
-  elements.chainCopy.textContent = chainFitCopy(profile);
-  elements.localFitBar.style.width = `${profile.localPreference}%`;
-  elements.talkingPoints.innerHTML = profile.talkingPoints.map((item) => `<li>${item}</li>`).join("");
-  renderOpportunities(profile);
-  renderMarketPulse(profile);
-  renderFootTrafficIntelligence(profile);
-  renderRevenueEstimator(profile);
-  renderBusinessCheck();
-  renderRestaurantConceptFit();
-  renderCivicCheck();
-  renderSiteIntelCheck();
-  renderLeases();
-  renderMarketMap();
+  safeUiUpdate("decision strip", () => renderDecisionStrip(profile, recommendations));
+  safeUiUpdate("institutional analysis", () => renderInstitutionalAnalysis(profile, recommendations));
+  safeUiUpdate("customer profile", () => {
+    elements.customerProfile.innerHTML = profile.audience
+      .map(
+        ([label, copy]) => `
+          <div class="profile-row">
+            <strong>${label}</strong>
+            <span>${copy}</span>
+          </div>
+        `
+      )
+      .join("");
+    elements.chainTitle.textContent = localChainTitle(profile);
+    elements.chainCopy.textContent = chainFitCopy(profile);
+    elements.localFitBar.style.width = `${profile.localPreference}%`;
+    elements.talkingPoints.innerHTML = profile.talkingPoints.map((item) => `<li>${item}</li>`).join("");
+  });
+  safeUiUpdate("opportunities", () => renderOpportunities(profile));
+  safeUiUpdate("market pulse", () => renderMarketPulse(profile));
+  safeUiUpdate("foot traffic intelligence", () => renderFootTrafficIntelligence(profile));
+  safeUiUpdate("revenue estimator", () => renderRevenueEstimator(profile));
+  if (!options.preserveLiveSignals) {
+    safeUiUpdate("business signal loader", () => renderBusinessCheck());
+    safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit());
+    safeUiUpdate("risk signal loader", () => renderCivicCheck());
+    safeUiUpdate("site signal loader", () => renderSiteIntelCheck());
+  }
+  safeUiUpdate("lease options", () => renderLeases());
+  safeUiUpdate("market map", () => renderMarketMap());
   if (!state.liveProfiles[zip]) renderLiveAreaReport(zip);
   window.setTimeout(() => {
     if (state.zip !== zip) return;
@@ -3311,15 +3493,18 @@ async function renderLiveAreaReport(zip) {
   const requestId = ++state.areaRequestId;
 
   try {
-    const response = await fetch(`/api/area-report?zip=${encodeURIComponent(zip)}`);
-    if (!response.ok) throw new Error("Market demographics lookup failed");
-    const report = await response.json();
+    const report = await fetchJsonWithTimeout(`/api/area-report?zip=${encodeURIComponent(zip)}`, {
+      source: "market demographics",
+      timeoutMs: 13000,
+      retries: 1
+    });
     if (requestId !== state.areaRequestId || state.zip !== zip || !report.census) return;
 
     const current = state.liveProfiles[zip] || zipProfiles[zip] || profileForZip(zip);
     state.liveProfiles[zip] = enrichProfileWithCensus(current, report.census);
-    render(zip);
-  } catch {
+    render(zip, { preserveLiveSignals: true });
+  } catch (error) {
+    logIntegrationError("market demographics fallback", error, { zip });
     if (requestId === state.areaRequestId) {
       elements.evidence.innerHTML += "<li>Market demographics lookup was unavailable; showing local profile assumptions.</li>";
     }
@@ -3450,9 +3635,11 @@ elements.addressForm.addEventListener("submit", async (event) => {
 
   elements.addressMessage.textContent = "Finding address...";
   try {
-    const response = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Address lookup failed");
+    const result = await fetchJsonWithTimeout(`/api/geocode?address=${encodeURIComponent(address)}`, {
+      source: "address geocoding",
+      timeoutMs: 9000,
+      retries: 1
+    });
     if (!/^\d{5}$/.test(result.zip) || !boroughForZip(result.zip)) {
       elements.addressMessage.textContent = "That address did not resolve to a supported NYC ZIP.";
       return;
@@ -3468,7 +3655,8 @@ elements.addressForm.addEventListener("submit", async (event) => {
     elements.addressInput.value = result.address;
     elements.addressMessage.textContent = `Using ${result.address} within ${state.location.radiusMiles} mile.`;
     render(result.zip);
-  } catch {
+  } catch (error) {
+    logIntegrationError("address geocoding fallback", error, { address });
     elements.addressMessage.textContent = "Could not find that address. Try a fuller address or use ZIP-level analysis.";
   }
 });

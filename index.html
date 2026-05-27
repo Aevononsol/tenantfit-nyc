@@ -15,7 +15,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23142536'/%3E%3Cpath d='M28 8h8l2 11H26l2-11ZM18 20h28l-4 7H22l-4-7ZM24 29h16l4 26H20l4-26ZM32 11 22 3l2 13M32 11 42 3l-2 13M32 10V1M23 55h18' fill='none' stroke='%23f3c744' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260526-combobox-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260527-stability-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -495,12 +495,12 @@
               </article>
               <article>
                 <span class="signal-label">Estimated daily visitors</span>
-                <strong id="foot-traffic-visitors">Unavailable</strong>
+                <strong id="foot-traffic-visitors">Needs analysis</strong>
                 <p>Modeled range only, not an exact traffic count.</p>
               </article>
               <article>
                 <span class="signal-label">Peak hours</span>
-                <strong id="foot-traffic-peaks">Unavailable</strong>
+                <strong id="foot-traffic-peaks">Needs analysis</strong>
                 <p id="foot-traffic-weeksplit">Weekday/weekend split needs more data.</p>
               </article>
               <article>
@@ -552,15 +552,15 @@
             <div class="revenue-output-grid">
               <article>
                 <span class="signal-label">Projected monthly revenue</span>
-                <strong id="revenue-projection">Unavailable</strong>
+                <strong id="revenue-projection">Needs inputs</strong>
               </article>
               <article>
                 <span class="signal-label">Break-even estimate</span>
-                <strong id="revenue-breakeven">Unavailable</strong>
+                <strong id="revenue-breakeven">Needs inputs</strong>
               </article>
               <article>
                 <span class="signal-label">Rent %</span>
-                <strong id="revenue-rent-percent">Unavailable</strong>
+                <strong id="revenue-rent-percent">Needs inputs</strong>
               </article>
             </div>
             <p id="revenue-note" class="panel-note">Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.</p>
@@ -754,6 +754,6 @@
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260527-stability-1"></script>
   </body>
 </html>

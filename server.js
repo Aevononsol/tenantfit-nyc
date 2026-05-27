@@ -378,6 +378,14 @@ async function fetchJsonWithTimeout(url, timeoutMs = 5000) {
   };
 }
 
+function integrationFallback(source, fallback) {
+  return (error) => {
+    const detail = error?.name === "AbortError" ? "request timed out" : error?.message || String(error);
+    console.warn(`[AreaIntel] ${source} failed: ${detail}`);
+    return fallback;
+  };
+}
+
 function distanceMiles(aLat, aLng, bLat, bLng) {
   const toRadians = (degrees) => (Number(degrees) * Math.PI) / 180;
   const lat1 = toRadians(aLat);
@@ -407,7 +415,7 @@ async function socrataJson(resource, params) {
 
   const result = await cachedJsonFetch(url, {
     headers,
-    timeoutMs: 6500,
+    timeoutMs: 12000,
     ttlMs: cacheTtl.openData,
     cacheSuffix: process.env.NYC_OPEN_DATA_APP_TOKEN ? ":token" : ":public"
   });
@@ -422,7 +430,7 @@ async function dataNyJson(resource, params) {
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
   const result = await cachedJsonFetch(url, {
-    timeoutMs: 6500,
+    timeoutMs: 10000,
     ttlMs: cacheTtl.openData
   });
   if (!result.ok) {
@@ -582,7 +590,7 @@ async function businessTenure(zip, business) {
     const rows = await socrataJson("43nn-pn8j", {
       $select: "min(inspection_date)",
       $where: restaurantWhere
-    }).catch(() => []);
+    }).catch(integrationFallback("restaurant tenure", []));
     if (rows[0]?.min_inspection_date) {
       results.push({ label: "Earliest restaurant inspection", date: rows[0].min_inspection_date });
     }
@@ -596,7 +604,7 @@ async function businessTenure(zip, business) {
   const rows = await socrataJson("w7w3-xahh", {
     $select: "min(license_creation_date)",
     $where: dcwpWhere
-  }).catch(() => []);
+  }).catch(integrationFallback("license tenure", []));
   if (rows[0]?.min_license_creation_date) {
     results.push({ label: "Earliest active DCWP license", date: rows[0].min_license_creation_date });
   }
@@ -608,8 +616,8 @@ async function businessTenure(zip, business) {
 
   if (!sorted.length) {
     return {
-      text: "Tenure unavailable from connected sources",
-      source: "Google Places does not provide business age directly."
+      text: "Business age needs confirmation",
+      source: "Connected sources do not verify operating history directly."
     };
   }
 
@@ -695,8 +703,8 @@ async function dcwpMapRecords(zip, business, location = null) {
 
 async function cityMapRecords(zip, business, location = null) {
   const [restaurants, licenses] = await Promise.all([
-    restaurantMapRecords(zip, business, location).catch(() => []),
-    dcwpMapRecords(zip, business, location).catch(() => [])
+    restaurantMapRecords(zip, business, location).catch(integrationFallback("restaurant map records", [])),
+    dcwpMapRecords(zip, business, location).catch(integrationFallback("license map records", []))
   ]);
   const seen = new Set();
   return [...restaurants, ...licenses].filter((record) => {
@@ -786,12 +794,12 @@ async function googlePlaceSignals(zip, businessInput, location = null) {
 async function businessCount(zip, businessInput, location = null) {
   const business = normalizeBusiness(businessInput);
   const [restaurantCount, dcwpCount, googlePlaces, tenure, mapRecords, demandMomentum] = await Promise.all([
-    countRestaurants(zip, business).catch(() => 0),
-    countDcwpBusinesses(zip, business).catch(() => 0),
-    googlePlaceSignals(zip, businessInput, location).catch(() => null),
-    businessTenure(zip, business).catch(() => null),
-    cityMapRecords(zip, business, location).catch(() => []),
-    fetchDemandMomentum({ keyword: businessInput || business, region: "US-NY" }).catch(() => null)
+    countRestaurants(zip, business).catch(integrationFallback("restaurant records", 0)),
+    countDcwpBusinesses(zip, business).catch(integrationFallback("license records", 0)),
+    googlePlaceSignals(zip, businessInput, location).catch(integrationFallback("competitive visibility", null)),
+    businessTenure(zip, business).catch(integrationFallback("business tenure", null)),
+    cityMapRecords(zip, business, location).catch(integrationFallback("map records", [])),
+    fetchDemandMomentum({ keyword: businessInput || business, region: "US-NY" }).catch(integrationFallback("demand momentum", null))
   ]);
   const countedOpenDataTotal = restaurantCount + dcwpCount;
   const mappedOpenDataTotal = mapRecords.length;
@@ -849,7 +857,7 @@ async function restaurantConceptFit(zip, location = null) {
   const cityCounts = await Promise.all(
     restaurantConceptModels.map(async (concept) => ({
       ...concept,
-      cityCount: await countRestaurants(zip, concept.key).catch(() => 0)
+      cityCount: await countRestaurants(zip, concept.key).catch(integrationFallback(`concept records: ${concept.key}`, 0))
     }))
   );
   const googleLookupKeys = new Set(
@@ -863,7 +871,7 @@ async function restaurantConceptFit(zip, location = null) {
   const concepts = await Promise.all(
     cityCounts.map(async (concept) => {
       const googlePlaces = googleLookupKeys.has(concept.key)
-        ? await googlePlaceSignals(zip, concept.search, location).catch(() => null)
+        ? await googlePlaceSignals(zip, concept.search, location).catch(integrationFallback(`concept visibility: ${concept.key}`, null))
         : null;
       const googleCount = googlePlaces?.count || 0;
       const verdict = conceptVerdict(concept.cityCount, googleCount, googlePlaces?.avgRating ?? null);
@@ -980,22 +988,22 @@ async function civicSignals(zip, location = null) {
       $group: "complaint_type",
       $order: "count DESC",
       $limit: "6"
-    }).catch(() => []),
+    }).catch(integrationFallback("311 complaint categories", [])),
     socrataJson("erm2-nwe9", {
       $select: "count(*)",
       $where: complaintWhere
-    }).catch(() => []),
+    }).catch(integrationFallback("311 complaint total", [])),
     socrataJson("ipu4-2q9a", {
       $select: "permit_type,count(*)",
       $where: `zip_code='${zip}'`,
       $group: "permit_type",
       $order: "count DESC",
       $limit: "6"
-    }).catch(() => []),
+    }).catch(integrationFallback("DOB permit categories", [])),
     socrataJson("ipu4-2q9a", {
       $select: "count(*)",
       $where: `zip_code='${zip}'`
-    }).catch(() => [])
+    }).catch(integrationFallback("DOB permit total", []))
   ]);
 
   const complaintTotal = firstCount(complaintTotalRows[0]);
@@ -1068,18 +1076,18 @@ async function siteIntelligence(zip, location = null) {
       $group: "lic_status",
       $order: "count DESC",
       $limit: "6"
-    }).catch(() => []),
+    }).catch(integrationFallback("sidewalk cafe activity", [])),
     dataNyJson("9s3h-dpkz", {
       $select: "description,count(*)",
       $where: liquorWhere,
       $group: "description",
       $order: "count DESC",
       $limit: "6"
-    }).catch(() => []),
+    }).catch(integrationFallback("liquor license categories", [])),
     dataNyJson("9s3h-dpkz", {
       $select: "count(*)",
       $where: liquorWhere
-    }).catch(() => []),
+    }).catch(integrationFallback("liquor license total", [])),
     mtaWhere
       ? dataNyJson("wujg-7c2s", {
           $select: "station_complex,sum(ridership)",
@@ -1087,19 +1095,19 @@ async function siteIntelligence(zip, location = null) {
           $group: "station_complex",
           $order: "sum_ridership DESC",
           $limit: "6"
-        }).catch(() => [])
+        }).catch(integrationFallback("MTA ridership", []))
       : Promise.resolve([]),
     socrataJson("64uk-42ks", {
       $select: "sum(retailarea),sum(comarea),sum(officearea),avg(yearbuilt),count(*)",
       $where: `zipcode='${zip}'`
-    }).catch(() => []),
+    }).catch(integrationFallback("PLUTO summary", [])),
     socrataJson("64uk-42ks", {
       $select: "landuse,count(*)",
       $where: `zipcode='${zip}'`,
       $group: "landuse",
       $order: "count DESC",
       $limit: "6"
-    }).catch(() => [])
+    }).catch(integrationFallback("PLUTO land use mix", []))
   ]);
 
   const sidewalkActive = sidewalkRows
@@ -1372,9 +1380,12 @@ async function sendFile(response, pathname) {
   const filePath = join(root, normalized);
   const data = await readFile(filePath);
   const extension = extname(filePath);
+  const cacheControl = [".html", ".js", ".css"].includes(extension)
+    ? "no-cache"
+    : "public, max-age=300";
   response.writeHead(200, {
     "Content-Type": contentTypes[extension] || "application/octet-stream",
-    "Cache-Control": extension === ".html" ? "no-cache" : "public, max-age=300"
+    "Cache-Control": cacheControl
   });
   response.end(data);
 }

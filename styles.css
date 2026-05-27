@@ -1090,6 +1090,31 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   z-index: 0;
 }
 
+.market-map.map-fallback {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(17, 124, 125, 0.15), rgba(14, 62, 86, 0.22)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 28px),
+    #dbe4ea;
+}
+
+.static-map-fallback {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d8e2e8;
+  box-shadow: var(--card-shadow);
+  text-align: center;
+}
+
+.static-map-fallback strong { color: var(--ink); font-size: 1rem; }
+.static-map-fallback span,
+.static-map-fallback small { color: var(--muted); line-height: 1.4; }
+
 .map-legend {
   display: flex;
   flex-wrap: wrap;
