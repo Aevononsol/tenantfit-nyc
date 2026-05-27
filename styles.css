@@ -1547,6 +1547,61 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   line-height: 1.45;
 }
 
+/* Panel accordion (collapsible sections)
+   ========================================================================== */
+.panel-accordion {
+  /* Reset browser defaults */
+}
+
+.panel-accordion > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.panel-accordion > summary::-webkit-details-marker { display: none; }
+
+.panel-accordion > summary.panel-header {
+  /* Closed state: no gap below, full corner radius */
+  margin-bottom: 0;
+  border-radius: var(--radius);
+}
+
+.panel-accordion[open] > summary.panel-header {
+  margin-bottom: 18px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* Chevron */
+.panel-accordion > summary.panel-header::after {
+  content: "▾";
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.panel-accordion[open] > summary.panel-header::after {
+  transform: rotate(-180deg);
+}
+
+.panel-accordion > summary.panel-header:hover {
+  background: #edf2f6;
+}
+
+/* No-signal fallback copy (Government Risk / Site Intel) */
+.no-signal-copy {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  opacity: 0.72;
+  font-style: italic;
+  margin-top: 4px;
+}
+
 /* 24. UI Atoms
    ========================================================================== */
 .pill {

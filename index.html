@@ -15,7 +15,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23142536'/%3E%3Cpath d='M28 8h8l2 11H26l2-11ZM18 20h28l-4 7H22l-4-7ZM24 29h16l4 26H20l4-26ZM32 11 22 3l2 13M32 11 42 3l-2 13M32 10V1M23 55h18' fill='none' stroke='%23f3c744' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260526-evidence-2" />
+    <link rel="stylesheet" href="./styles.css?v=20260526-accordion-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -465,63 +465,67 @@
           </section>
 
           <section class="panel civic-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Government risk signals</p>
-                <h3>Quality-of-life and development activity</h3>
+            <details class="panel-accordion">
+              <summary class="panel-header">
+                <div>
+                  <p class="section-label">Government risk signals</p>
+                  <h3>Quality-of-life and development activity</h3>
+                </div>
+                <span id="civic-source" class="pill">Local Market Activity</span>
+              </summary>
+              <div class="civic-grid">
+                <article>
+                  <span class="signal-label">Quality-of-life complaints</span>
+                  <strong id="complaint-level">Checking</strong>
+                  <p id="complaint-copy">Loading recent quality-of-life signals.</p>
+                  <div id="complaint-types" class="mini-list"></div>
+                </article>
+                <article>
+                  <span class="signal-label">Construction / permit activity</span>
+                  <strong id="permit-level">Checking</strong>
+                  <p id="permit-copy">Loading development activity.</p>
+                  <div id="permit-types" class="mini-list"></div>
+                </article>
               </div>
-              <span id="civic-source" class="pill">Local Market Activity</span>
-            </div>
-            <div class="civic-grid">
-              <article>
-                <span class="signal-label">Quality-of-life complaints</span>
-                <strong id="complaint-level">Checking</strong>
-                <p id="complaint-copy">Loading recent quality-of-life signals.</p>
-                <div id="complaint-types" class="mini-list"></div>
-              </article>
-              <article>
-                <span class="signal-label">Construction / permit activity</span>
-                <strong id="permit-level">Checking</strong>
-                <p id="permit-copy">Loading development activity.</p>
-                <div id="permit-types" class="mini-list"></div>
-              </article>
-            </div>
+            </details>
           </section>
 
           <section class="panel site-intel-panel">
-            <div class="panel-header">
-              <div>
-                <p class="section-label">Site intelligence</p>
-                <h3>Street activity, mobility, and commercial mix</h3>
+            <details class="panel-accordion">
+              <summary class="panel-header">
+                <div>
+                  <p class="section-label">Site intelligence</p>
+                  <h3>Street activity, mobility, and commercial mix</h3>
+                </div>
+                <span id="site-intel-source" class="pill">Public data</span>
+              </summary>
+              <div class="site-intel-grid">
+                <article>
+                  <span class="signal-label">Outdoor dining</span>
+                  <strong id="sidewalk-level">Checking</strong>
+                  <p id="sidewalk-copy">Loading outdoor dining activity.</p>
+                  <div id="sidewalk-types" class="mini-list"></div>
+                </article>
+                <article>
+                  <span class="signal-label">License activity</span>
+                  <strong id="liquor-level">Checking</strong>
+                  <p id="liquor-copy">Loading license activity.</p>
+                  <div id="liquor-types" class="mini-list"></div>
+                </article>
+                <article>
+                  <span class="signal-label">Mobility signal</span>
+                  <strong id="mta-level">Checking</strong>
+                  <p id="mta-copy">Enter an address to calculate nearby station ridership.</p>
+                  <div id="mta-types" class="mini-list"></div>
+                </article>
+                <article>
+                  <span class="signal-label">Commercial mix</span>
+                  <strong id="pluto-level">Checking</strong>
+                  <p id="pluto-copy">Loading tax-lot land-use mix.</p>
+                  <div id="pluto-types" class="mini-list"></div>
+                </article>
               </div>
-              <span id="site-intel-source" class="pill">Public data</span>
-            </div>
-            <div class="site-intel-grid">
-              <article>
-                <span class="signal-label">Outdoor dining</span>
-                <strong id="sidewalk-level">Checking</strong>
-                <p id="sidewalk-copy">Loading outdoor dining activity.</p>
-                <div id="sidewalk-types" class="mini-list"></div>
-              </article>
-              <article>
-                <span class="signal-label">License activity</span>
-                <strong id="liquor-level">Checking</strong>
-                <p id="liquor-copy">Loading license activity.</p>
-                <div id="liquor-types" class="mini-list"></div>
-              </article>
-              <article>
-                <span class="signal-label">Mobility signal</span>
-                <strong id="mta-level">Checking</strong>
-                <p id="mta-copy">Enter an address to calculate nearby station ridership.</p>
-                <div id="mta-types" class="mini-list"></div>
-              </article>
-              <article>
-                <span class="signal-label">Commercial mix</span>
-                <strong id="pluto-level">Checking</strong>
-                <p id="pluto-copy">Loading tax-lot land-use mix.</p>
-                <div id="pluto-types" class="mini-list"></div>
-              </article>
-            </div>
+            </details>
           </section>
 
           <div class="report-layout">
