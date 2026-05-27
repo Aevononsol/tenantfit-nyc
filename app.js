@@ -1322,10 +1322,10 @@ function renderCivicLoading() {
 }
 
 function miniList(items) {
-  if (!items?.length) return "<span>No verified signal returned</span>";
+  if (!items?.length) return '<span class="no-signal-copy">No active alerts or complaints recorded for this radius.</span>';
   return items
     .slice(0, 4)
-    .map((item) => `<span>${item.type}</span>`)
+    .map((item) => `<span>${escapeText(item.type)}</span>`)
     .join("");
 }
 
@@ -1373,7 +1373,7 @@ async function renderCivicCheck() {
     if (requestId !== state.civicRequestId) return;
     state.lastCivicResult = null;
     elements.complaintLevel.textContent = "Unavailable";
-    elements.complaintCopy.textContent = "Quality-of-life signal lookup failed. Try again later.";
+    elements.complaintCopy.textContent = "Signal check unavailable for this area.";
     elements.permitLevel.textContent = "Unavailable";
     elements.permitCopy.textContent = "Development activity lookup failed. Try again later.";
   }
@@ -1465,9 +1465,12 @@ function renderConceptFit(data) {
   }
 
   elements.conceptFitList.innerHTML = concepts.slice(0, 6).map((concept) => {
-    const topNames = concept.topNames?.length
-      ? concept.topNames.slice(0, 3).map(escapeText).join(", ")
-      : "No visible examples returned";
+    const cleanNames = (concept.topNames || []).filter(
+      (n) => typeof n === "string" && /[a-zA-Z]/.test(n)
+    );
+    const topNames = cleanNames.length
+      ? cleanNames.slice(0, 3).map(escapeText).join(", ")
+      : "No highly-visible competitors detected in this immediate radius.";
     return `
       <article class="concept-card concept-${concept.tone}">
         <div>
