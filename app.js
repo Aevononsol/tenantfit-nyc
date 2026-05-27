@@ -761,6 +761,13 @@ const elements = {
   footTrafficTransit: document.querySelector("#foot-traffic-transit"),
   footTrafficConfidence: document.querySelector("#foot-traffic-confidence"),
   footTrafficWhy: document.querySelector("#foot-traffic-why"),
+  revenueRent: document.querySelector("#revenue-rent"),
+  revenueSize: document.querySelector("#revenue-size"),
+  revenueCategory: document.querySelector("#revenue-category"),
+  revenueProjection: document.querySelector("#revenue-projection"),
+  revenueBreakeven: document.querySelector("#revenue-breakeven"),
+  revenueRentPercent: document.querySelector("#revenue-rent-percent"),
+  revenueNote: document.querySelector("#revenue-note"),
   civicSource: document.querySelector("#civic-source"),
   complaintLevel: document.querySelector("#complaint-level"),
   complaintCopy: document.querySelector("#complaint-copy"),
@@ -1463,6 +1470,58 @@ function renderFootTrafficIntelligence(profile) {
   elements.footTrafficConfidence.textContent = footTrafficConfidenceLabel(confidenceScore);
   elements.footTrafficWhy.textContent =
     `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. This is a modeled activity estimate, not exact foot traffic.`;
+}
+
+function revenueCategoryDefaults(category) {
+  const key = normalizeBusiness(category || state.business || "retail");
+  const defaults = {
+    restaurant: { salesPerSf: [85, 145], breakeven: [12, 24], rentShare: [0.06, 0.1] },
+    cafe: { salesPerSf: [70, 125], breakeven: [10, 20], rentShare: [0.07, 0.12] },
+    pizza: { salesPerSf: [75, 135], breakeven: [9, 18], rentShare: [0.08, 0.13] },
+    deli: { salesPerSf: [95, 175], breakeven: [6, 14], rentShare: [0.06, 0.1] },
+    gym: { salesPerSf: [38, 82], breakeven: [14, 30], rentShare: [0.08, 0.14] },
+    daycare: { salesPerSf: [45, 90], breakeven: [12, 28], rentShare: [0.07, 0.12] },
+    salon: { salesPerSf: [55, 105], breakeven: [8, 18], rentShare: [0.08, 0.13] },
+    laundromat: { salesPerSf: [42, 78], breakeven: [18, 36], rentShare: [0.07, 0.12] },
+    pharmacy: { salesPerSf: [95, 185], breakeven: [14, 30], rentShare: [0.05, 0.09] },
+    retail: { salesPerSf: [45, 95], breakeven: [10, 24], rentShare: [0.08, 0.14] }
+  };
+  return defaults[key] || defaults.restaurant;
+}
+
+function renderRevenueEstimator(profile) {
+  if (!elements.revenueProjection) return;
+  const rent = safeNumber(elements.revenueRent.value);
+  const size = safeNumber(elements.revenueSize.value);
+  const category = elements.revenueCategory.value || state.business || "retail";
+
+  if (!profile || rent === null || rent <= 0 || size === null || size <= 0) {
+    elements.revenueProjection.textContent = "Unavailable";
+    elements.revenueBreakeven.textContent = "Unavailable";
+    elements.revenueRentPercent.textContent = "Unavailable";
+    elements.revenueNote.textContent = "Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.";
+    return;
+  }
+
+  const defaults = revenueCategoryDefaults(category);
+  const config = modeledBusinessConfig(normalizeBusiness(category));
+  const demandScore = categoryFitForBusiness(normalizeBusiness(category), profile);
+  const demandLift = 0.72 + clampScore(demandScore) / 185;
+  const incomeLift = 0.82 + clampScore(profile.income) / 420;
+  const rentDrag = Math.max(0.72, 1 - clampScore(profile.rent) / 420);
+  const lowRevenue = size * defaults.salesPerSf[0] * demandLift * rentDrag;
+  const highRevenue = size * defaults.salesPerSf[1] * demandLift * incomeLift;
+  const targetRevenueLow = rent / defaults.rentShare[1];
+  const targetRevenueHigh = rent / defaults.rentShare[0];
+  const rentPercent = (rent / Math.max(1, (lowRevenue + highRevenue) / 2)) * 100;
+  const breakEvenLow = defaults.breakeven[0] + Math.round(config.operatingDifficulty / 24);
+  const breakEvenHigh = defaults.breakeven[1] + Math.round(config.rentSensitivity / 18);
+
+  elements.revenueProjection.textContent = moneyRange(lowRevenue, highRevenue);
+  elements.revenueBreakeven.textContent = `${breakEvenLow}-${breakEvenHigh} months`;
+  elements.revenueRentPercent.textContent = `${Math.round(rentPercent)}%`;
+  elements.revenueNote.textContent =
+    `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
 }
 
 function renderCivicLoading() {
@@ -3008,6 +3067,7 @@ async function renderBusinessCheck() {
       renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
       renderFootTrafficIntelligence(profile);
+      renderRevenueEstimator(profile);
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -3029,6 +3089,7 @@ async function renderBusinessCheck() {
       renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
       renderFootTrafficIntelligence(profile);
+      renderRevenueEstimator(profile);
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -3050,6 +3111,7 @@ async function renderBusinessCheck() {
     renderCategoryList(updatedRecommendations);
     renderOpportunities(profile);
     renderFootTrafficIntelligence(profile);
+    renderRevenueEstimator(profile);
     elements.headline.textContent = headlineFor(updatedRecommendations, profile);
     elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
     elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -3183,6 +3245,7 @@ function render(zip) {
   renderOpportunities(profile);
   renderMarketPulse(profile);
   renderFootTrafficIntelligence(profile);
+  renderRevenueEstimator(profile);
   renderBusinessCheck();
   renderRestaurantConceptFit();
   renderCivicCheck();
@@ -3416,6 +3479,15 @@ elements.budgetInput?.addEventListener("change", () => {
   const recommendations = buildRecommendations(profile);
   renderDecisionStrip(profile, recommendations);
   renderInstitutionalAnalysis(profile, recommendations);
+});
+
+["input", "change"].forEach((eventName) => {
+  [elements.revenueRent, elements.revenueSize, elements.revenueCategory].forEach((input) => {
+    input?.addEventListener(eventName, () => {
+      const profile = profileForZip(state.zip);
+      renderRevenueEstimator(profile);
+    });
+  });
 });
 
 elements.leaseForm.addEventListener("submit", async (event) => {

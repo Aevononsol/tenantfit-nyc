@@ -1291,6 +1291,50 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .foot-traffic-why strong { color: var(--ink); }
 .foot-traffic-why p { margin: 0; color: var(--muted); line-height: 1.45; }
 
+.revenue-estimator-panel { display: grid; gap: 16px; }
+
+.revenue-input-grid,
+.revenue-output-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.revenue-input-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.revenue-input-grid input,
+.revenue-input-grid select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #c7d4dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.revenue-output-grid article {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid #d8e2e8;
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+.revenue-output-grid strong {
+  color: var(--teal);
+  font-size: 1.2rem;
+}
+
 .civic-grid strong, .site-intel-grid strong, .foot-traffic-grid strong { color: var(--brick); font-size: 1.16rem; }
 .foot-traffic-grid strong { color: var(--teal); }
 .civic-grid p, .site-intel-grid p, .foot-traffic-grid p { margin: 0; color: var(--muted); line-height: 1.45; }
@@ -1842,6 +1886,8 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .civic-grid,
   .site-intel-grid,
   .foot-traffic-grid,
+  .revenue-input-grid,
+  .revenue-output-grid,
   .institutional-grid,
   .analysis-columns { grid-template-columns: 1fr; }
 

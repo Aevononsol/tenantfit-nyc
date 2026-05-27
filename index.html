@@ -508,6 +508,57 @@
             </div>
           </section>
 
+          <section class="panel revenue-estimator-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Revenue estimator</p>
+                <h3>Modeled sales pressure and break-even screen</h3>
+              </div>
+              <span class="pill">Estimate only</span>
+            </div>
+            <div class="revenue-input-grid">
+              <label>
+                Monthly rent
+                <input id="revenue-rent" type="number" min="0" step="500" placeholder="18000">
+              </label>
+              <label>
+                Size
+                <input id="revenue-size" type="number" min="0" step="100" placeholder="1200">
+              </label>
+              <label>
+                Category
+                <select id="revenue-category">
+                  <option value="">Use current business</option>
+                  <option value="restaurant">Restaurant</option>
+                  <option value="cafe">Cafe / coffee</option>
+                  <option value="pizza">Pizza</option>
+                  <option value="deli">Deli / convenience</option>
+                  <option value="gym">Gym / fitness</option>
+                  <option value="daycare">Daycare</option>
+                  <option value="salon">Salon</option>
+                  <option value="laundromat">Laundromat</option>
+                  <option value="pharmacy">Pharmacy</option>
+                  <option value="retail">Retail</option>
+                </select>
+              </label>
+            </div>
+            <div class="revenue-output-grid">
+              <article>
+                <span class="signal-label">Projected monthly revenue</span>
+                <strong id="revenue-projection">Unavailable</strong>
+              </article>
+              <article>
+                <span class="signal-label">Break-even estimate</span>
+                <strong id="revenue-breakeven">Unavailable</strong>
+              </article>
+              <article>
+                <span class="signal-label">Rent %</span>
+                <strong id="revenue-rent-percent">Unavailable</strong>
+              </article>
+            </div>
+            <p id="revenue-note" class="panel-note">Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.</p>
+          </section>
+
           <section class="panel civic-panel">
             <details class="panel-accordion">
               <summary class="panel-header">
