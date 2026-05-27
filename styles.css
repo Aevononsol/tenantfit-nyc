@@ -1215,17 +1215,20 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 /* 20. Civic / Site Intel Panels
    ========================================================================== */
 .civic-panel,
-.site-intel-panel { display: grid; gap: 16px; }
+.site-intel-panel,
+.foot-traffic-panel { display: grid; gap: 16px; }
 
 .civic-grid,
-.site-intel-grid {
+.site-intel-grid,
+.foot-traffic-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
 .civic-grid article,
-.site-intel-grid article {
+.site-intel-grid article,
+.foot-traffic-grid article {
   display: grid;
   gap: 8px;
   padding: 18px;
@@ -1235,8 +1238,32 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   box-shadow: var(--card-shadow);
 }
 
-.civic-grid strong, .site-intel-grid strong { color: var(--brick); font-size: 1.16rem; }
-.civic-grid p, .site-intel-grid p { margin: 0; color: var(--muted); line-height: 1.45; }
+.foot-score-card {
+  background: linear-gradient(145deg, #0e5260, #143348) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.foot-score-card .signal-label,
+.foot-score-card p,
+.foot-score-card strong { color: #ffffff; }
+
+.foot-score-card p { opacity: 0.86; }
+
+.foot-traffic-why {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid #d8e2e8;
+  background: #f7fafb;
+}
+
+.foot-traffic-why strong { color: var(--ink); }
+.foot-traffic-why p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+.civic-grid strong, .site-intel-grid strong, .foot-traffic-grid strong { color: var(--brick); font-size: 1.16rem; }
+.foot-traffic-grid strong { color: var(--teal); }
+.civic-grid p, .site-intel-grid p, .foot-traffic-grid p { margin: 0; color: var(--muted); line-height: 1.45; }
 
 .mini-list {
   display: flex;
@@ -1784,6 +1811,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
   .civic-grid,
   .site-intel-grid,
+  .foot-traffic-grid,
   .institutional-grid,
   .analysis-columns { grid-template-columns: 1fr; }
 

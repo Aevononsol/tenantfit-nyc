@@ -752,6 +752,15 @@ const elements = {
   pulseFoot: document.querySelector("#pulse-foot"),
   pulseSpend: document.querySelector("#pulse-spend"),
   pulseRisk: document.querySelector("#pulse-risk"),
+  footTrafficScore: document.querySelector("#foot-traffic-score"),
+  footTrafficActivity: document.querySelector("#foot-traffic-activity"),
+  footTrafficVisitors: document.querySelector("#foot-traffic-visitors"),
+  footTrafficPeaks: document.querySelector("#foot-traffic-peaks"),
+  footTrafficWeekSplit: document.querySelector("#foot-traffic-weeksplit"),
+  footTrafficWalkability: document.querySelector("#foot-traffic-walkability"),
+  footTrafficTransit: document.querySelector("#foot-traffic-transit"),
+  footTrafficConfidence: document.querySelector("#foot-traffic-confidence"),
+  footTrafficWhy: document.querySelector("#foot-traffic-why"),
   civicSource: document.querySelector("#civic-source"),
   complaintLevel: document.querySelector("#complaint-level"),
   complaintCopy: document.querySelector("#complaint-copy"),
@@ -1313,6 +1322,96 @@ function renderMarketPulse(profile) {
   elements.pulseRisk.textContent = pulseLabel(riskScore, ["Low", "Manageable", "Elevated", "Severe"]);
 }
 
+function activityLabel(score) {
+  if (score >= 74) return "High";
+  if (score >= 48) return "Medium";
+  return "Low";
+}
+
+function modeledVisitorRange(score, profile) {
+  const baseLow = score >= 74 ? 4500 : score >= 48 ? 1800 : 600;
+  const baseHigh = score >= 74 ? 12000 : score >= 48 ? 5200 : 1800;
+  const officeLift = safeNumber(profile.office, 50) >= 75 ? 1.18 : 1;
+  const touristLift = safeNumber(profile.tourist, 50) >= 72 ? 1.12 : 1;
+  const locationLift = state.location ? 0.82 : 1;
+  const low = Math.round(baseLow * officeLift * touristLift * locationLift / 100) * 100;
+  const high = Math.round(baseHigh * officeLift * touristLift * locationLift / 100) * 100;
+  return `${formatInteger(low)}-${formatInteger(Math.max(low + 500, high))}`;
+}
+
+function peakHoursFor(profile) {
+  const peaks = [];
+  if (safeNumber(profile.office, 0) >= 58 || safeNumber(profile.transit, 0) >= 72) peaks.push("morning");
+  peaks.push("lunch");
+  if (safeNumber(profile.nightlife, 0) >= 58 || safeNumber(profile.tourist, 0) >= 62) peaks.push("evening");
+  return [...new Set(peaks)].join(" / ");
+}
+
+function weekdayWeekendSplit(profile) {
+  const weekday = clampScore(50 + safeNumber(profile.office, 50) * 0.18 + safeNumber(profile.transit, 50) * 0.1 - safeNumber(profile.nightlife, 50) * 0.08 - safeNumber(profile.tourist, 50) * 0.05);
+  const weekend = 100 - weekday;
+  return `Weekday ${weekday}% / weekend ${weekend}% modeled split.`;
+}
+
+function footTrafficConfidenceLabel(score) {
+  if (score >= 78) return "Confidence: High";
+  if (score >= 58) return "Confidence: Medium";
+  return "Confidence: Directional";
+}
+
+function renderFootTrafficIntelligence(profile) {
+  if (!profile || !elements.footTrafficScore) return;
+
+  const siteIntel = currentSiteIntelResult();
+  const businessResult = currentBusinessResult();
+  const mobilityScore = siteIntel?.mta?.available
+    ? (siteIntel.mta.totalDecember2024Ridership > 250000 ? 90 : 68)
+    : safeNumber(profile.transit, 50);
+  const commercialMixScore = siteIntel?.pluto?.retailArea > 500000
+    ? 88
+    : siteIntel?.pluto?.retailArea > 150000
+      ? 68
+      : safeNumber(profile.office, 50);
+  const restaurantConcentration = businessResult?.registryExact
+    ? saturationFromCount(safeNumber(businessResult.count, 0), profile)
+    : safeNumber(competitorSeeds[state.zip]?.restaurant, 0)
+      ? saturationFromCount(competitorSeeds[state.zip].restaurant, profile)
+      : safeNumber(profile.competition, 50);
+  const score = clampScore(
+    safeNumber(profile.density, 50) * 0.24 +
+      safeNumber(profile.transit, 50) * 0.2 +
+      mobilityScore * 0.14 +
+      safeNumber(profile.office, 50) * 0.12 +
+      safeNumber(profile.nightlife, 50) * 0.1 +
+      safeNumber(profile.tourist, 50) * 0.08 +
+      commercialMixScore * 0.07 +
+      restaurantConcentration * 0.05
+  );
+  const confidenceScore = clampScore(
+    42 +
+      (siteIntel ? 18 : 0) +
+      (siteIntel?.mta?.available ? 13 : 0) +
+      (siteIntel?.pluto?.retailArea > 0 ? 12 : 0) +
+      (businessResult?.registryExact ? 10 : 0)
+  );
+  const activity = activityLabel(score);
+  const walkability = clampScore(safeNumber(profile.density, 50) * 0.46 + safeNumber(profile.transit, 50) * 0.42 + safeNumber(profile.localPreference, 50) * 0.12);
+  const transitText = siteIntel?.mta?.available
+    ? `Transit proximity: ${siteIntel.mta.totalDecember2024Ridership > 250000 ? "strong" : "moderate"} nearby mobility signal.`
+    : `Transit proximity: ${pulseLabel(profile.transit, ["limited", "useful", "strong", "excellent"])} area access.`;
+
+  elements.footTrafficScore.textContent = formatScore(score);
+  elements.footTrafficActivity.textContent = `Estimated Activity: ${activity}. Modeled from internal market signals only.`;
+  elements.footTrafficVisitors.textContent = `${modeledVisitorRange(score, profile)} daily`;
+  elements.footTrafficPeaks.textContent = peakHoursFor(profile);
+  elements.footTrafficWeekSplit.textContent = weekdayWeekendSplit(profile);
+  elements.footTrafficWalkability.textContent = formatScore(walkability);
+  elements.footTrafficTransit.textContent = transitText;
+  elements.footTrafficConfidence.textContent = footTrafficConfidenceLabel(confidenceScore);
+  elements.footTrafficWhy.textContent =
+    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. This is a modeled activity estimate, not exact foot traffic.`;
+}
+
 function renderCivicLoading() {
   elements.civicSource.textContent = state.location ? "Local activity + address radius" : "Local Market Activity";
   elements.complaintLevel.textContent = "Checking";
@@ -1615,7 +1714,10 @@ function renderSiteIntelligence(data) {
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
 
   const profile = profileForZip(state.zip);
-  if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
+  if (profile) {
+    renderFootTrafficIntelligence(profile);
+    renderInstitutionalAnalysis(profile, buildRecommendations(profile));
+  }
 }
 
 function loadLeases() {
@@ -2852,6 +2954,7 @@ async function renderBusinessCheck() {
       renderInstitutionalAnalysis(profile, updatedRecommendations);
       renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
+      renderFootTrafficIntelligence(profile);
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -2872,6 +2975,7 @@ async function renderBusinessCheck() {
       renderInstitutionalAnalysis(profile, updatedRecommendations);
       renderCategoryList(updatedRecommendations);
       renderOpportunities(profile);
+      renderFootTrafficIntelligence(profile);
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -2892,6 +2996,7 @@ async function renderBusinessCheck() {
     renderInstitutionalAnalysis(profile, updatedRecommendations);
     renderCategoryList(updatedRecommendations);
     renderOpportunities(profile);
+    renderFootTrafficIntelligence(profile);
     elements.headline.textContent = headlineFor(updatedRecommendations, profile);
     elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
     elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
@@ -3024,6 +3129,7 @@ function render(zip) {
   elements.talkingPoints.innerHTML = profile.talkingPoints.map((item) => `<li>${item}</li>`).join("");
   renderOpportunities(profile);
   renderMarketPulse(profile);
+  renderFootTrafficIntelligence(profile);
   renderBusinessCheck();
   renderRestaurantConceptFit();
   renderCivicCheck();
