@@ -1331,6 +1331,32 @@ function miniList(items) {
     .join("");
 }
 
+const permitActivityLabels = {
+  EW: "Electrical Work",
+  PL: "Plumbing",
+  EQ: "Equipment",
+  AL: "Alteration",
+  NB: "New Building",
+  SG: "Signage",
+  DM: "Demolition",
+  FO: "Foundation",
+  MH: "Mechanical",
+  OT: "Other permit activity"
+};
+
+function permitActivityDisplayName(type) {
+  const code = String(type || "").trim().toUpperCase();
+  return permitActivityLabels[code] || "Other permit activity";
+}
+
+function permitMiniList(items) {
+  if (!items?.length) return '<span class="no-signal-copy">No active development signal returned.</span>';
+  return items
+    .slice(0, 4)
+    .map((item) => `<span>${escapeText(permitActivityDisplayName(item.type))}</span>`)
+    .join("");
+}
+
 function renderCivicSignals(data) {
   state.lastCivicResult = data;
   const radiusText = data.searchContext?.mode === "address-radius"
@@ -1347,7 +1373,7 @@ function renderCivicSignals(data) {
   elements.permitLevel.textContent = `${data.permits.level} permit activity`;
   elements.permitCopy.textContent =
     `Development activity signal in ZIP ${data.zip}. This shows area momentum, not current availability.`;
-  elements.permitTypes.innerHTML = miniList(data.permits.topTypes);
+  elements.permitTypes.innerHTML = permitMiniList(data.permits.topTypes);
 
   const profile = profileForZip(state.zip);
   if (profile) renderInstitutionalAnalysis(profile, buildRecommendations(profile));
