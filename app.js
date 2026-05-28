@@ -1563,6 +1563,15 @@ function titleCase(value) {
     .join(" ");
 }
 
+function reportAreaTitle(zip, profile) {
+  if (!state.location) return `ZIP ${zip} · ${profile.name}`;
+  const cleanAddress = String(state.location.address || "")
+    .replace(/,\s*USA$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleanAddress || `ZIP ${zip} · ${profile.name}`;
+}
+
 function modeledBusinessConfig(business) {
   return (
     businessTypes[business] || {
@@ -3850,9 +3859,7 @@ function render(zip, options = {}) {
   elements.message.textContent = "Loading market signals...";
   elements.analyzeButton.disabled = true;
   elements.analyzeButton.textContent = "Analyzing...";
-  elements.areaTitle.textContent = state.location
-    ? `${state.location.address} - ZIP ${zip}`
-    : `ZIP ${zip} - ${profile.name}`;
+  elements.areaTitle.textContent = reportAreaTitle(zip, profile);
 
   ["density", "income", "transit", "rent"].forEach((metric) => {
     elements.meters[metric].value = profile[metric];

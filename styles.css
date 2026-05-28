@@ -481,6 +481,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   font-size: clamp(2rem, 3.6vw, 3.6rem);
   letter-spacing: -0.03em;
   line-height: 1;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.28);
 }
 
@@ -2187,7 +2189,21 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .results, .start-screen { padding: 18px; }
 
   .start-screen h2  { font-size: clamp(2.6rem, 13vw, 4.2rem); }
-  .hero-report h2   { font-size: clamp(2rem, 11vw, 3.4rem); }
+  .hero-report {
+    grid-template-columns: 1fr;
+    align-items: start;
+    min-height: auto;
+  }
+  .hero-report h2 {
+    max-width: 100%;
+    font-size: clamp(1.85rem, 7.4vw, 2.55rem);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+  }
+  .hero-report p {
+    max-width: 36rem;
+    font-size: 0.95rem;
+  }
 
   .civic-grid,
   .site-intel-grid,
@@ -2249,6 +2265,15 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .start-steps { grid-template-columns: 1fr; }
 
   .hero-report        { padding: 22px; }
+  .hero-report h2 {
+    font-size: clamp(1.65rem, 7vw, 2.15rem);
+    line-height: 1.06;
+  }
+  .hero-tags span {
+    max-width: 100%;
+    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+  }
   .hero-report,
   .panel,
   .verdict-panel,
