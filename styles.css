@@ -309,15 +309,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   display: grid;
   grid-template-columns: 1fr;
   gap: 6px;
-  max-height: min(340px, 42vh);
+  max-height: min(360px, 46vh);
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 8px;
   border-radius: 14px;
   border: 1px solid rgba(103, 232, 249, 0.22);
   background: rgba(2, 16, 28, 0.94);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 30;
 }
 
 .business-suggestions[hidden] {
@@ -2263,6 +2266,16 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .start-screen { min-height: 60vh; align-content: center; }
   .start-screen h2 { font-size: 2.35rem; }
   .start-steps { grid-template-columns: 1fr; }
+
+  .business-suggestions {
+    max-height: 44vh;
+    padding: 10px;
+  }
+
+  .business-suggestions button {
+    min-height: 48px;
+    font-size: 1rem;
+  }
 
   .hero-report        { padding: 22px; }
   .hero-report h2 {

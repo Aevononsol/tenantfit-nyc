@@ -1524,7 +1524,7 @@ function filteredBusinessSuggestions() {
     const normalized = option.toLowerCase();
     return !query || normalized.includes(query) || normalizeBusiness(option).includes(query);
   });
-  return (options.length ? options : businessSuggestionOptions).slice(0, 10);
+  return (options.length ? options : businessSuggestionOptions).slice(0, 80);
 }
 
 function showBusinessSuggestions() {
@@ -3309,7 +3309,7 @@ function renderInstitutionalAnalysis(profile, recommendations) {
   const missingItems = [...analysis.validation.missing, ...analysis.validation.conflicts];
   elements.missingDataList.innerHTML = missingItems.length
     ? missingItems.map((item) => `<li>${escapeText(item)}</li>`).join("")
-    : "<li>No major unknown factors detected from the connected signals. Still verify rent, operator strength, and final lease terms before committing.</li>";
+    : "<li>No major verification gaps detected from the available signals. Still verify rent, operator strength, and final commitment terms before committing.</li>";
   renderSourceMap(analysis);
   elements.explainabilityList.innerHTML = analysis.explainability
     .map((group) => `
@@ -3328,9 +3328,9 @@ function renderInstitutionalAnalysis(profile, recommendations) {
 }
 
 function sourceStatus(connected, partial = false) {
-  if (connected) return { label: "Connected", className: "connected" };
-  if (partial) return { label: "Partially connected", className: "partial" };
-  return { label: "Needs confirmation", className: "needs-confirmation" };
+  if (connected) return { label: "Available", className: "connected" };
+  if (partial) return { label: "Partial", className: "partial" };
+  return { label: "Needs proof", className: "needs-confirmation" };
 }
 
 function renderSourceMap(analysis) {
@@ -3390,9 +3390,9 @@ function renderSourceMap(analysis) {
     },
     {
       section: "Still needs verification",
-      key: "No API can fully verify this",
+      key: "Requires on-site or operator proof",
       powers: "True foot traffic, dwell time, rent, buildout cost, parking, operator financials",
-      status: { label: "Manual diligence", className: "manual" }
+      status: { label: "Manual check", className: "manual" }
     }
   ];
 
@@ -4007,7 +4007,7 @@ function exportSummary() {
     "Required conditions:",
     ...analysis.conditions.map((item) => `- ${item}`),
     "",
-    "Unknown Factors:",
+    "Still needs verification:",
     ...[...analysis.validation.missing, ...analysis.validation.conflicts].map((item) => `- ${item}`),
     "",
     headlineFor(recommendations, profile),
