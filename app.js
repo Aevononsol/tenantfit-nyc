@@ -929,6 +929,99 @@ const elements = {
   }
 };
 
+const reducedMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+const animatedNumbers = new WeakMap();
+const timestampChips = new Map();
+
+function prefersReducedMotion() {
+  return Boolean(reducedMotionQuery?.matches);
+}
+
+function formatUpdatedTime(date = new Date()) {
+  return `Last updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function panelTimestamp(panelSelector) {
+  if (timestampChips.has(panelSelector)) return timestampChips.get(panelSelector);
+  const header = document.querySelector(`${panelSelector} .panel-header`);
+  if (!header) return null;
+  const chip = document.createElement("span");
+  chip.className = "last-updated";
+  chip.textContent = formatUpdatedTime();
+  header.appendChild(chip);
+  timestampChips.set(panelSelector, chip);
+  return chip;
+}
+
+function updatePanelTimestamp(panelSelector) {
+  const chip = panelTimestamp(panelSelector);
+  if (chip) chip.textContent = formatUpdatedTime();
+}
+
+function statusTone(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("connected") || normalized.includes("verified") || normalized.includes("confidence")) return "connected";
+  if (normalized.includes("checking") || normalized.includes("loading") || normalized.includes("refresh")) return "refreshing";
+  return "estimated";
+}
+
+function setStatusPill(element, text, status = text) {
+  if (!element) return;
+  element.textContent = text;
+  element.classList.remove("status-connected", "status-estimated", "status-refreshing");
+  element.classList.add(`status-${statusTone(status)}`);
+}
+
+function animateNumber(element, value, options = {}) {
+  if (!element) return;
+  const numeric = Number(value);
+  const suffix = options.suffix ?? "";
+  if (!Number.isFinite(numeric)) {
+    element.textContent = String(value ?? "Unavailable");
+    return;
+  }
+  if (prefersReducedMotion()) {
+    element.textContent = `${Math.round(numeric)}${suffix}`;
+    animatedNumbers.set(element, numeric);
+    return;
+  }
+
+  const prior = animatedNumbers.get(element);
+  const start = Number.isFinite(prior) ? prior : numeric;
+  const duration = options.duration ?? 650;
+  const startedAt = performance.now();
+  animatedNumbers.set(element, numeric);
+
+  function tick(now) {
+    const progress = Math.min(1, (now - startedAt) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + (numeric - start) * eased);
+    element.textContent = `${current}${suffix}`;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+function animateScoreText(element, value) {
+  const match = String(value ?? "").match(/^(\d+)(\/100)$/);
+  if (!match) {
+    if (element) element.textContent = String(value ?? "Needs more data");
+    return;
+  }
+  animateNumber(element, Number(match[1]), { suffix: match[2] });
+}
+
+function setLoadingText(element, label = "Refreshing") {
+  if (!element) return;
+  element.textContent = label;
+  element.classList.add("skeleton-text");
+}
+
+function clearLoadingText(...items) {
+  items.forEach((element) => element?.classList?.remove("skeleton-text"));
+}
+
 let marketMap = null;
 let mapLayers = [];
 
@@ -951,7 +1044,8 @@ function renderStaticMapFallback(reason = "Map tiles are taking longer than expe
       <small>Area center: ${center.map((value) => Number(value).toFixed(4)).join(", ")}</small>
     </div>
   `;
-  elements.mapStatus.textContent = "Map preview";
+  setStatusPill(elements.mapStatus, "Map preview", "Estimated");
+  updatePanelTimestamp(".map-panel");
 }
 
 function mapCenterForZip(zip) {
@@ -1013,7 +1107,7 @@ function addDensityCircle(lat, lng, score, popupHtml) {
 
 function renderMarketMap() {
   if (!window.L || !elements.map) {
-    elements.mapStatus.textContent = "Map loading";
+    setStatusPill(elements.mapStatus, "Map loading", "Refreshing");
     renderStaticMapFallback("Interactive map library is still loading. AreaIntel will retry automatically.");
     if (state.mapRetryCount < 4) {
       state.mapRetryCount += 1;
@@ -1059,7 +1153,7 @@ function _finishRenderMap() {
   map.setView(center, state.location ? 15 : 13);
 
   if (state.location) {
-    addMapMarker(state.location.lat, state.location.lng, "address-marker", `<strong>${state.location.address}</strong><br>Search center`);
+    addMapMarker(state.location.lat, state.location.lng, "address-marker selected-location", `<strong>${state.location.address}</strong><br>Search center`);
     const radius = Number(state.location.radiusMiles || 0.5) * 1609.344;
     const circle = L.circle(center, {
       radius,
@@ -1133,9 +1227,12 @@ function _finishRenderMap() {
       );
     });
 
-  elements.mapStatus.textContent = state.location
-    ? `Address radius · ${state.location.radiusMiles} mi`
-    : `Area view · ZIP ${state.zip}`;
+  setStatusPill(
+    elements.mapStatus,
+    state.location ? `Address radius · ${state.location.radiusMiles} mi` : `Area view · ZIP ${state.zip}`,
+    "Connected"
+  );
+  updatePanelTimestamp(".map-panel");
   requestAnimationFrame(() => window.setTimeout(() => map.invalidateSize(), 60));
 }
 
@@ -1465,9 +1562,11 @@ function scoreDrivers(profile, item) {
 function renderOpportunities(profile) {
   const recommendations = buildRecommendations(profile).slice(0, 5);
   const liveCompetition = currentBusinessResult()?.registryExact;
-  elements.opportunitySource.textContent = liveCompetition
-    ? "Verified signals + model ranges"
-    : "Directional model";
+  setStatusPill(
+    elements.opportunitySource,
+    liveCompetition ? "Verified signals + model ranges" : "Directional model",
+    liveCompetition ? "Connected" : "Estimated"
+  );
   elements.opportunityList.innerHTML = recommendations
     .map((item) => {
       const profit = estimateMonthlyProfit(item, profile);
@@ -1501,9 +1600,11 @@ function renderCategoryList(recommendations) {
       : recommendations.filter((item) => item.band === state.filter);
   const liveCompetition = currentBusinessResult()?.registryExact;
 
-  elements.categorySource.textContent = liveCompetition
-    ? `Signal-adjusted for ${currentBusinessResult().business}`
-    : "Directional area model";
+  setStatusPill(
+    elements.categorySource,
+    liveCompetition ? `Signal-adjusted for ${currentBusinessResult().business}` : "Directional area model",
+    liveCompetition ? "Connected" : "Estimated"
+  );
   elements.categoryList.innerHTML = visibleRecommendations
     .map(
       (item) => `
@@ -1522,9 +1623,14 @@ function renderCategoryList(recommendations) {
 function renderTopPlaces(result) {
   const places = result?.googlePlaces?.topPlaces || [];
   elements.placesTitle.textContent = `Best nearby competitive examples`;
-  elements.placesSource.textContent = result?.searchContext?.mode === "address-radius"
-    ? `Competitive Signals · ${result.searchContext.radiusMiles} mi`
-    : result?.googlePlaces ? "Competitive Signals" : "Waiting for competitive signals";
+  setStatusPill(
+    elements.placesSource,
+    result?.searchContext?.mode === "address-radius"
+      ? `Competitive Signals · ${result.searchContext.radiusMiles} mi`
+      : result?.googlePlaces ? "Competitive Signals" : "Waiting for competitive signals",
+    places.length ? "Connected" : "Estimated"
+  );
+  updatePanelTimestamp(".places-panel");
 
   if (!places.length) {
     elements.placesList.innerHTML = `
@@ -1733,13 +1839,14 @@ function renderRevenueEstimator(profile) {
 }
 
 function renderCivicLoading() {
-  elements.civicSource.textContent = state.location ? "Local activity + address radius" : "Local Market Activity";
-  elements.complaintLevel.textContent = "Checking";
+  setStatusPill(elements.civicSource, state.location ? "Local activity + address radius" : "Local Market Activity", "Refreshing");
+  setLoadingText(elements.complaintLevel, "Refreshing");
   elements.complaintCopy.textContent = "Loading recent quality-of-life signals.";
   elements.complaintTypes.innerHTML = "";
-  elements.permitLevel.textContent = "Checking";
+  setLoadingText(elements.permitLevel, "Refreshing");
   elements.permitCopy.textContent = "Loading development activity.";
   elements.permitTypes.innerHTML = "";
+  updatePanelTimestamp(".civic-panel");
 }
 
 function miniList(items) {
@@ -1785,6 +1892,8 @@ function renderCivicSignals(data) {
   elements.civicSource.textContent = data.searchContext?.mode === "address-radius"
     ? "Address radius + area signal"
     : "Area-level signals";
+  setStatusPill(elements.civicSource, elements.civicSource.textContent, data.fallback ? "Estimated" : "Connected");
+  clearLoadingText(elements.complaintLevel, elements.permitLevel);
   elements.complaintLevel.textContent = `${data.complaints.level} local activity`;
   elements.complaintCopy.textContent =
     `Recent quality-of-life signal ${radiusText}. Use this as a risk indicator, not a foot-traffic count.`;
@@ -1793,6 +1902,7 @@ function renderCivicSignals(data) {
   elements.permitCopy.textContent =
     `Development activity signal in ZIP ${data.zip}. This shows area momentum, not current availability.`;
   elements.permitTypes.innerHTML = permitMiniList(data.permits.topTypes);
+  updatePanelTimestamp(".civic-panel");
 
   const profile = profileForZip(state.zip);
   if (profile) {
@@ -1834,13 +1944,14 @@ async function renderCivicCheck() {
 }
 
 function renderConceptLoading() {
-  elements.conceptSource.textContent = state.location ? "Address radius" : "Area concept scan";
+  setStatusPill(elements.conceptSource, state.location ? "Address radius" : "Area concept scan", "Refreshing");
   elements.conceptFitList.innerHTML = `
     <article class="empty-places">
-      <strong>Checking cuisine gaps</strong>
-      <p>AreaIntel is comparing competitive visibility with local restaurant activity.</p>
+      <strong class="skeleton-text">Refreshing concept signals</strong>
+      <p><span class="skeleton-line"></span><span class="skeleton-line short"></span></p>
     </article>
   `;
+  updatePanelTimestamp(".concept-fit-panel");
 }
 
 function isFoodBusiness(business) {
@@ -1903,9 +2014,12 @@ function escapeText(value) {
 function renderConceptFit(data) {
   state.lastConceptFitResult = data;
   const concepts = Array.isArray(data.concepts) ? data.concepts : [];
-  elements.conceptSource.textContent = data.searchContext?.mode === "address-radius"
-    ? `Competitive Signals · ${data.searchContext.radiusMiles} mi`
-    : "Competitive Signals";
+  setStatusPill(
+    elements.conceptSource,
+    data.searchContext?.mode === "address-radius" ? `Competitive Signals · ${data.searchContext.radiusMiles} mi` : "Competitive Signals",
+    data.fallback ? "Estimated" : "Connected"
+  );
+  updatePanelTimestamp(".concept-fit-panel");
 
   if (!concepts.length) {
     state.lastConceptFitResult = null;
@@ -1995,21 +2109,22 @@ async function renderRestaurantConceptFit() {
 }
 
 function renderSiteIntelLoading() {
-  elements.siteIntelSource.textContent = state.location ? "Address + area signals" : "Area-level signals";
-  elements.sidewalkLevel.textContent = "Checking";
+  setStatusPill(elements.siteIntelSource, state.location ? "Address + area signals" : "Area-level signals", "Refreshing");
+  setLoadingText(elements.sidewalkLevel, "Refreshing");
   elements.sidewalkCopy.textContent = "Loading outdoor dining activity.";
   elements.sidewalkTypes.innerHTML = "";
-  elements.liquorLevel.textContent = "Checking";
+  setLoadingText(elements.liquorLevel, "Refreshing");
   elements.liquorCopy.textContent = "Loading license activity.";
   elements.liquorTypes.innerHTML = "";
-  elements.mtaLevel.textContent = state.location ? "Checking" : "Needs address";
+  state.location ? setLoadingText(elements.mtaLevel, "Refreshing") : elements.mtaLevel.textContent = "Needs address";
   elements.mtaCopy.textContent = state.location
     ? "Loading nearby mobility signal."
     : "Enter an exact address to calculate nearby mobility signal.";
   elements.mtaTypes.innerHTML = "";
-  elements.plutoLevel.textContent = "Checking";
+  setLoadingText(elements.plutoLevel, "Refreshing");
   elements.plutoCopy.textContent = "Loading commercial mix.";
   elements.plutoTypes.innerHTML = "";
+  updatePanelTimestamp(".site-intel-panel");
 }
 
 function numberLabel(value) {
@@ -2018,9 +2133,12 @@ function numberLabel(value) {
 
 function renderSiteIntelligence(data) {
   state.lastSiteIntelResult = data;
-  elements.siteIntelSource.textContent = data.searchContext?.mode === "address-radius"
-    ? "Address radius + area"
-    : "Area-level signals";
+  setStatusPill(
+    elements.siteIntelSource,
+    data.searchContext?.mode === "address-radius" ? "Address radius + area" : "Area-level signals",
+    data.fallback ? "Estimated" : "Connected"
+  );
+  clearLoadingText(elements.sidewalkLevel, elements.liquorLevel, elements.mtaLevel, elements.plutoLevel);
 
   elements.sidewalkLevel.textContent = data.sidewalkCafe.active > 20 ? "Strong outdoor dining signal" : data.sidewalkCafe.active > 5 ? "Moderate outdoor dining signal" : "Limited outdoor dining signal";
   elements.sidewalkCopy.textContent =
@@ -2053,6 +2171,7 @@ function renderSiteIntelligence(data) {
   elements.plutoCopy.textContent =
     `Commercial mix suggests ${data.pluto.retailArea > 150000 ? "meaningful" : "limited"} retail and service capacity; average building age signal ${averageYearBuilt}.`;
   elements.plutoTypes.innerHTML = miniList(data.pluto.landUseMix);
+  updatePanelTimestamp(".site-intel-panel");
 
   const profile = profileForZip(state.zip);
   if (profile) {
@@ -3035,7 +3154,11 @@ function buildInstitutionalAnalysis(profile, recommendations) {
 function renderInstitutionalAnalysis(profile, recommendations) {
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
   renderEvidenceCoverage(analysis);
-  elements.institutionalConfidence.textContent = `Evidence confidence ${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
+  setStatusPill(
+    elements.institutionalConfidence,
+    `Evidence confidence ${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`,
+    analysis.confidenceScore >= 70 ? "Connected" : "Estimated"
+  );
   elements.institutionalDecision.textContent = analysis.decision;
   elements.institutionalDecision.className = `decision-badge decision-${analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   elements.institutionalSummary.textContent = analysis.summary;
@@ -3092,6 +3215,7 @@ function renderInstitutionalAnalysis(profile, recommendations) {
     `Primary screen: ${analysis.topRecommendation.name} (${formatScore(analysis.topRecommendation.score)})`,
     ...analysis.alternatives.map((item) => `Alternative: ${item}`)
   ].map((item) => `<li>${escapeText(item)}</li>`).join("");
+  updatePanelTimestamp(".institutional-panel");
 }
 
 function sourceStatus(connected, partial = false) {
@@ -3301,15 +3425,16 @@ function renderEvidenceCoverage(analysis) {
   ];
 
   if (elements.evidenceSource) {
-    elements.evidenceSource.textContent = `Confidence ${formatScore(analysis.confidenceScore)}`;
+    setStatusPill(elements.evidenceSource, `Confidence ${formatScore(analysis.confidenceScore)}`, "Connected");
   }
+  updatePanelTimestamp(".evidence-panel");
 
   elements.evidenceSignalGrid.innerHTML = cards
     .map((card) => `
       <article class="evidence-signal-card evidence-${card.tone}">
         <div>
           <strong>${escapeText(card.title)}</strong>
-          <span>${escapeText(card.status)}</span>
+          <span class="mini-status mini-status-${statusTone(card.status)}">${escapeText(card.status)}</span>
         </div>
         <p>${escapeText(card.copy)}</p>
       </article>
@@ -3335,7 +3460,7 @@ function renderDecisionStrip(profile, recommendations) {
   elements.agentAnswer.textContent = decision.answer;
   elements.agentAnswer.className = `decision-badge decision-${decision.answer.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   elements.agentAnswerCopy.textContent = decision.copy;
-  elements.decisionSuccess.textContent = formatScore(analysis.successProbability);
+  animateScoreText(elements.decisionSuccess, formatScore(analysis.successProbability));
   elements.dataConfidence.textContent = confidence.label;
   elements.dataConfidenceCopy.textContent = confidence.copy;
   elements.nextMove.textContent = decision.next;
@@ -3364,17 +3489,32 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
         ? "Chain-friendly"
         : "Mixed market";
 
+  clearLoadingText(elements.businessSaturation, elements.businessMix, elements.businessVerdict);
   elements.businessInput.value = state.business;
-  elements.businessCount.textContent = loading ? "..." : saturationLabel(saturation);
+  if (loading) {
+    elements.businessCount.textContent = "";
+    elements.businessCount.classList.add("skeleton-number");
+  } else {
+    elements.businessCount.classList.remove("skeleton-number");
+    animateNumber(elements.businessCount, saturation);
+  }
   elements.businessCountLabel.textContent = isLive
     ? `${businessLabel} market pressure`
     : `${businessLabel} directional pressure`;
   elements.businessSourceTags.innerHTML = sourceTagsForResult(result, isLive)
     .map((tag) => `<span>${tag}</span>`)
     .join("");
-  elements.businessSaturation.textContent = loading ? "Checking" : saturationLabel(saturation);
+  if (loading) {
+    setLoadingText(elements.businessSaturation, "Refreshing");
+  } else {
+    elements.businessSaturation.textContent = saturationLabel(saturation);
+  }
   elements.businessMeter.value = loading ? 0 : saturation;
-  elements.businessMix.textContent = loading ? "Checking" : mix;
+  if (loading) {
+    setLoadingText(elements.businessMix, "Refreshing");
+  } else {
+    elements.businessMix.textContent = mix;
+  }
   elements.businessMixCopy.textContent = loading
     ? "AreaIntel is checking market signals before scoring the business."
     : mix === "Mostly local"
@@ -3382,15 +3522,22 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
       : mix === "Chain-friendly"
         ? "Recognized brands may have an advantage because customers can support familiar, consistent operators."
         : "The winner depends more on reviews, visibility, price point, and site economics than brand type.";
-  elements.businessVerdict.textContent = loading ? "Checking market signals." : businessVerdictFor(saturation, profile, config);
+  if (loading) {
+    setLoadingText(elements.businessVerdict, "Refreshing market signals");
+  } else {
+    elements.businessVerdict.textContent = businessVerdictFor(saturation, profile, config);
+  }
   elements.businessReason.textContent = `${businessLabel} demand: ${config.notes} ${sourceNote || (isLive ? "Verified signals are connected." : "Modeled local estimate.")}`;
   elements.heroBusiness.textContent = loading
     ? `Checking ${businessLabel} demand`
     : `${businessLabel} demand · ${saturationLabel(saturation)} competition`;
-  elements.heroSource.textContent = state.location
-    ? `Address radius: ${state.location.radiusMiles} mi`
-    : isLive ? "Verified market signals" : "Modeled while signals load";
+  setStatusPill(
+    elements.heroSource,
+    state.location ? `Address radius: ${state.location.radiusMiles} mi` : isLive ? "Verified market signals" : "Modeled while signals load",
+    loading ? "Refreshing" : isLive ? "Connected" : "Estimated"
+  );
   elements.heroMarket.textContent = `${saturationLabel(saturation)} competition`;
+  updatePanelTimestamp(".business-checker");
 }
 
 async function renderBusinessCheck() {

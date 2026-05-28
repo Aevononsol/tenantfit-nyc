@@ -1222,6 +1222,25 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .registry-dot,   .registry-marker   { background: #c99a14; }
 .lease-dot,      .lease-marker      { background: var(--green); }
 
+.map-marker.selected-location {
+  position: relative;
+  box-shadow: 0 0 0 2px rgba(16, 27, 39, 0.18), 0 0 0 8px rgba(37, 99, 235, 0.12);
+}
+
+.map-marker.selected-location::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border: 2px solid rgba(37, 99, 235, 0.35);
+  border-radius: inherit;
+  animation: mapPulse 1.8s ease-out infinite;
+}
+
+@keyframes mapPulse {
+  0% { transform: scale(0.72); opacity: 0.85; }
+  100% { transform: scale(1.65); opacity: 0; }
+}
+
 /* 16. Opportunity Panel
    ========================================================================== */
 .opportunity-panel { display: grid; gap: 16px; }
@@ -1800,8 +1819,10 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   padding: 24px;
   border-radius: var(--radius);
   border: 1px solid #d8e2e8;
-  background: #ffffff;
-  box-shadow: var(--card-shadow);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 252, 253, 0.9));
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .panel-header {
@@ -1899,6 +1920,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .pill {
   display: inline-flex;
   align-items: center;
+  gap: 7px;
   min-height: 28px;
   padding: 0 10px;
   border-radius: 6px;
@@ -1909,6 +1931,92 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
+}
+
+.pill::before,
+.mini-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);
+  flex: 0 0 auto;
+}
+
+.status-connected {
+  background: #e5f7ef;
+  color: #08724a;
+}
+
+.status-estimated {
+  background: #eef5f7;
+  color: #0f6275;
+}
+
+.status-refreshing {
+  background: #f3f7fb;
+  color: #31506b;
+}
+
+.status-refreshing::before {
+  animation: statusPulse 1.15s ease-in-out infinite;
+}
+
+.mini-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.last-updated {
+  margin-left: auto;
+  color: #6b7c86;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.skeleton-text,
+.skeleton-line,
+.skeleton-number {
+  color: transparent !important;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e5edf1 0%, #f7fbfc 48%, #e5edf1 100%);
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.25s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: inline-block;
+  min-width: 8.5rem;
+  min-height: 1.1em;
+}
+
+.skeleton-line {
+  display: block;
+  width: min(100%, 18rem);
+  height: 0.85rem;
+  margin-top: 8px;
+}
+
+.skeleton-line.short { width: min(64%, 11rem); }
+
+.business-count > span.skeleton-number {
+  width: min(72%, 13rem);
+  height: 3.8rem;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@keyframes statusPulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.35); opacity: 1; }
 }
 
 .mini-source {
@@ -2061,6 +2169,35 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
   .source-map-status {
     justify-self: start;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel:hover,
+  .decision-strip article:hover,
+  .signal-card:hover,
+  .business-results article:hover,
+  .evidence-signal-card:hover,
+  .institutional-grid article:hover,
+  .analysis-columns article:hover,
+  .score-drivers-card:hover,
+  .place-card:hover,
+  .opportunity-item:hover,
+  .unknown-factors:hover {
+    transform: translateY(-2px);
+    border-color: rgba(14, 116, 144, 0.24);
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
   }
 }
 
