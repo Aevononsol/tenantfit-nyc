@@ -3342,49 +3342,49 @@ function renderSourceMap(analysis) {
   const rows = [
     {
       section: "Market demographics",
-      key: "Census API key",
+      key: "Market demographics signal",
       powers: "Population, income, age, education, household profile",
       status: sourceStatus(Boolean(state.liveProfiles[state.zip]))
     },
     {
       section: "Competition",
-      key: "NYC Open Data app token + Google Places API key",
+      key: "Local market activity + competitive visibility",
       powers: "Local business records, nearby competitors, ratings, reviews, visibility",
       status: sourceStatus(Boolean(businessResult?.registryExact && businessResult?.googlePlaces), Boolean(businessResult?.registryExact || businessResult?.googlePlaces))
     },
     {
       section: "Food concept fit",
-      key: "NYC Open Data app token + Google Places API key",
+      key: "Cuisine activity + nearby operator visibility",
       powers: "Cuisine-level activity and visible nearby restaurant matches",
       status: sourceStatus(Boolean(conceptFitResult?.concepts?.length))
     },
     {
       section: "Risk and development",
-      key: "NYC Open Data app token",
+      key: "Local risk and development signals",
       powers: "Quality-of-life activity, construction permits, development momentum",
       status: sourceStatus(Boolean(civicResult && !civicResult.fallback))
     },
     {
       section: "Mobility and commercial mix",
-      key: "NYC Open Data app token / public transit and property feeds",
+      key: "Mobility and commercial mix signals",
       powers: "Transit proximity, license activity, outdoor dining, commercial mix",
       status: sourceStatus(Boolean(siteIntelResult && !siteIntelResult.fallback))
     },
     {
       section: "Consumer demand",
-      key: "Demand momentum service, no user API key",
+      key: "Consumer demand momentum",
       powers: "Directional demand momentum; lightly weighted in the score",
       status: sourceStatus(Boolean(businessResult?.demandMomentum?.available))
     },
     {
       section: "Exact address / radius",
-      key: "Google Places API key",
+      key: "Address and radius intelligence",
       powers: "Address lookup, coordinates, radius-based nearby analysis",
       status: sourceStatus(Boolean(state.location))
     },
     {
       section: "Decision report",
-      key: "OpenAI API key",
+      key: "Decision report generation",
       powers: "Optional written client-ready memo only; core scoring still runs without it",
       status: sourceStatus(false, true)
     },
