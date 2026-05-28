@@ -49,7 +49,8 @@
             <label for="business-input">What business is the client opening?</label>
             <input id="business-input" name="business" list="business-options"
               placeholder="Type or pick a category…"
-              autocomplete="off" autocapitalize="none" spellcheck="false" required />
+              autocomplete="off" autocapitalize="none" spellcheck="false" required
+              aria-controls="business-suggestions" aria-expanded="false" />
             <datalist id="business-options">
               <option value="General restaurant">
               <option value="Pizza / slice shop">
@@ -116,6 +117,7 @@
               <option value="Phone repair">
               <option value="Smoke / vape shop">
             </datalist>
+            <div id="business-suggestions" class="business-suggestions" role="listbox" hidden></div>
             <button type="submit">Check business</button>
           </form>
 

@@ -840,6 +840,7 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
+  businessSuggestions: document.querySelector("#business-suggestions"),
   businessCount: document.querySelector("#business-count"),
   businessCountLabel: document.querySelector("#business-count-label"),
   businessSourceTags: document.querySelector("#business-source-tags"),
@@ -1448,6 +1449,105 @@ function businessDisplayName(input) {
     "food truck": "Food truck / cart"
   };
   return labels[normalized] || titleCase(normalized);
+}
+
+const businessSuggestionOptions = [
+  "General restaurant",
+  "Pizza / slice shop",
+  "Deli / bodega",
+  "Cafe / coffee",
+  "Bakery / bagel",
+  "Breakfast / brunch",
+  "Italian restaurant",
+  "Greek restaurant",
+  "Mediterranean / halal",
+  "Turkish restaurant",
+  "French restaurant",
+  "Japanese / sushi / ramen",
+  "Chinese / dim sum",
+  "Korean restaurant",
+  "Thai restaurant",
+  "Vietnamese / pho",
+  "Filipino restaurant",
+  "Indian restaurant",
+  "Pakistani / Bangladeshi",
+  "Mexican / tacos",
+  "Latin American restaurant",
+  "Dominican restaurant",
+  "Puerto Rican restaurant",
+  "Peruvian restaurant",
+  "Colombian restaurant",
+  "Brazilian restaurant",
+  "Caribbean / Jamaican",
+  "African restaurant",
+  "Ethiopian restaurant",
+  "American / diner",
+  "Burgers",
+  "Chicken / wings",
+  "BBQ restaurant",
+  "Seafood restaurant",
+  "Steakhouse",
+  "Vegan / vegetarian",
+  "Juice / smoothie",
+  "Dessert / ice cream",
+  "Bubble tea",
+  "Bar / pub",
+  "Food truck / cart",
+  "Gym / fitness studio",
+  "Bike shop",
+  "Daycare / childcare",
+  "Hair salon",
+  "Barber shop",
+  "Nail salon",
+  "Spa / med spa",
+  "Laundromat",
+  "Dry cleaner",
+  "Pharmacy",
+  "Grocery / market",
+  "Retail store",
+  "Clothing boutique",
+  "Pet store",
+  "Tutoring / learning center",
+  "Urgent care",
+  "Medical office",
+  "Dental office",
+  "Liquor store",
+  "Hardware store",
+  "Electronics store",
+  "Phone repair",
+  "Smoke / vape shop"
+];
+
+function filteredBusinessSuggestions() {
+  const query = elements.businessInput?.value?.trim().toLowerCase() || "";
+  const options = businessSuggestionOptions.filter((option) => {
+    const normalized = option.toLowerCase();
+    return !query || normalized.includes(query) || normalizeBusiness(option).includes(query);
+  });
+  return (options.length ? options : businessSuggestionOptions).slice(0, 10);
+}
+
+function showBusinessSuggestions() {
+  if (!elements.businessSuggestions) return;
+  const options = filteredBusinessSuggestions();
+  elements.businessSuggestions.innerHTML = options
+    .map((option) => `<button type="button" role="option" data-business="${escapeText(option)}">${escapeText(option)}</button>`)
+    .join("");
+  elements.businessSuggestions.hidden = false;
+  elements.businessInput?.setAttribute("aria-expanded", "true");
+}
+
+function hideBusinessSuggestions() {
+  if (!elements.businessSuggestions) return;
+  elements.businessSuggestions.hidden = true;
+  elements.businessInput?.setAttribute("aria-expanded", "false");
+}
+
+function selectBusinessSuggestion(value) {
+  elements.businessInput.value = value;
+  state.business = value;
+  hideBusinessSuggestions();
+  elements.businessInput.focus({ preventScroll: true });
 }
 
 function syncBusinessInput() {
@@ -4015,12 +4115,32 @@ elements.businessForm.addEventListener("submit", (event) => {
   event.preventDefault();
   updateBudgetFromInput();
   syncBusinessInput();
+  hideBusinessSuggestions();
   if (!state.zip) {
     elements.message.textContent = "Enter a ZIP code before checking a business type.";
     return;
   }
   renderBusinessCheck();
   renderRestaurantConceptFit();
+});
+
+elements.businessInput?.addEventListener("focus", showBusinessSuggestions);
+elements.businessInput?.addEventListener("click", showBusinessSuggestions);
+elements.businessInput?.addEventListener("input", showBusinessSuggestions);
+
+elements.businessInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideBusinessSuggestions();
+});
+
+elements.businessSuggestions?.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("button[data-business]");
+  if (!button) return;
+  event.preventDefault();
+  selectBusinessSuggestion(button.dataset.business);
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (!elements.businessForm?.contains(event.target)) hideBusinessSuggestions();
 });
 
 elements.radiusInput.addEventListener("change", () => {

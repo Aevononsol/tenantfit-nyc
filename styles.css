@@ -305,6 +305,46 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   white-space: normal;
 }
 
+.business-suggestions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  max-height: min(340px, 42vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  background: rgba(2, 16, 28, 0.94);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  -webkit-overflow-scrolling: touch;
+}
+
+.business-suggestions[hidden] {
+  display: none;
+}
+
+.business-suggestions button {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: left;
+  box-shadow: none;
+}
+
+.business-suggestions button:hover,
+.business-suggestions button:focus-visible {
+  border-color: rgba(103, 232, 249, 0.44);
+  background: rgba(14, 116, 144, 0.4);
+  outline: none;
+}
+
 .subtle-button {
   background: rgba(255, 255, 255, 0.12) !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
