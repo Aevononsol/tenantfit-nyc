@@ -1876,9 +1876,11 @@ function weekdayWeekendSplit(profile) {
 }
 
 function footTrafficConfidenceLabel(score) {
-  if (score >= 78) return "Confidence: High";
-  if (score >= 58) return "Confidence: Medium";
-  return "Confidence: Directional";
+  // Describes how much real data backs the modeled estimate, not how
+  // confident we are that the foot-traffic number is correct.
+  if (score >= 78) return "stronger data backing";
+  if (score >= 58) return "moderate data backing";
+  return "low data backing";
 }
 
 function renderFootTrafficIntelligence(profile) {
@@ -1929,7 +1931,11 @@ function renderFootTrafficIntelligence(profile) {
   elements.footTrafficWeekSplit.textContent = weekdayWeekendSplit(profile);
   elements.footTrafficWalkability.textContent = formatScore(walkability);
   elements.footTrafficTransit.textContent = transitText;
-  elements.footTrafficConfidence.textContent = footTrafficConfidenceLabel(confidenceScore);
+  setStatusPill(
+    elements.footTrafficConfidence,
+    `Modeled estimate · ${footTrafficConfidenceLabel(confidenceScore)}`,
+    "Modeled"
+  );
   elements.footTrafficWhy.textContent =
     `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. This is a modeled activity estimate, not exact foot traffic.`;
 }
@@ -2888,27 +2894,27 @@ function confidenceFor(zip, businessResult) {
   if (sourceCount >= 3) {
     return {
       label: "Strong",
-      copy: "Market demographics, local activity, competitive visibility, and demand momentum are connected where available."
+      copy: "Confidence = how much of this report is backed by live data, not the odds of success. Here it is high: demographics, local activity, competitive visibility, and demand momentum are connected where available."
     };
   }
 
   if (sourceCount === 2) {
     return {
       label: "Good",
-      copy: "Two market signal groups are connected. Treat remaining modeled scores as directional."
+      copy: "Confidence = live-data coverage, not the odds of success. Two market signal groups are connected; treat remaining modeled scores as directional."
     };
   }
 
   if (sourceCount === 1) {
     return {
       label: "Directional",
-      copy: "Only part of the report is live. Use this as a first screen, not final client advice."
+      copy: "Confidence = live-data coverage, not the odds of success. Only part of the report is live — use this as a first screen, not final client advice."
     };
   }
 
   return {
     label: "Modeled",
-    copy: "Market signals are still loading or unavailable. Do not present this as verified research yet."
+    copy: "Confidence = live-data coverage, not the odds of success. Signals are still loading or unavailable; do not present this as verified research yet."
   };
 }
 

@@ -1953,6 +1953,16 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   line-height: 1.45;
 }
 
+.verify-note {
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid #e0b15f;
+  color: #8a6212;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
 /* Panel accordion (collapsible sections)
    ========================================================================== */
 .panel-accordion {
