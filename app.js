@@ -1898,8 +1898,8 @@ function renderFootTrafficIntelligence(profile) {
       : safeNumber(profile.office, 50);
   const restaurantConcentration = businessResult?.registryExact
     ? saturationFromCount(safeNumber(businessResult.count, 0), profile)
-    : safeNumber(competitorSeeds[state.zip]?.restaurant, 0)
-      ? saturationFromCount(competitorSeeds[state.zip].restaurant, profile)
+    : safeNumber(competitorCounts[state.zip]?.restaurant, 0)
+      ? saturationFromCount(competitorCounts[state.zip].restaurant, profile)
       : safeNumber(profile.competition, 50);
   const score = clampScore(
     safeNumber(profile.density, 50) * 0.24 +
