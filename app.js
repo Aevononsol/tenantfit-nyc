@@ -793,6 +793,7 @@ const elements = {
   heroBusiness: document.querySelector("#hero-business"),
   heroSource: document.querySelector("#hero-source"),
   heroMarket: document.querySelector("#hero-market"),
+  signalsStripList: document.querySelector("#signals-strip-list"),
   map: document.querySelector("#market-map"),
   mapStatus: document.querySelector("#map-status"),
   presets: document.querySelectorAll(".preset"),
@@ -961,16 +962,54 @@ function updatePanelTimestamp(panelSelector) {
 
 function statusTone(status) {
   const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("available") || normalized.includes("connected") || normalized.includes("verified") || normalized.includes("confidence")) return "connected";
-  if (normalized.includes("checking") || normalized.includes("loading") || normalized.includes("refresh")) return "refreshing";
+  // Modeled/estimated output must never read as verified ("connected").
+  if (normalized.includes("modeled") || normalized.includes("estimate") || normalized.includes("directional")) return "modeled";
+  if (normalized.includes("available") || normalized.includes("connected") || normalized.includes("verified") || normalized.includes("live")) return "connected";
+  if (normalized.includes("checking") || normalized.includes("loading") || normalized.includes("refresh") || normalized.includes("building")) return "refreshing";
   return "estimated";
 }
 
 function setStatusPill(element, text, status = text) {
   if (!element) return;
   element.textContent = text;
-  element.classList.remove("status-connected", "status-estimated", "status-refreshing");
+  element.classList.remove("status-connected", "status-estimated", "status-refreshing", "status-modeled");
   element.classList.add(`status-${statusTone(status)}`);
+}
+
+// Drives the "Signals in this report" strip from real per-request state so it
+// never claims a signal is verified when only a modeled estimate is available.
+function renderSignalsStrip() {
+  if (!elements.signalsStripList) return;
+  const businessResult = currentBusinessResult();
+  const civicResult = currentCivicResult();
+  const siteIntelResult = currentSiteIntelResult();
+  const liveProfile = Boolean(state.liveProfiles[state.zip]);
+  const hasCompetitive = Boolean(businessResult?.googlePlaces?.topPlaces?.length || businessResult?.registryExact);
+  const hasDemand = Boolean(businessResult?.demandMomentum?.available);
+  const hasSite = Boolean(siteIntelResult && !siteIntelResult.fallback);
+  const hasRisk = Boolean(civicResult && !civicResult.fallback);
+
+  const chips = [
+    { label: "Demographics", state: liveProfile ? "live" : "modeled" },
+    { label: "Competition", state: hasCompetitive ? "live" : businessResult ? "modeled" : "checking" },
+    { label: "Mobility", state: hasSite ? "live" : siteIntelResult ? "modeled" : "checking" },
+    { label: "Foot traffic", state: "modeled" },
+    { label: "Risk", state: hasRisk ? "live" : civicResult ? "modeled" : "checking" },
+    { label: "Consumer demand", state: hasDemand ? "live" : businessResult ? "modeled" : "checking" }
+  ];
+
+  const meta = {
+    live: { text: "Live", tone: "connected" },
+    modeled: { text: "Modeled", tone: "modeled" },
+    checking: { text: "Checking", tone: "refreshing" }
+  };
+
+  elements.signalsStripList.innerHTML = chips
+    .map(({ label, state: chipState }) => {
+      const { text, tone } = meta[chipState];
+      return `<span class="signal-chip signal-chip-${tone}"><i class="signal-dot"></i>${escapeText(label)}<em>${text}</em></span>`;
+    })
+    .join("");
 }
 
 function animateNumber(element, value, options = {}) {
@@ -3549,6 +3588,8 @@ function renderEvidenceCoverage(analysis) {
       </article>
     `)
     .join("");
+
+  renderSignalsStrip();
 }
 
 function scoreSignalCopy(score) {

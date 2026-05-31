@@ -601,14 +601,62 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   font-size: 0.86rem;
 }
 
-.data-connected-strip span {
-  padding: 5px 8px;
+.signals-strip-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.signals-strip-key {
+  flex-basis: 100%;
+  color: #6b7c86;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
   border-radius: 999px;
-  background: #e7f3f1;
-  color: var(--teal);
   font-size: 0.74rem;
-  font-weight: 850;
+  font-weight: 800;
   line-height: 1;
+}
+
+.signal-chip em {
+  font-style: normal;
+  font-weight: 850;
+  opacity: 0.85;
+}
+
+.signal-chip .signal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.signal-chip-connected {
+  background: #e5f7ef;
+  color: #08724a;
+}
+
+.signal-chip-modeled {
+  background: #fff4e2;
+  color: #9a5b09;
+}
+
+.signal-chip-refreshing {
+  background: #f3f7fb;
+  color: #31506b;
+}
+
+.signal-chip-refreshing .signal-dot {
+  animation: statusPulse 1.15s ease-in-out infinite;
 }
 
 /* 9. Summary Signal Cards
@@ -1997,6 +2045,11 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .status-estimated {
   background: #eef5f7;
   color: #0f6275;
+}
+
+.status-modeled {
+  background: #fff4e2;
+  color: #9a5b09;
 }
 
 .status-refreshing {
