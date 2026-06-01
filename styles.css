@@ -2615,27 +2615,39 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   padding: 11px 13px;
 }
 .exec-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 7px;
   font-size: 10.5pt;
   font-weight: 800;
   color: #0e2a40;
 }
-.exec-card h3 em { font-style: normal; font-weight: 600; color: #8a6212; font-size: 9pt; }
+.exec-card h3 .status { font-size: 7pt; padding: 3px 7px; }
+.exec-card h3 em { font-style: normal; font-weight: 600; color: var(--st-modeled-fg); font-size: 9pt; }
 .exec-card p { margin: 0 0 4px; font-size: 9.5pt; line-height: 1.4; }
 .exec-stat strong { font-size: 13pt; font-weight: 900; color: #0e2a40; }
 .exec-sub { color: #6b7c86; font-size: 8.5pt; }
 
 .exec-card ul { margin: 0; padding: 0; list-style: none; }
 .exec-card ul li { margin-bottom: 6px; font-size: 9.5pt; line-height: 1.35; }
-.exec-reasons li strong { display: block; color: #08724a; }
+.exec-reasons li strong { display: block; color: var(--st-verified-fg); }
 .exec-reasons li span { color: #43515a; font-size: 9pt; }
 .exec-risks li { padding-left: 12px; position: relative; }
-.exec-risks li::before { content: "•"; position: absolute; left: 0; color: #963226; }
+.exec-risks li::before { content: "•"; position: absolute; left: 0; color: var(--st-risk-accent); font-weight: 900; }
 .exec-alternatives li { padding-left: 12px; position: relative; }
-.exec-alternatives li::before { content: "→"; position: absolute; left: 0; color: #075f76; }
+.exec-alternatives li::before { content: "→"; position: absolute; left: 0; color: var(--st-estimated-fg); }
+
+.exec-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.exec-legend .status { font-size: 7pt; }
 
 .exec-foot-note {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   padding-top: 8px;
   border-top: 1px solid #d7e0e6;
   font-size: 8pt;
@@ -3013,7 +3025,7 @@ body.assistant-open .assistant-toggle { display: none; }
 
 /* Keep the assistant out of printed reports. */
 @media print {
-  .assistant-toggle, .assistant-panel { display: none !important; }
+  .assistant-toggle, .assistant-panel, .assistant-onboard { display: none !important; }
 }
 
 /* UI/UX audit polish

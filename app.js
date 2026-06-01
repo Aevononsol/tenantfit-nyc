@@ -4190,6 +4190,11 @@ function renderExecSummary() {
     mix: elements.businessMix?.textContent?.trim() || "Mixed market",
     verdict: elements.businessVerdict?.textContent?.trim() || "Verify at the block level."
   };
+  const hasCompetitive = Boolean(businessResult?.googlePlaces?.topPlaces?.length || businessResult?.registryExact);
+  const compStatus = hasCompetitive
+    ? { text: "Verified", cls: "verified" }
+    : businessResult ? { text: "Modeled", cls: "modeled" } : { text: "Checking", cls: "research" };
+  const chip = (cls, text) => `<span class="status status--${cls}"><i class="status__dot"></i>${text}</span>`;
 
   elements.execSummary.innerHTML = `
     <div class="exec-decision">
@@ -4216,13 +4221,13 @@ function renderExecSummary() {
     </div>
     <div class="exec-grid">
       <section class="exec-card">
-        <h3>Foot traffic <em>(modeled)</em></h3>
+        <h3>Foot traffic ${chip("modeled", "Modeled")}</h3>
         <p class="exec-stat"><strong>${escapeText(ft.score)}</strong> foot-traffic score</p>
         <p>Estimated daily visitors: ${escapeText(ft.visitors)}</p>
         <p class="exec-sub">${escapeText(ft.backing)}</p>
       </section>
       <section class="exec-card">
-        <h3>Competition</h3>
+        <h3>Competition ${chip(compStatus.cls, compStatus.text)}</h3>
         <p class="exec-stat"><strong>${escapeText(comp.saturation)}</strong> · ${escapeText(comp.mix)}</p>
         <p class="exec-sub">${escapeText(comp.verdict)}</p>
       </section>
@@ -4231,6 +4236,12 @@ function renderExecSummary() {
       <h3>Better alternatives to weigh</h3>
       <ul class="exec-alternatives">${alternatives}</ul>
     </section>
+    <div class="exec-legend" aria-hidden="true">
+      <span class="status status--verified"><i class="status__dot"></i>Verified · live data</span>
+      <span class="status status--modeled"><i class="status__dot"></i>Modeled · AreaIntel model</span>
+      <span class="status status--estimated"><i class="status__dot"></i>Estimated · proxy</span>
+      <span class="status status--risk"><i class="status__dot"></i>Risk</span>
+    </div>
     <p class="exec-foot-note">${escapeText(businessLabel)} screen · Modeled values are estimates, not verified financials or guaranteed outcomes. Use “Full report PDF” for methodology, evidence coverage, and full detail.</p>
   `;
 }
