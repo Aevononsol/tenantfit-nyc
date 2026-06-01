@@ -667,7 +667,8 @@ const state = {
   lastSiteIntelResult: null,
   lastConceptFitResult: null,
   leases: [],
-  compareList: []
+  compareList: [],
+  businessCheckPending: false
 };
 const leaseStorageKey = "areaintel-leases";
 const legacyLeaseStorageKey = "tenantfit-leases";
@@ -3716,6 +3717,8 @@ async function renderBusinessCheck() {
   const count = estimateCompetitors(state.zip, business, profile, config);
   const requestId = ++state.businessRequestId;
   state.lastBusinessResult = null;
+  state.businessCheckPending = true;
+  updateActionGuards();
 
   applyBusinessResult({
     count: 0,
@@ -3828,6 +3831,13 @@ async function renderBusinessCheck() {
     elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
     elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
     renderMarketMap();
+  } finally {
+    // Only the most recent business check should clear the guard; a stale
+    // response returning late must not re-enable actions for a newer search.
+    if (requestId === state.businessRequestId) {
+      state.businessCheckPending = false;
+      updateActionGuards();
+    }
   }
 }
 
@@ -3967,7 +3977,7 @@ function render(zip, options = {}) {
   }
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
-  updateCompareButton();
+  updateActionGuards();
   if (!state.liveProfiles[zip]) renderLiveAreaReport(zip);
   window.setTimeout(() => {
     if (state.zip !== zip) return;
@@ -4287,17 +4297,35 @@ function buildCompareSnapshot() {
   };
 }
 
+function signalsReady() {
+  return Boolean(state.zip) && !state.businessCheckPending;
+}
+
 function updateCompareButton() {
   if (!elements.compareAddButton) return;
-  const hasReport = Boolean(state.zip);
-  elements.compareAddButton.disabled = !hasReport;
+  const ready = signalsReady();
+  elements.compareAddButton.disabled = !ready;
   const inList = state.compareList.some((item) => item.id === currentCompareId());
   const count = state.compareList.length;
-  elements.compareAddButton.textContent = inList
-    ? "Update in compare"
-    : count
-      ? `Add to compare (${count})`
-      : "Add to compare";
+  elements.compareAddButton.textContent = state.zip && state.businessCheckPending
+    ? "Finishing signals…"
+    : inList
+      ? "Update in compare"
+      : count
+        ? `Add to compare (${count})`
+        : "Add to compare";
+}
+
+// Disable actions that snapshot the report (Export PDF, Add to compare) until
+// the business/competition signal has resolved, so they never capture a
+// mid-load "Refreshing" value.
+function updateActionGuards() {
+  updateCompareButton();
+  const ready = signalsReady();
+  if (elements.exportPdfButton) {
+    elements.exportPdfButton.disabled = !ready;
+    elements.exportPdfButton.title = ready ? "" : "Available once market signals finish loading.";
+  }
 }
 
 function addToCompare() {
@@ -4315,21 +4343,21 @@ function addToCompare() {
   }
   saveCompare();
   renderCompare();
-  updateCompareButton();
+  updateActionGuards();
 }
 
 function removeFromCompare(id) {
   state.compareList = state.compareList.filter((item) => item.id !== id);
   saveCompare();
   renderCompare();
-  updateCompareButton();
+  updateActionGuards();
 }
 
 function clearCompare() {
   state.compareList = [];
   saveCompare();
   renderCompare();
-  updateCompareButton();
+  updateActionGuards();
 }
 
 function renderCompare() {
@@ -4621,7 +4649,7 @@ renderZipOptions();
 state.leases = loadLeases();
 state.compareList = loadCompare();
 renderCompare();
-updateCompareButton();
+updateActionGuards();
 elements.startScreen.hidden = false;
 elements.results.hidden = true;
 elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
