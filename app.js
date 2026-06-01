@@ -668,12 +668,15 @@ const state = {
   lastConceptFitResult: null,
   leases: [],
   compareList: [],
+  savedReports: [],
   businessCheckPending: false
 };
 const leaseStorageKey = "areaintel-leases";
 const legacyLeaseStorageKey = "tenantfit-leases";
 const compareStorageKey = "areaintel-compare";
 const compareMax = 6;
+const savedStorageKey = "areaintel-saved";
+const savedMax = 12;
 
 function logIntegrationError(source, error, context = {}) {
   const detail = error?.name === "AbortError" ? "request timed out" : error?.message || String(error);
@@ -851,6 +854,10 @@ const elements = {
   comparePanel: document.querySelector("#compare-panel"),
   compareBody: document.querySelector("#compare-body"),
   compareClear: document.querySelector("#compare-clear"),
+  copyLinkButton: document.querySelector("#copy-link-button"),
+  saveReportButton: document.querySelector("#save-report-button"),
+  savedReportsPanel: document.querySelector("#saved-reports"),
+  savedReportsList: document.querySelector("#saved-reports-list"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
   businessSuggestions: document.querySelector("#business-suggestions"),
@@ -3978,6 +3985,8 @@ function render(zip, options = {}) {
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
   updateActionGuards();
+  updateSaveButton();
+  syncUrl();
   if (!state.liveProfiles[zip]) renderLiveAreaReport(zip);
   window.setTimeout(() => {
     if (state.zip !== zip) return;
@@ -4406,6 +4415,231 @@ function renderCompare() {
   `;
 }
 
+// --- Save / share -------------------------------------------------------
+// Encode the current report into a shareable URL so a recipient lands on the
+// same screen, and keep a device-local list of saved reports to reopen.
+function shareableUrl() {
+  const params = new URLSearchParams();
+  if (state.business) params.set("business", state.business);
+  if (state.zip) params.set("zip", state.zip);
+  if (state.location?.address) {
+    params.set("address", state.location.address);
+    if (state.location.radiusMiles) params.set("radius", state.location.radiusMiles);
+  }
+  if (state.budget) params.set("budget", String(state.budget));
+  const query = params.toString();
+  return `${location.origin}${location.pathname}${query ? `?${query}` : ""}`;
+}
+
+function syncUrl() {
+  if (!state.zip) return;
+  try {
+    history.replaceState(null, "", shareableUrl());
+  } catch {
+    /* history may be blocked in some embeds; the report still works */
+  }
+}
+
+function legacyCopy(text) {
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "absolute";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyShareLink() {
+  if (!state.zip) {
+    elements.message.textContent = "Run a location first to copy a link.";
+    return;
+  }
+  const url = shareableUrl();
+  const flash = (label) => {
+    if (!elements.copyLinkButton) return;
+    elements.copyLinkButton.textContent = label;
+    window.setTimeout(() => { elements.copyLinkButton.textContent = "Copy link"; }, 1800);
+  };
+  // Native share sheet on mobile.
+  try {
+    if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+      await navigator.share({ title: "AreaIntel report", url });
+      return;
+    }
+  } catch {
+    /* user dismissed the share sheet; fall through to clipboard */
+  }
+  // Async Clipboard API (https / focused contexts).
+  try {
+    await navigator.clipboard.writeText(url);
+    flash("Link copied ✓");
+    return;
+  } catch {
+    /* blocked (no focus / insecure context) — fall back below */
+  }
+  // execCommand fallback so copy still works where the Clipboard API is blocked.
+  if (legacyCopy(url)) {
+    flash("Link copied ✓");
+    return;
+  }
+  elements.message.textContent = `Share link: ${url}`;
+  flash("Copy this link");
+}
+
+function loadSaved() {
+  try {
+    const saved = localStorage.getItem(savedStorageKey);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistSaved() {
+  try {
+    localStorage.setItem(savedStorageKey, JSON.stringify(state.savedReports));
+  } catch (error) {
+    logIntegrationError("saved report save", error, {});
+  }
+}
+
+function buildSavedSnapshot() {
+  const profile = profileForZip(state.zip);
+  if (!profile) return null;
+  const recommendations = buildRecommendations(profile);
+  const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  return {
+    id: currentCompareId(),
+    business: businessDisplayName(state.business) || "Business",
+    businessRaw: state.business,
+    area: reportAreaTitle(state.zip, profile),
+    zip: state.zip,
+    address: state.location?.address || null,
+    radius: state.location?.radiusMiles || null,
+    budget: state.budget || null,
+    decision: analysis.decision,
+    decisionSlug: analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    successProbability: clampScore(analysis.successProbability),
+    url: shareableUrl(),
+    savedAt: Date.now()
+  };
+}
+
+function isCurrentSaved() {
+  return state.savedReports.some((item) => item.id === currentCompareId());
+}
+
+function toggleSaveReport() {
+  if (!state.zip) {
+    elements.message.textContent = "Run a location first to save it.";
+    return;
+  }
+  if (isCurrentSaved()) {
+    removeSaved(currentCompareId());
+    return;
+  }
+  const snapshot = buildSavedSnapshot();
+  if (!snapshot) return;
+  state.savedReports.unshift(snapshot);
+  if (state.savedReports.length > savedMax) state.savedReports.pop();
+  persistSaved();
+  renderSaved();
+  updateSaveButton();
+}
+
+function removeSaved(id) {
+  state.savedReports = state.savedReports.filter((item) => item.id !== id);
+  persistSaved();
+  renderSaved();
+  updateSaveButton();
+}
+
+function openSaved(id) {
+  const report = state.savedReports.find((item) => item.id === id);
+  if (report) runSavedSearch(report);
+}
+
+// Reopen a saved report by replaying it through the real search handlers.
+function runSavedSearch(report) {
+  if (elements.businessInput) elements.businessInput.value = report.businessRaw || report.business;
+  state.business = report.businessRaw || report.business;
+  syncBusinessInput();
+  if (elements.budgetInput) elements.budgetInput.value = report.budget || "";
+  if (report.address) {
+    if (elements.radiusInput && report.radius) elements.radiusInput.value = report.radius;
+    elements.addressInput.value = report.address;
+    elements.addressForm.requestSubmit();
+  } else {
+    state.location = null;
+    elements.addressInput.value = "";
+    elements.input.value = report.zip;
+    elements.form.requestSubmit();
+  }
+}
+
+function updateSaveButton() {
+  if (!elements.saveReportButton) return;
+  const hasReport = Boolean(state.zip);
+  elements.saveReportButton.disabled = !hasReport;
+  elements.saveReportButton.textContent = hasReport && isCurrentSaved() ? "Saved ✓" : "Save report";
+}
+
+function renderSaved() {
+  if (!elements.savedReportsPanel || !elements.savedReportsList) return;
+  if (!state.savedReports.length) {
+    elements.savedReportsPanel.hidden = true;
+    elements.savedReportsList.innerHTML = "";
+    return;
+  }
+  elements.savedReportsPanel.hidden = false;
+  elements.savedReportsList.innerHTML = state.savedReports
+    .map((report) => `
+      <div class="saved-report-row">
+        <button class="saved-open" type="button" data-id="${escapeText(report.id)}">
+          <strong>${escapeText(report.business)}</strong>
+          <span>${escapeText(report.address || report.area)}</span>
+          <em class="decision-${report.decisionSlug}">${escapeText(report.decision)} · ${formatScore(report.successProbability)}</em>
+        </button>
+        <button class="saved-remove" type="button" data-id="${escapeText(report.id)}" aria-label="Remove saved report">&times;</button>
+      </div>
+    `)
+    .join("");
+}
+
+// Deep-link: load a report directly from URL params (zip required).
+function applyUrlState() {
+  const params = new URLSearchParams(location.search);
+  const zip = params.get("zip");
+  if (!zip) return false;
+  const business = params.get("business");
+  const address = params.get("address");
+  const radius = params.get("radius");
+  const budget = params.get("budget");
+  if (business && elements.businessInput) {
+    elements.businessInput.value = business;
+    state.business = business;
+    syncBusinessInput();
+  }
+  if (budget && elements.budgetInput) elements.budgetInput.value = budget;
+  if (address) {
+    if (radius && elements.radiusInput) elements.radiusInput.value = radius;
+    elements.addressInput.value = address;
+    elements.addressForm.requestSubmit();
+  } else {
+    elements.input.value = zip;
+    elements.form.requestSubmit();
+  }
+  return true;
+}
+
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   updateBudgetFromInput();
@@ -4618,6 +4852,14 @@ elements.compareBody?.addEventListener("click", (event) => {
   const button = event.target.closest(".compare-remove");
   if (button) removeFromCompare(button.dataset.id);
 });
+elements.copyLinkButton?.addEventListener("click", copyShareLink);
+elements.saveReportButton?.addEventListener("click", toggleSaveReport);
+elements.savedReportsList?.addEventListener("click", (event) => {
+  const remove = event.target.closest(".saved-remove");
+  if (remove) { removeSaved(remove.dataset.id); return; }
+  const open = event.target.closest(".saved-open");
+  if (open) openSaved(open.dataset.id);
+});
 
 elements.memoButton.addEventListener("click", async () => {
   elements.memoCopy.textContent = "Generating memo...";
@@ -4648,8 +4890,14 @@ function renderZipOptions() {
 renderZipOptions();
 state.leases = loadLeases();
 state.compareList = loadCompare();
+state.savedReports = loadSaved();
 renderCompare();
+renderSaved();
 updateActionGuards();
-elements.startScreen.hidden = false;
-elements.results.hidden = true;
-elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
+updateSaveButton();
+
+if (!applyUrlState()) {
+  elements.startScreen.hidden = false;
+  elements.results.hidden = true;
+  elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
+}

@@ -2684,3 +2684,76 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   font-weight: 850;
   color: #075e3a;
 }
+
+/* Saved reports (Phase 5)
+   ========================================================================== */
+.saved-reports-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saved-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saved-report-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+/* Scoped under .saved-reports-panel to override the generic .sidebar button
+   gradient/full-width styling. */
+.saved-reports-panel .saved-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(19, 74, 83, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.saved-reports-panel .saved-open:hover { border-color: var(--teal); background: #f7fbfa; }
+.saved-reports-panel .saved-open strong { font-size: 0.84rem; font-weight: 800; color: var(--ink); }
+.saved-reports-panel .saved-open span { font-size: 0.74rem; font-weight: 600; color: var(--muted); }
+
+.saved-reports-panel .saved-open em {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.saved-reports-panel .saved-remove {
+  flex: 0 0 auto;
+  width: 32px;
+  min-width: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid rgba(19, 74, 83, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  color: #963226;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.saved-reports-panel .saved-remove:hover { background: #f9e4df; }

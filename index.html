@@ -159,6 +159,11 @@
             <p id="address-message" class="form-message" role="status"></p>
           </form>
 
+          <section id="saved-reports" class="saved-reports-panel" aria-label="Saved reports" hidden>
+            <p class="step-label">Saved reports</p>
+            <div id="saved-reports-list" class="saved-reports-list"></div>
+          </section>
+
         </aside>
 
         <section id="start-screen" class="start-screen">
@@ -205,8 +210,10 @@
               </div>
             </div>
             <div class="hero-actions">
-              <button id="compare-add-button" class="primary-button" type="button">Add to compare</button>
               <button id="export-pdf-button" class="primary-button" type="button">Export PDF</button>
+              <button id="copy-link-button" class="primary-button" type="button">Copy link</button>
+              <button id="save-report-button" class="ghost-button" type="button">Save report</button>
+              <button id="compare-add-button" class="ghost-button" type="button">Add to compare</button>
               <button id="export-full-button" class="ghost-button" type="button">Full report PDF</button>
               <button id="export-button" class="ghost-button" type="button">Download .txt</button>
             </div>
