@@ -1952,7 +1952,7 @@ function renderFootTrafficIntelligence(profile) {
     : `Transit proximity: ${pulseLabel(profile.transit, ["limited", "useful", "strong", "excellent"])} area access.`;
 
   elements.footTrafficScore.textContent = formatScore(score);
-  elements.footTrafficActivity.textContent = `Estimated Activity: ${activity}. Modeled from internal market signals only.`;
+  elements.footTrafficActivity.textContent = `Estimated Activity: ${activity}. Based on AreaIntel's location intelligence model.`;
   elements.footTrafficVisitors.textContent = `${modeledVisitorRange(score, profile)} daily`;
   elements.footTrafficPeaks.textContent = peakHoursFor(profile);
   elements.footTrafficWeekSplit.textContent = weekdayWeekendSplit(profile);
@@ -1964,7 +1964,7 @@ function renderFootTrafficIntelligence(profile) {
     "Modeled"
   );
   elements.footTrafficWhy.textContent =
-    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. This is a modeled activity estimate, not exact foot traffic.`;
+    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. Estimated using mobility, transit, density, and commercial activity signals — AreaIntel's Foot Traffic Model, not a direct pedestrian counter.`;
 }
 
 function revenueCategoryDefaults(category) {
@@ -2336,7 +2336,7 @@ function renderSiteIntelligence(data) {
   if (data.mta.available) {
     elements.mtaLevel.textContent = data.mta.totalDecember2024Ridership > 250000 ? "Strong mobility signal" : "Moderate mobility signal";
     elements.mtaCopy.textContent =
-      `Nearby transit activity ${data.mta.scope}. Use as a mobility proxy, not exact foot traffic.`;
+      `Nearby transit activity ${data.mta.scope}. A mobility signal that feeds the Foot Traffic Model.`;
     elements.mtaTypes.innerHTML = data.mta.topStations
       .slice(0, 4)
       .map((item) => `<span>${item.station}</span>`)
@@ -3135,7 +3135,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     !siteIntel && "Block-level mobility and commercial mix need confirmation.",
     foodBusiness && !concepts && "Cuisine-specific market gaps are limited; broader food and competition signals are being used.",
     !address && "Exact storefront, frontage, visibility, and block position are not verified.",
-    "True foot traffic, dwell time, parking, rent, buildout cost, and operator financials are not directly verified."
+    "Dwell time, parking, rent, buildout cost, and operator financials need on-site or operator confirmation."
   ].filter(Boolean);
   const conflicts = [];
   if (businessResult?.openDataCount > 0 && businessResult?.googleVisibleCount > 0) {
@@ -3463,7 +3463,7 @@ function renderSourceMap(analysis) {
     {
       section: "Still needs verification",
       key: "Requires on-site or operator proof",
-      powers: "True foot traffic, dwell time, rent, buildout cost, parking, operator financials",
+      powers: "On-site foot-traffic counts, dwell time, rent, buildout cost, parking, operator financials",
       status: { label: "Manual check", className: "manual" }
     }
   ];
@@ -4991,7 +4991,7 @@ function buildAssistantContext() {
     footTraffic: {
       score: elements.footTrafficScore?.textContent?.trim() || "needs data",
       modeledDailyVisitors: elements.footTrafficVisitors?.textContent?.trim() || "needs analysis",
-      note: "modeled estimate, not an exact count"
+      note: "AreaIntel Foot Traffic Model — estimated from mobility, transit, density, and commercial activity"
     },
     competition: {
       saturation: elements.businessSaturation?.textContent?.trim() || "checking",

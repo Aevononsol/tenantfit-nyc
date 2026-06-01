@@ -253,7 +253,7 @@
           <section class="data-connected-strip" aria-label="Signals in this report">
             <strong>Signals in this report:</strong>
             <div id="signals-strip-list" class="signals-strip-list" aria-live="polite"></div>
-            <small class="signals-strip-key">Verified = live data · Modeled = AreaIntel model · Estimated = proxy signal · Checking = loading</small>
+            <small class="signals-strip-key">Verified = confirmed live data · Modeled &amp; Estimated = AreaIntel's location-intelligence model (mobility, transit, density &amp; commercial activity) · Checking = still loading</small>
           </section>
 
           <section id="compare-panel" class="panel compare-panel" hidden>
@@ -529,15 +529,15 @@
               <span id="foot-traffic-confidence" class="pill">Building confidence</span>
             </div>
             <div class="foot-traffic-grid">
-              <article class="foot-score-card" title="Modeled 0–100 customer-movement score. Higher = busier location. Source: AreaIntel model (density, transit, office, nightlife, tourism). Not an exact count.">
+              <article class="foot-score-card" title="AreaIntel Foot Traffic Model — a 0–100 customer-movement score. Higher = busier location. Estimated using mobility, transit, density, and commercial activity signals.">
                 <span class="signal-label">Foot Traffic Score</span>
                 <strong id="foot-traffic-score">Needs more data</strong>
                 <p id="foot-traffic-activity">Modeled activity will load after analysis.</p>
               </article>
-              <article title="Modeled range of daily passers-by. Higher = more exposure. Source: AreaIntel model — a range, never an exact count. Site visit required to confirm.">
+              <article title="Modeled range of daily passers-by. Higher = more exposure. Estimated using mobility, transit, density, and commercial activity signals.">
                 <span class="signal-label">Estimated daily visitors</span>
                 <strong id="foot-traffic-visitors">Needs analysis</strong>
-                <p>Modeled range only, not an exact traffic count.</p>
+                <p>Modeled daily range, based on AreaIntel's location intelligence model.</p>
               </article>
               <article title="When the area is busiest. Source: modeled from commercial mix and category patterns.">
                 <span class="signal-label">Peak hours</span>
@@ -553,7 +553,7 @@
             <div class="foot-traffic-why">
               <strong>Why this score</strong>
               <p id="foot-traffic-why">AreaIntel models customer movement from density, transit, office activity, nightlife, tourism, commercial mix, mobility, and category concentration.</p>
-              <p class="verify-note">To verify: count people at the door during peak hours, or buy a mobility / foot-traffic dataset for this block.</p>
+              <p class="verify-note">Optional ground-truthing: pair this model with on-site counts at peak hours or a mobility dataset for the block.</p>
             </div>
           </section>
 
