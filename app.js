@@ -666,10 +666,13 @@ const state = {
   lastCivicResult: null,
   lastSiteIntelResult: null,
   lastConceptFitResult: null,
-  leases: []
+  leases: [],
+  compareList: []
 };
 const leaseStorageKey = "areaintel-leases";
 const legacyLeaseStorageKey = "tenantfit-leases";
+const compareStorageKey = "areaintel-compare";
+const compareMax = 6;
 
 function logIntegrationError(source, error, context = {}) {
   const detail = error?.name === "AbortError" ? "request timed out" : error?.message || String(error);
@@ -843,6 +846,10 @@ const elements = {
   exportFullButton: document.querySelector("#export-full-button"),
   execSummary: document.querySelector("#exec-summary"),
   printMeta: document.querySelector("#print-meta"),
+  compareAddButton: document.querySelector("#compare-add-button"),
+  comparePanel: document.querySelector("#compare-panel"),
+  compareBody: document.querySelector("#compare-body"),
+  compareClear: document.querySelector("#compare-clear"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
   businessSuggestions: document.querySelector("#business-suggestions"),
@@ -3960,6 +3967,7 @@ function render(zip, options = {}) {
   }
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
+  updateCompareButton();
   if (!state.liveProfiles[zip]) renderLiveAreaReport(zip);
   window.setTimeout(() => {
     if (state.zip !== zip) return;
@@ -4226,6 +4234,150 @@ function exportFullPdf() {
   window.print();
 }
 
+// Multi-location comparison: a device-local shortlist that snapshots the
+// decision for each business+location so they can be ranked side by side.
+function loadCompare() {
+  try {
+    const saved = localStorage.getItem(compareStorageKey);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCompare() {
+  try {
+    localStorage.setItem(compareStorageKey, JSON.stringify(state.compareList));
+  } catch (error) {
+    logIntegrationError("compare save", error, {});
+  }
+}
+
+function currentCompareId() {
+  const address = state.location?.address || "";
+  return `${state.zip}|${normalizeBusiness(state.business)}|${address}`;
+}
+
+function compareScoreNumber(value) {
+  const match = String(value || "").match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function buildCompareSnapshot() {
+  const profile = profileForZip(state.zip);
+  if (!profile) return null;
+  const recommendations = buildRecommendations(profile);
+  const businessResult = currentBusinessResult();
+  const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  const confidence = confidenceFor(state.zip, businessResult);
+  return {
+    id: currentCompareId(),
+    business: businessDisplayName(state.business) || "Business",
+    area: reportAreaTitle(state.zip, profile),
+    zip: state.zip,
+    address: state.location?.address || null,
+    decision: analysis.decision,
+    decisionSlug: analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    successProbability: clampScore(analysis.successProbability),
+    confidenceLabel: confidence.label,
+    confidenceScore: clampScore(analysis.confidenceScore),
+    competition: elements.businessSaturation?.textContent?.trim() || "Checking",
+    footTraffic: elements.footTrafficScore?.textContent?.trim() || "Needs data",
+    savedAt: Date.now()
+  };
+}
+
+function updateCompareButton() {
+  if (!elements.compareAddButton) return;
+  const hasReport = Boolean(state.zip);
+  elements.compareAddButton.disabled = !hasReport;
+  const inList = state.compareList.some((item) => item.id === currentCompareId());
+  const count = state.compareList.length;
+  elements.compareAddButton.textContent = inList
+    ? "Update in compare"
+    : count
+      ? `Add to compare (${count})`
+      : "Add to compare";
+}
+
+function addToCompare() {
+  const snapshot = buildCompareSnapshot();
+  if (!snapshot) {
+    elements.message.textContent = "Run a location first, then add it to compare.";
+    return;
+  }
+  const existingIndex = state.compareList.findIndex((item) => item.id === snapshot.id);
+  if (existingIndex >= 0) {
+    state.compareList[existingIndex] = snapshot;
+  } else {
+    state.compareList.push(snapshot);
+    if (state.compareList.length > compareMax) state.compareList.shift();
+  }
+  saveCompare();
+  renderCompare();
+  updateCompareButton();
+}
+
+function removeFromCompare(id) {
+  state.compareList = state.compareList.filter((item) => item.id !== id);
+  saveCompare();
+  renderCompare();
+  updateCompareButton();
+}
+
+function clearCompare() {
+  state.compareList = [];
+  saveCompare();
+  renderCompare();
+  updateCompareButton();
+}
+
+function renderCompare() {
+  if (!elements.comparePanel || !elements.compareBody) return;
+  if (!state.compareList.length) {
+    elements.comparePanel.hidden = true;
+    elements.compareBody.innerHTML = "";
+    return;
+  }
+  elements.comparePanel.hidden = false;
+
+  const ranked = state.compareList.slice().sort((a, b) => b.successProbability - a.successProbability);
+  const bestProb = Math.max(...ranked.map((item) => item.successProbability));
+  const bestConf = Math.max(...ranked.map((item) => item.confidenceScore));
+  const bestFoot = Math.max(...ranked.map((item) => compareScoreNumber(item.footTraffic) ?? -1));
+
+  const header = ranked
+    .map((item, index) => `
+      <th scope="col">
+        <div class="compare-col-head">
+          ${index === 0 ? '<span class="compare-top">Top pick</span>' : ""}
+          <strong>${escapeText(item.business)}</strong>
+          <span>${escapeText(item.address || item.area)}</span>
+          <button class="compare-remove" type="button" data-id="${escapeText(item.id)}">Remove</button>
+        </div>
+      </th>
+    `)
+    .join("");
+
+  const row = (label, cellFn) =>
+    `<tr><th scope="row">${label}</th>${ranked.map(cellFn).join("")}</tr>`;
+
+  elements.compareBody.innerHTML = `
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th scope="col">Metric</th>${header}</tr></thead>
+        <tbody>
+          ${row("Decision", (i) => `<td><span class="compare-badge decision-${i.decisionSlug}">${escapeText(i.decision)}</span></td>`)}
+          ${row("Success probability", (i) => `<td class="${i.successProbability === bestProb ? "compare-best" : ""}">${formatScore(i.successProbability)}</td>`)}
+          ${row("Confidence", (i) => `<td class="${i.confidenceScore === bestConf ? "compare-best" : ""}">${escapeText(i.confidenceLabel)} · ${formatScore(i.confidenceScore)}</td>`)}
+          ${row("Competition", (i) => `<td>${escapeText(i.competition)}</td>`)}
+          ${row("Foot traffic", (i) => `<td class="${(compareScoreNumber(i.footTraffic) ?? -1) === bestFoot ? "compare-best" : ""}">${escapeText(i.footTraffic)}</td>`)}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   updateBudgetFromInput();
@@ -4432,6 +4584,12 @@ elements.listingResults.addEventListener("click", (event) => {
 elements.exportButton.addEventListener("click", exportSummary);
 elements.exportPdfButton?.addEventListener("click", exportExecPdf);
 elements.exportFullButton?.addEventListener("click", exportFullPdf);
+elements.compareAddButton?.addEventListener("click", addToCompare);
+elements.compareClear?.addEventListener("click", clearCompare);
+elements.compareBody?.addEventListener("click", (event) => {
+  const button = event.target.closest(".compare-remove");
+  if (button) removeFromCompare(button.dataset.id);
+});
 
 elements.memoButton.addEventListener("click", async () => {
   elements.memoCopy.textContent = "Generating memo...";
@@ -4461,6 +4619,9 @@ function renderZipOptions() {
 
 renderZipOptions();
 state.leases = loadLeases();
+state.compareList = loadCompare();
+renderCompare();
+updateCompareButton();
 elements.startScreen.hidden = false;
 elements.results.hidden = true;
 elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";

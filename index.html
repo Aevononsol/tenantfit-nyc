@@ -205,6 +205,7 @@
               </div>
             </div>
             <div class="hero-actions">
+              <button id="compare-add-button" class="primary-button" type="button">Add to compare</button>
               <button id="export-pdf-button" class="primary-button" type="button">Export PDF</button>
               <button id="export-full-button" class="ghost-button" type="button">Full report PDF</button>
               <button id="export-button" class="ghost-button" type="button">Download .txt</button>
@@ -238,6 +239,18 @@
             <strong>Signals in this report:</strong>
             <div id="signals-strip-list" class="signals-strip-list" aria-live="polite"></div>
             <small class="signals-strip-key">Live = verified data · Modeled = estimate · Checking = loading</small>
+          </section>
+
+          <section id="compare-panel" class="panel compare-panel" hidden>
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Compare locations</p>
+                <h3 id="compare-title">Saved locations side by side</h3>
+              </div>
+              <button id="compare-clear" class="subtle-button" type="button">Clear all</button>
+            </div>
+            <p class="panel-note">Add this business + location to your shortlist, then run another ZIP or address to compare them. Ranked by success probability. Saved on this device only.</p>
+            <div id="compare-body" class="compare-body" aria-live="polite"></div>
           </section>
 
           <div class="summary-grid">
