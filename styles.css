@@ -2520,3 +2520,89 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
     gap: 8px !important;
   }
 }
+
+/* Executive summary PDF (1-2 page default export)
+   ========================================================================== */
+/* Hidden on screen; revealed only in print-exec mode. */
+#exec-summary { display: none; }
+
+.exec-summary { color: #1f2933; }
+
+.exec-decision {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid #d7e0e6;
+  border-radius: 12px;
+  background: #f8fbfc;
+}
+.exec-decision-main { max-width: 64%; }
+.exec-label {
+  display: block;
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a6b75;
+}
+.exec-verdict {
+  display: inline-block;
+  margin: 4px 0 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 15pt;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+.exec-decision-main p { margin: 0; font-size: 9.5pt; line-height: 1.4; color: #38444d; }
+.exec-metrics { display: flex; flex-direction: column; gap: 8px; text-align: right; }
+.exec-metrics span { display: block; font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #5a6b75; }
+.exec-metrics strong { font-size: 13pt; font-weight: 900; color: #0e2a40; }
+
+.exec-confidence-note { margin: 6px 2px 10px; font-size: 8.5pt; color: #6b7c86; }
+
+.exec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+.exec-card {
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+.exec-card h3 {
+  margin: 0 0 7px;
+  font-size: 10.5pt;
+  font-weight: 800;
+  color: #0e2a40;
+}
+.exec-card h3 em { font-style: normal; font-weight: 600; color: #8a6212; font-size: 9pt; }
+.exec-card p { margin: 0 0 4px; font-size: 9.5pt; line-height: 1.4; }
+.exec-stat strong { font-size: 13pt; font-weight: 900; color: #0e2a40; }
+.exec-sub { color: #6b7c86; font-size: 8.5pt; }
+
+.exec-card ul { margin: 0; padding: 0; list-style: none; }
+.exec-card ul li { margin-bottom: 6px; font-size: 9.5pt; line-height: 1.35; }
+.exec-reasons li strong { display: block; color: #08724a; }
+.exec-reasons li span { color: #43515a; font-size: 9pt; }
+.exec-risks li { padding-left: 12px; position: relative; }
+.exec-risks li::before { content: "•"; position: absolute; left: 0; color: #963226; }
+.exec-alternatives li { padding-left: 12px; position: relative; }
+.exec-alternatives li::before { content: "→"; position: absolute; left: 0; color: #075f76; }
+
+.exec-foot-note {
+  margin: 12px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid #d7e0e6;
+  font-size: 8pt;
+  color: #6b7c86;
+  line-height: 1.4;
+}
+
+@media print {
+  /* Default Export PDF = executive summary: show it, hide the full report. */
+  body.print-exec #exec-summary { display: block; }
+  body.print-exec .results > *:not(.print-header):not(.print-footer):not(#exec-summary) {
+    display: none !important;
+  }
+  .exec-card, .exec-decision { break-inside: avoid; page-break-inside: avoid; }
+}

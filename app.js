@@ -840,6 +840,8 @@ const elements = {
   talkingPoints: document.querySelector("#talking-points"),
   exportButton: document.querySelector("#export-button"),
   exportPdfButton: document.querySelector("#export-pdf-button"),
+  exportFullButton: document.querySelector("#export-full-button"),
+  execSummary: document.querySelector("#exec-summary"),
   printMeta: document.querySelector("#print-meta"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
@@ -4102,15 +4104,113 @@ function exportSummary() {
 
 // Print-to-PDF: the browser's "Save as PDF" renders the on-screen report, so
 // the Live/Modeled honesty labels carry straight into the exported document.
-function exportPdf() {
+function setPrintMeta() {
+  if (!elements.printMeta) return;
   const profile = profileForZip(state.zip);
-  if (elements.printMeta) {
-    const businessLabel = businessDisplayName(state.business) || "Business screen";
-    const areaLabel = profile ? reportAreaTitle(state.zip, profile) : `ZIP ${state.zip}`;
-    const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-    elements.printMeta.textContent = `${businessLabel} · ${areaLabel} · ${today}`;
-  }
+  const businessLabel = businessDisplayName(state.business) || "Business screen";
+  const areaLabel = profile ? reportAreaTitle(state.zip, profile) : `ZIP ${state.zip}`;
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  elements.printMeta.textContent = `${businessLabel} · ${areaLabel} · ${today}`;
+}
 
+// Builds the 1-2 page executive summary from the same computed data the report
+// uses, so the short PDF and the full report can never disagree.
+function renderExecSummary() {
+  if (!elements.execSummary) return;
+  const profile = profileForZip(state.zip);
+  if (!profile) return;
+  const recommendations = buildRecommendations(profile);
+  const businessResult = currentBusinessResult();
+  const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  const confidence = confidenceFor(state.zip, businessResult);
+  const decisionSlug = analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const businessLabel = businessDisplayName(state.business) || "This business";
+
+  const reasons = analysis.scores
+    .slice()
+    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
+    .slice(0, 3)
+    .map((score) => `<li><strong>${escapeText(score.name)} ${formatScore(score.value)}</strong><span>${escapeText(scoreSignalCopy(score))}</span></li>`)
+    .join("");
+  const risks = analysis.topRisks
+    .slice(0, 4)
+    .map((risk) => `<li>${escapeText(risk)}</li>`)
+    .join("");
+  const alternatives = analysis.alternatives.length
+    ? analysis.alternatives.slice(0, 3).map((alt) => `<li>${escapeText(alt)}</li>`).join("")
+    : "<li>No stronger alternative stood out in this area screen.</li>";
+
+  const ft = {
+    score: elements.footTrafficScore?.textContent?.trim() || "Needs more data",
+    visitors: elements.footTrafficVisitors?.textContent?.trim() || "Needs analysis",
+    backing: elements.footTrafficConfidence?.textContent?.trim() || "Modeled estimate"
+  };
+  const comp = {
+    saturation: elements.businessSaturation?.textContent?.trim() || "Checking",
+    mix: elements.businessMix?.textContent?.trim() || "Mixed market",
+    verdict: elements.businessVerdict?.textContent?.trim() || "Verify at the block level."
+  };
+
+  elements.execSummary.innerHTML = `
+    <div class="exec-decision">
+      <div class="exec-decision-main">
+        <span class="exec-label">Recommendation</span>
+        <strong class="exec-verdict decision-${decisionSlug}">${escapeText(analysis.decision)}</strong>
+        <p>${escapeText(analysis.decisionCopy)}</p>
+      </div>
+      <div class="exec-metrics">
+        <div><span>Success probability</span><strong>${formatScore(analysis.successProbability)}</strong></div>
+        <div><span>Confidence</span><strong>${escapeText(confidence.label)} · ${formatScore(analysis.confidenceScore)}</strong></div>
+      </div>
+    </div>
+    <p class="exec-confidence-note">Confidence = how much of this report is backed by live data, not the odds of success.</p>
+    <div class="exec-grid">
+      <section class="exec-card">
+        <h3>Top reasons to consider it</h3>
+        <ul class="exec-reasons">${reasons}</ul>
+      </section>
+      <section class="exec-card">
+        <h3>Top risks</h3>
+        <ul class="exec-risks">${risks}</ul>
+      </section>
+    </div>
+    <div class="exec-grid">
+      <section class="exec-card">
+        <h3>Foot traffic <em>(modeled)</em></h3>
+        <p class="exec-stat"><strong>${escapeText(ft.score)}</strong> foot-traffic score</p>
+        <p>Estimated daily visitors: ${escapeText(ft.visitors)}</p>
+        <p class="exec-sub">${escapeText(ft.backing)}</p>
+      </section>
+      <section class="exec-card">
+        <h3>Competition</h3>
+        <p class="exec-stat"><strong>${escapeText(comp.saturation)}</strong> · ${escapeText(comp.mix)}</p>
+        <p class="exec-sub">${escapeText(comp.verdict)}</p>
+      </section>
+    </div>
+    <section class="exec-card">
+      <h3>Better alternatives to weigh</h3>
+      <ul class="exec-alternatives">${alternatives}</ul>
+    </section>
+    <p class="exec-foot-note">${escapeText(businessLabel)} screen · Modeled values are estimates, not verified financials or guaranteed outcomes. Use “Full report PDF” for methodology, evidence coverage, and full detail.</p>
+  `;
+}
+
+// Default Export PDF: the concise 1-2 page executive summary.
+function exportExecPdf() {
+  setPrintMeta();
+  renderExecSummary();
+  document.body.classList.add("print-exec");
+  const restore = () => {
+    document.body.classList.remove("print-exec");
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  window.print();
+}
+
+// Secondary export: the full multi-section report.
+function exportFullPdf() {
+  setPrintMeta();
   // Expand collapsed <details> so methodology, risk, and site panels are
   // included in the PDF, then restore the on-screen state afterward.
   const collapsibles = [...document.querySelectorAll("#results details")];
@@ -4330,7 +4430,8 @@ elements.listingResults.addEventListener("click", (event) => {
 });
 
 elements.exportButton.addEventListener("click", exportSummary);
-elements.exportPdfButton?.addEventListener("click", exportPdf);
+elements.exportPdfButton?.addEventListener("click", exportExecPdf);
+elements.exportFullButton?.addEventListener("click", exportFullPdf);
 
 elements.memoButton.addEventListener("click", async () => {
   elements.memoCopy.textContent = "Generating memo...";
