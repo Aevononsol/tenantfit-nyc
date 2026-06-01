@@ -3463,7 +3463,7 @@ function renderSourceMap(analysis) {
     {
       section: "Still needs verification",
       key: "Requires on-site or operator proof",
-      powers: "On-site foot-traffic counts, dwell time, rent, buildout cost, parking, operator financials",
+      powers: "Dwell time, rent, buildout cost, parking, and operator financials",
       status: { label: "Manual check", className: "manual" }
     }
   ];
