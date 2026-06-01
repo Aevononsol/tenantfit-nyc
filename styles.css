@@ -2416,3 +2416,107 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 @media (max-width: 980px) and (min-width: 681px) {
   .business-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Print export
+   ========================================================================== */
+/* Print-only blocks (report header/footer) are hidden on screen. */
+.print-only { display: none; }
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+@media print {
+  /* Backgrounds/colors must survive print so Live (green) vs Modeled (amber)
+     labels stay meaningful in the PDF. */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  @page { margin: 14mm 12mm 18mm; }
+
+  html, body { background: #fff !important; }
+
+  /* Collapse the app chrome down to just the report, full width. */
+  .app-shell, .workspace { display: block !important; }
+  .sidebar, #start-screen { display: none !important; }
+  .results { display: block !important; width: 100% !important; }
+
+  /* Interactive controls and non-report panels have no place in a PDF. */
+  button, input, select, textarea,
+  .hero-actions, .map-panel, .advanced-tools,
+  .category-filter, #category-filter { display: none !important; }
+
+  /* Force-expanded details (set open via JS) print their content. */
+  details { display: block !important; }
+  details > summary { list-style: none; }
+
+  /* Show the print-only header and footer. */
+  .print-only { display: block; }
+
+  .print-header {
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0e2a40;
+  }
+  .print-header .print-brand {
+    display: block;
+    font-size: 20pt;
+    font-weight: 900;
+    color: #0e2a40;
+    letter-spacing: -0.01em;
+  }
+  .print-header .print-tagline {
+    display: block;
+    font-size: 9pt;
+    color: #556;
+    margin-top: 2px;
+  }
+  .print-header .print-meta {
+    display: block;
+    font-size: 10pt;
+    font-weight: 700;
+    color: #0e2a40;
+    margin-top: 6px;
+  }
+
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding-top: 4px;
+    border-top: 1px solid #c9d4dc;
+    font-size: 7.5pt;
+    line-height: 1.35;
+    color: #556;
+  }
+
+  /* Keep report blocks intact across page breaks. */
+  .panel, .signal-card, .verdict-panel, .decision-strip article,
+  .summary-grid article, .evidence-signal-card, .source-map-row,
+  .insight-panel, .market-panel, .diligence-panel, .signal-chip {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .results { font-size: 9.5pt; }
+
+  /* Trim heavy / low-value content so the PDF stays shareable. */
+  .place-card img, .place-photo-fallback { display: none !important; }
+  .panel { padding: 10px 12px !important; margin: 0 0 8px !important; }
+  .hero-report { padding: 14px !important; }
+  .results > section, .results > div { margin-bottom: 8px !important; }
+  .summary-grid, .institutional-grid, .analysis-columns, .insight-grid,
+  .foot-traffic-grid, .revenue-output-grid, .civic-grid, .site-intel-grid,
+  .business-results, .concept-fit-list, .places-list, .evidence-signal-grid {
+    gap: 8px !important;
+  }
+}

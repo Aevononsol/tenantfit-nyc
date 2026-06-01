@@ -187,6 +187,11 @@
         </section>
 
         <section id="results" class="results" aria-live="polite" hidden>
+          <div class="print-header print-only" aria-hidden="true">
+            <span class="print-brand">AreaIntel</span>
+            <span class="print-tagline">Business area intelligence · Know before you open.</span>
+            <span id="print-meta" class="print-meta"></span>
+          </div>
           <section class="hero-report">
             <div>
               <p class="section-label">Executive report</p>
@@ -198,7 +203,10 @@
                 <span id="hero-market">Decision-ready screening</span>
               </div>
             </div>
-            <button id="export-button" class="ghost-button" type="button">Export summary</button>
+            <div class="hero-actions">
+              <button id="export-pdf-button" class="primary-button" type="button">Export PDF</button>
+              <button id="export-button" class="ghost-button" type="button">Download .txt</button>
+            </div>
           </section>
 
           <section class="decision-strip executive-decision-strip">
@@ -752,6 +760,10 @@
             <div id="lease-list" class="lease-list"></div>
             </section>
           </details>
+
+          <div class="print-footer print-only" aria-hidden="true">
+            AreaIntel screening report · Live = verified data, Modeled = estimate. Modeled values are not verified financials or guaranteed outcomes — verify rent, foot traffic, licensing, allowed use, and operator economics on-site before any decision.
+          </div>
 
         </section>
       </section>

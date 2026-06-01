@@ -839,6 +839,8 @@ const elements = {
   localFitBar: document.querySelector("#local-fit-bar"),
   talkingPoints: document.querySelector("#talking-points"),
   exportButton: document.querySelector("#export-button"),
+  exportPdfButton: document.querySelector("#export-pdf-button"),
+  printMeta: document.querySelector("#print-meta"),
   businessForm: document.querySelector("#business-form"),
   businessInput: document.querySelector("#business-input"),
   businessSuggestions: document.querySelector("#business-suggestions"),
@@ -4098,6 +4100,32 @@ function exportSummary() {
   URL.revokeObjectURL(url);
 }
 
+// Print-to-PDF: the browser's "Save as PDF" renders the on-screen report, so
+// the Live/Modeled honesty labels carry straight into the exported document.
+function exportPdf() {
+  const profile = profileForZip(state.zip);
+  if (elements.printMeta) {
+    const businessLabel = businessDisplayName(state.business) || "Business screen";
+    const areaLabel = profile ? reportAreaTitle(state.zip, profile) : `ZIP ${state.zip}`;
+    const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    elements.printMeta.textContent = `${businessLabel} · ${areaLabel} · ${today}`;
+  }
+
+  // Expand collapsed <details> so methodology, risk, and site panels are
+  // included in the PDF, then restore the on-screen state afterward.
+  const collapsibles = [...document.querySelectorAll("#results details")];
+  const priorOpen = collapsibles.map((node) => node.open);
+  collapsibles.forEach((node) => { node.open = true; });
+
+  const restore = () => {
+    collapsibles.forEach((node, index) => { node.open = priorOpen[index]; });
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+
+  window.print();
+}
+
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   updateBudgetFromInput();
@@ -4302,6 +4330,7 @@ elements.listingResults.addEventListener("click", (event) => {
 });
 
 elements.exportButton.addEventListener("click", exportSummary);
+elements.exportPdfButton?.addEventListener("click", exportPdf);
 
 elements.memoButton.addEventListener("click", async () => {
   elements.memoCopy.textContent = "Generating memo...";
