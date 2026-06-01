@@ -1728,7 +1728,7 @@ function scoreDrivers(profile, item) {
     .toLowerCase();
 
   const competitionCopy = competition.count === null
-    ? "competition still modeled"
+    ? `${saturationLabel(safeNumber(profile.competition, 50)).toLowerCase()} (modeled for this category)`
     : `${competition.label.toLowerCase()} market pressure`;
 
   return `Driven by ${positiveDrivers.join(" and ")}${drag ? `; watch ${drag}` : ""}. Competition: ${competitionCopy}.`;
@@ -1987,16 +1987,21 @@ function revenueCategoryDefaults(category) {
 function renderRevenueEstimator(profile) {
   if (!elements.revenueProjection) return;
   const rent = safeNumber(elements.revenueRent.value);
-  const size = safeNumber(elements.revenueSize.value);
+  const sizeInput = safeNumber(elements.revenueSize.value);
   const category = elements.revenueCategory.value || state.business || "retail";
 
-  if (!profile || rent === null || rent <= 0 || size === null || size <= 0) {
-    elements.revenueProjection.textContent = "Needs inputs";
-    elements.revenueBreakeven.textContent = "Needs inputs";
-    elements.revenueRentPercent.textContent = "Needs inputs";
-    elements.revenueNote.textContent = "Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.";
+  if (!profile) {
+    elements.revenueProjection.textContent = "Run a location first";
+    elements.revenueBreakeven.textContent = "—";
+    elements.revenueRentPercent.textContent = "—";
     return;
   }
+
+  // Show an immediate neighborhood baseline (≈1,200 sq ft at a modeled local
+  // rent) so the calculator has value before the user types anything.
+  const usingBaseline = rent === null || rent <= 0 || sizeInput === null || sizeInput <= 0;
+  const size = usingBaseline ? 1200 : sizeInput;
+  const effectiveRent = usingBaseline ? estimateBaselineRent(profile, size) : rent;
 
   const defaults = revenueCategoryDefaults(category);
   const config = modeledBusinessConfig(normalizeBusiness(category));
@@ -2006,17 +2011,24 @@ function renderRevenueEstimator(profile) {
   const rentDrag = Math.max(0.72, 1 - clampScore(profile.rent) / 420);
   const lowRevenue = size * defaults.salesPerSf[0] * demandLift * rentDrag;
   const highRevenue = size * defaults.salesPerSf[1] * demandLift * incomeLift;
-  const targetRevenueLow = rent / defaults.rentShare[1];
-  const targetRevenueHigh = rent / defaults.rentShare[0];
-  const rentPercent = (rent / Math.max(1, (lowRevenue + highRevenue) / 2)) * 100;
+  const targetRevenueLow = effectiveRent / defaults.rentShare[1];
+  const targetRevenueHigh = effectiveRent / defaults.rentShare[0];
+  const rentPercent = (effectiveRent / Math.max(1, (lowRevenue + highRevenue) / 2)) * 100;
   const breakEvenLow = defaults.breakeven[0] + Math.round(config.operatingDifficulty / 24);
   const breakEvenHigh = defaults.breakeven[1] + Math.round(config.rentSensitivity / 18);
 
   elements.revenueProjection.textContent = moneyRange(lowRevenue, highRevenue);
   elements.revenueBreakeven.textContent = `${breakEvenLow}-${breakEvenHigh} months`;
   elements.revenueRentPercent.textContent = `${Math.round(rentPercent)}%`;
-  elements.revenueNote.textContent =
-    `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
+  elements.revenueNote.textContent = usingBaseline
+    ? `Neighborhood baseline: ≈1,200 sq ft at a modeled local rent of ${formatCurrency(effectiveRent)}/mo. Enter your own rent and size above to tailor this. Modeled ranges, not verified operator financials.`
+    : `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
+}
+
+// Baseline monthly rent from the area's cost-pressure score (~$4–13 /sq ft/mo).
+function estimateBaselineRent(profile, size) {
+  const perSfMonthly = 4 + (clampScore(safeNumber(profile.rent, 50)) / 100) * 9;
+  return Math.round((size * perSfMonthly) / 100) * 100;
 }
 
 function renderCivicLoading() {
@@ -2220,13 +2232,29 @@ function renderConceptFit(data) {
     return safeNumber(b.score, 0) - safeNumber(a.score, 0);
   });
 
+  // The concept scan only fetches Google visibility for less-common cuisines,
+  // so a common cuisine (e.g. pizza) can come back with no example names even
+  // though the main search surfaced its competitors. Borrow the real nearby
+  // matches for the cuisine the user actually searched so the two panels agree.
+  const mainPlaceNames = (currentBusinessResult()?.googlePlaces?.topPlaces || [])
+    .map((place) => place?.name)
+    .filter((name) => typeof name === "string" && /[a-zA-Z]/.test(name));
+
   elements.conceptFitList.innerHTML = displayConcepts.slice(0, 6).map((concept) => {
-    const cleanNames = (concept.topNames || []).filter(
+    let cleanNames = (concept.topNames || []).filter(
       (n) => typeof n === "string" && /[a-zA-Z]/.test(n)
     );
+    if (!cleanNames.length && concept.key === selectedFoodBusiness && mainPlaceNames.length) {
+      cleanNames = mainPlaceNames;
+    }
+    // Keep the "examples" line consistent with the competitive verdict: never
+    // claim "no competitors" for a concept the model already flags as crowded.
+    const fallbackExamples = concept.tone === "good"
+      ? "Few highly-visible competitors in this radius — possible open lane."
+      : "Multiple operators already active in this category nearby.";
     const topNames = cleanNames.length
       ? cleanNames.slice(0, 3).map(escapeText).join(", ")
-      : "No highly-visible competitors detected in this immediate radius.";
+      : fallbackExamples;
     return `
       <article class="concept-card concept-${concept.tone}">
         <div>
@@ -3860,23 +3888,29 @@ function stableGradeProfile(zip, profile) {
   return zipProfiles[zip] || profile;
 }
 
-function verdictGrade(profile) {
-  const gradeProfile = stableGradeProfile(state.zip, profile);
-  const stableRecommendations = buildRecommendations(gradeProfile, { includeLiveCompetition: false });
-  const topItems = stableRecommendations.slice(0, 3);
-  const topAverage = topItems.length
-    ? topItems.reduce((total, item) => total + safeNumber(item.score, 50), 0) / topItems.length
-    : 50;
-  const rentScore = safeNumber(gradeProfile.rent, 50);
-  const competitionScore = safeNumber(gradeProfile.competition, 50);
-  const riskPenalty = rentScore > 84 && competitionScore > 78 ? 8 : rentScore > 84 ? 4 : 0;
-  const score = Math.round(topAverage - riskPenalty);
+// Standard letter scale so the grade can never contradict the numeric score
+// (e.g. a 60/100 can't show "A-").
+function letterGrade(score) {
+  const s = clampScore(score);
+  if (s >= 90) return "A";
+  if (s >= 85) return "A-";
+  if (s >= 80) return "B+";
+  if (s >= 75) return "B";
+  if (s >= 70) return "B-";
+  if (s >= 65) return "C+";
+  if (s >= 60) return "C";
+  if (s >= 55) return "C-";
+  if (s >= 50) return "D+";
+  if (s >= 45) return "D";
+  return "D-";
+}
 
-  if (score >= 82) return "A";
-  if (score >= 75) return "A-";
-  if (score >= 68) return "B+";
-  if (score >= 60) return "B";
-  return "C+";
+// "Success fit" grade is derived from the same success probability shown in
+// the decision strip, so the letter and the number always agree.
+function verdictGrade(profile, recommendations) {
+  const recs = recommendations || buildRecommendations(profile);
+  const analysis = buildInstitutionalAnalysis(profile, recs);
+  return letterGrade(analysis.successProbability);
 }
 
 function verdictTitleFor(profile, recommendations) {
