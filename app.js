@@ -979,19 +979,23 @@ function updatePanelTimestamp(panelSelector) {
   if (chip) chip.textContent = formatUpdatedTime();
 }
 
+// Maps a status label to one of the 5 design-system states (see
+// DESIGN_SYSTEM.md). Tone keys map to CSS: connected=Verified(green),
+// modeled=Modeled(amber), estimated=Estimated(blue), refreshing=Research(gray),
+// risk=Risk(red). Modeled/estimated output must never read as verified.
 function statusTone(status) {
-  const normalized = String(status || "").toLowerCase();
-  // Modeled/estimated output must never read as verified ("connected").
-  if (normalized.includes("modeled") || normalized.includes("estimate") || normalized.includes("directional")) return "modeled";
-  if (normalized.includes("available") || normalized.includes("connected") || normalized.includes("verified") || normalized.includes("live")) return "connected";
-  if (normalized.includes("checking") || normalized.includes("loading") || normalized.includes("refresh") || normalized.includes("building")) return "refreshing";
+  const n = String(status || "").toLowerCase();
+  if (n.includes("risk")) return "risk";
+  if (n.includes("verified") || n.includes("available") || n.includes("connected") || n.includes("live")) return "connected";
+  if (n.includes("checking") || n.includes("loading") || n.includes("refresh") || n.includes("building") || n.includes("research")) return "refreshing";
+  if (n.includes("modeled")) return "modeled";
   return "estimated";
 }
 
 function setStatusPill(element, text, status = text) {
   if (!element) return;
   element.textContent = text;
-  element.classList.remove("status-connected", "status-estimated", "status-refreshing", "status-modeled");
+  element.classList.remove("status-connected", "status-estimated", "status-refreshing", "status-modeled", "status-risk");
   element.classList.add(`status-${statusTone(status)}`);
 }
 
@@ -1008,19 +1012,23 @@ function renderSignalsStrip() {
   const hasSite = Boolean(siteIntelResult && !siteIntelResult.fallback);
   const hasRisk = Boolean(civicResult && !civicResult.fallback);
 
+  // 5-state mapping (see DESIGN_SYSTEM.md): live demographics = Verified;
+  // borough-default demographics & broad demand = Estimated (proxy); foot
+  // traffic = Modeled (our model); pending fetch = Research In Progress.
   const chips = [
-    { label: "Demographics", state: liveProfile ? "live" : "modeled" },
-    { label: "Competition", state: hasCompetitive ? "live" : businessResult ? "modeled" : "checking" },
-    { label: "Mobility", state: hasSite ? "live" : siteIntelResult ? "modeled" : "checking" },
+    { label: "Demographics", state: liveProfile ? "verified" : "estimated" },
+    { label: "Competition", state: hasCompetitive ? "verified" : businessResult ? "modeled" : "research" },
+    { label: "Mobility", state: hasSite ? "verified" : siteIntelResult ? "modeled" : "research" },
     { label: "Foot traffic", state: "modeled" },
-    { label: "Risk", state: hasRisk ? "live" : civicResult ? "modeled" : "checking" },
-    { label: "Consumer demand", state: hasDemand ? "live" : businessResult ? "modeled" : "checking" }
+    { label: "Risk signals", state: hasRisk ? "verified" : civicResult ? "modeled" : "research" },
+    { label: "Consumer demand", state: hasDemand ? "verified" : "estimated" }
   ];
 
   const meta = {
-    live: { text: "Live", tone: "connected" },
-    modeled: { text: "Modeled", tone: "modeled" },
-    checking: { text: "Checking", tone: "refreshing" }
+    verified:  { text: "Verified",  tone: "connected" },
+    modeled:   { text: "Modeled",   tone: "modeled" },
+    estimated: { text: "Estimated", tone: "estimated" },
+    research:  { text: "Checking",  tone: "refreshing" }
   };
 
   elements.signalsStripList.innerHTML = chips

@@ -28,9 +28,29 @@
   --soft-shadow: 0 16px 45px rgba(15, 23, 42, 0.10);
   --card-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
 
+  /* Design system: 5-state status tokens (fg/bg/accent). See DESIGN_SYSTEM.md. */
+  --st-verified-fg:#08724a;  --st-verified-bg:#e5f7ef;  --st-verified-accent:#0e9f6e;
+  --st-modeled-fg:#9a5b09;   --st-modeled-bg:#fff4e2;   --st-modeled-accent:#e0a23a;
+  --st-estimated-fg:#0f5f9a; --st-estimated-bg:#e7f1fb; --st-estimated-accent:#2f8fd6;
+  --st-research-fg:#51606b;  --st-research-bg:#eef2f6;  --st-research-accent:#8aa0b4;
+  --st-risk-fg:#963226;      --st-risk-bg:#f9e4df;      --st-risk-accent:#d9534f;
+
+  /* Design system: spacing scale (4px base). */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px;
+  --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-12:48px; --sp-16:64px;
+
   font-family: Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+/* Confident, aligned numbers wherever metrics appear. */
+.signal-card strong,
+.decision-strip strong,
+.business-results strong,
+#business-count,
+.exec-metrics strong,
+.compare-table td,
+.verdict-score span { font-variant-numeric: tabular-nums; }
 
 /* 2. Base Reset
    ========================================================================== */
@@ -3055,3 +3075,38 @@ body.assistant-open .assistant-toggle { display: none; }
 }
 
 .form-message-warn { color: #9a5b09 !important; font-weight: 700; }
+
+/* Design system: 5-state status atom + extended pill/chip tones
+   ========================================================================== */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.status__dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; flex: 0 0 auto; }
+.status--verified  { background: var(--st-verified-bg);  color: var(--st-verified-fg); }
+.status--modeled   { background: var(--st-modeled-bg);   color: var(--st-modeled-fg); }
+.status--estimated { background: var(--st-estimated-bg); color: var(--st-estimated-fg); }
+.status--research  { background: var(--st-research-bg);  color: var(--st-research-fg); }
+.status--risk      { background: var(--st-risk-bg);      color: var(--st-risk-fg); }
+.status--research .status__dot { animation: statusPulse 1.15s ease-in-out infinite; }
+
+/* New pill tones (used via setStatusPill). */
+.status-estimated { background: var(--st-estimated-bg); color: var(--st-estimated-fg); }
+.status-risk      { background: var(--st-risk-bg);      color: var(--st-risk-fg); }
+
+/* New signals-strip chip tones. */
+.signal-chip-estimated { background: var(--st-estimated-bg); color: var(--st-estimated-fg); }
+.signal-chip-risk      { background: var(--st-risk-bg);      color: var(--st-risk-fg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .status--research .status__dot,
+  .signal-chip-refreshing .signal-dot,
+  .status-refreshing::before { animation: none !important; }
+}
