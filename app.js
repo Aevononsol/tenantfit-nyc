@@ -3920,11 +3920,15 @@ function render(zip, options = {}) {
   syncBusinessInput();
   const profile = profileForZip(zip);
   if (!profile) {
-    elements.message.textContent = "Enter a valid NYC ZIP code.";
+    elements.message.textContent = /^\d{5}$/.test(zip)
+      ? "🗽 AreaIntel currently covers New York City only. Try a NYC ZIP like 10003, 11201, or 10458."
+      : "Enter a 5-digit NYC ZIP code (for example 10003).";
+    elements.message.classList.add("form-message-warn");
     elements.analyzeButton.disabled = false;
     elements.analyzeButton.textContent = "Analyze";
     return;
   }
+  elements.message.classList.remove("form-message-warn");
 
   state.zip = zip;
   state.mapRetryCount = 0;
@@ -3987,6 +3991,7 @@ function render(zip, options = {}) {
   updateActionGuards();
   updateSaveButton();
   syncUrl();
+  maybeShowAssistantOnboard();
   if (!state.liveProfiles[zip]) renderLiveAreaReport(zip);
   window.setTimeout(() => {
     if (state.zip !== zip) return;
@@ -4667,7 +4672,7 @@ elements.addressForm.addEventListener("submit", async (event) => {
       retries: 1
     });
     if (!/^\d{5}$/.test(result.zip) || !boroughForZip(result.zip)) {
-      elements.addressMessage.textContent = "That address did not resolve to a supported NYC ZIP.";
+      elements.addressMessage.textContent = "🗽 That address isn't in a supported New York City area yet. AreaIntel currently covers NYC only — try a NYC address or ZIP.";
       return;
     }
 
@@ -4930,6 +4935,24 @@ const assistantPrompts = [
 
 let assistantGreeted = false;
 
+const assistantOnboardEl = document.querySelector("#assistant-onboard");
+const assistantOnboardClose = document.querySelector("#assistant-onboard-close");
+
+function assistantSeen() {
+  try { return localStorage.getItem("areaintel-assistant-seen") === "1"; } catch { return true; }
+}
+function markAssistantSeen() {
+  try { localStorage.setItem("areaintel-assistant-seen", "1"); } catch { /* ignore */ }
+  if (assistantOnboardEl) assistantOnboardEl.hidden = true;
+}
+// Subtle one-time nudge, shown once a report is on screen.
+function maybeShowAssistantOnboard() {
+  if (!assistantOnboardEl || assistantSeen()) return;
+  if (!assistantEls.panel || !assistantEls.panel.hidden) return;
+  assistantOnboardEl.hidden = false;
+}
+assistantOnboardClose?.addEventListener("click", markAssistantSeen);
+
 // Compact, honest report context for the model — only values already shown.
 function buildAssistantContext() {
   if (!state.zip) return null;
@@ -4996,6 +5019,7 @@ function renderAssistantSuggestions() {
 
 function openAssistant() {
   if (!assistantEls.panel) return;
+  markAssistantSeen();
   assistantEls.panel.hidden = false;
   document.body.classList.add("assistant-open");
   assistantEls.toggle?.setAttribute("aria-expanded", "true");

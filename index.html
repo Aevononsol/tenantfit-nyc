@@ -40,6 +40,11 @@
             </div>
           </div>
 
+          <div class="nyc-notice" role="note">
+            <span aria-hidden="true">🗽</span>
+            <p><strong>NYC Edition</strong> — AreaIntel currently supports New York City locations only. Additional cities coming soon.</p>
+          </div>
+
           <div class="positioning-card">
             <p>Predict business success using market intelligence, demand signals, competition, and decision analysis.</p>
           </div>
@@ -315,22 +320,23 @@
             </div>
             <p class="panel-note">AreaIntel compares category demand, competitive intensity, customer fit, cost pressure, and local activity signals.</p>
             <div class="business-results">
-              <article class="business-count">
+              <article class="business-count" title="0–100 market-pressure score. Higher means more existing competitors for this category nearby.">
+                <span class="signal-label business-count-caption">Market pressure</span>
                 <span id="business-count">18</span>
                 <small id="business-count-label">market pressure</small>
                 <div id="business-source-tags" class="source-tags" aria-label="Business count sources"></div>
               </article>
-              <article>
+              <article title="How crowded this category already is in the area, from the competitor count.">
                 <span class="signal-label">Saturation</span>
                 <strong id="business-saturation">Crowded</strong>
                 <meter id="business-meter" min="0" max="100" value="82"></meter>
               </article>
-              <article>
+              <article title="Whether independent operators or national chains tend to do better in this market.">
                 <span class="signal-label">Local vs chain</span>
                 <strong id="business-mix">Mostly local</strong>
                 <p id="business-mix-copy"></p>
               </article>
-              <article>
+              <article title="AreaIntel's plain-language call for this business type in this area.">
                 <span class="signal-label">Recommendation</span>
                 <strong id="business-verdict">Possible, but only with a clear niche.</strong>
                 <p id="business-reason"></p>
@@ -791,6 +797,11 @@
       </section>
     </main>
 
+    <div id="assistant-onboard" class="assistant-onboard" hidden>
+      <button id="assistant-onboard-close" class="assistant-onboard-close" type="button" aria-label="Dismiss tip">&times;</button>
+      <strong>New: Ask AreaIntel</strong>
+      <span>Get a plain-English read on this report — score, risks, foot traffic, and next steps.</span>
+    </div>
     <button id="assistant-toggle" class="assistant-toggle" type="button" aria-expanded="false" aria-controls="assistant-panel">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span>Ask AreaIntel</span>

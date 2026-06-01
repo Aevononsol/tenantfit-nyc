@@ -461,12 +461,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 /* 7. Hero Report
    ========================================================================== */
 .hero-report {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: end;
-  min-height: 250px;
-  padding: clamp(24px, 4vw, 42px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: clamp(22px, 3.5vw, 38px);
   border-radius: var(--radius-lg);
   background:
     linear-gradient(135deg, rgba(7, 17, 31, 0.92), rgba(15, 44, 66, 0.86)),
@@ -476,22 +474,25 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.hero-report > div:first-child { min-width: 0; }
+
 .hero-report .section-label { color: #8bd3e6; }
 
 .hero-report h2 {
-  max-width: 820px;
+  max-width: 24ch;
   color: #fff;
-  font-size: clamp(2rem, 3.6vw, 3.6rem);
-  letter-spacing: -0.03em;
-  line-height: 1;
-  overflow-wrap: anywhere;
+  font-size: clamp(1.7rem, 2.6vw, 2.6rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  overflow-wrap: break-word;
+  word-break: normal;
   text-wrap: balance;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.28);
 }
 
 .hero-report p {
-  max-width: 820px;
-  margin: 12px 0 0;
+  max-width: 60ch;
+  margin: 10px 0 0;
   color: #dbeafe;
   font-size: 1rem;
   line-height: 1.5;
@@ -795,18 +796,20 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .business-results p      { margin: 0; color: #475569; font-size: 0.94rem; line-height: 1.45; }
 .business-results strong { font-size: clamp(1.1rem, 1.8vw, 1.45rem); line-height: 1.15; color: var(--ink); }
 
-.business-count {
+/* Scoped to beat `.business-results article` (which forced a white card and
+   made the white number invisible). */
+.business-results .business-count {
   display: grid;
   align-content: center;
   justify-items: center;
   text-align: center;
   padding: 22px 16px;
-  background: linear-gradient(145deg, #102238, #0e7490);
+  background: linear-gradient(145deg, #102238, #0e7490) !important;
   color: #ffffff;
   border-color: rgba(14, 116, 144, 0.42);
 }
 
-.business-count > span {
+.business-results .business-count > span#business-count {
   display: block;
   color: #ffffff;
   font-size: clamp(2.35rem, 7vw, 4rem);
@@ -2427,7 +2430,29 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  width: 100%;
 }
+
+/* Unified toolbar look so the action buttons read as one set on the hero. */
+.hero-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  color: #eaf4fb;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.hero-actions button:hover { background: rgba(255, 255, 255, 0.18); }
+.hero-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.hero-actions .primary-button {
+  background: #f3f8fb;
+  color: #0e2a40;
+  border-color: transparent;
+}
+.hero-actions .primary-button:hover { background: #fff; }
 
 @media print {
   /* Backgrounds/colors must survive print so Live (green) vs Modeled (amber)
@@ -2949,3 +2974,84 @@ body.assistant-open .assistant-toggle { display: none; }
 @media print {
   .assistant-toggle, .assistant-panel { display: none !important; }
 }
+
+/* UI/UX audit polish
+   ========================================================================== */
+/* NYC-only notice (sidebar, near logo + search). */
+.nyc-notice {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(243, 199, 68, 0.42);
+  border-radius: 12px;
+  background: rgba(243, 199, 68, 0.12);
+}
+.nyc-notice span { font-size: 1.15rem; line-height: 1.1; }
+.nyc-notice p { margin: 0; font-size: 0.78rem; line-height: 1.42; color: #e8eef3; }
+.nyc-notice strong { color: #f3c744; }
+
+/* Make the market-pressure label readable on the dark gradient card. */
+.business-results .business-count .business-count-caption {
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: 2px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  text-shadow: none;
+}
+
+/* Clearance so the floating assistant never hides the last content. */
+.results,
+.start-screen { padding-bottom: 96px; }
+
+/* Assistant onboarding bubble (first open only). */
+.assistant-onboard {
+  position: fixed;
+  right: 20px;
+  bottom: 80px;
+  z-index: 1250;
+  width: 244px;
+  padding: 12px 30px 13px 14px;
+  border-radius: 14px;
+  background: #0e2238;
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  color: #e6edf3;
+  box-shadow: 0 16px 40px rgba(5, 16, 28, 0.5);
+}
+.assistant-onboard[hidden] { display: none; }
+.assistant-onboard strong { display: block; font-size: 0.86rem; color: #bfeee8; margin-bottom: 3px; }
+.assistant-onboard span { font-size: 0.76rem; color: #9fb3c8; line-height: 1.42; }
+.assistant-onboard::after {
+  content: "";
+  position: absolute;
+  right: 30px;
+  bottom: -7px;
+  width: 13px;
+  height: 13px;
+  background: #0e2238;
+  border-right: 1px solid rgba(45, 212, 191, 0.4);
+  border-bottom: 1px solid rgba(45, 212, 191, 0.4);
+  transform: rotate(45deg);
+}
+.assistant-onboard-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: #8aa0b4;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.assistant-onboard-close:hover { color: #fff; }
+
+@media (max-width: 560px) {
+  .assistant-onboard { right: 14px; bottom: 72px; width: 220px; }
+}
+
+.form-message-warn { color: #9a5b09 !important; font-weight: 700; }
