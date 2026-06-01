@@ -791,6 +791,32 @@
       </section>
     </main>
 
+    <button id="assistant-toggle" class="assistant-toggle" type="button" aria-expanded="false" aria-controls="assistant-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4V5a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Ask AreaIntel</span>
+    </button>
+
+    <aside id="assistant-panel" class="assistant-panel" role="dialog" aria-label="AreaIntel Assistant" aria-modal="false" hidden>
+      <header class="assistant-header">
+        <div>
+          <strong>AreaIntel Assistant</strong>
+          <span>Understand your report &amp; next steps</span>
+        </div>
+        <button id="assistant-close" class="assistant-close" type="button" aria-label="Close assistant">&times;</button>
+      </header>
+      <div id="assistant-messages" class="assistant-messages" aria-live="polite"></div>
+      <div id="assistant-suggestions" class="assistant-suggestions"></div>
+      <div class="assistant-cta" aria-label="Quick actions">
+        <button type="button" data-cta="export">Export PDF</button>
+        <button type="button" data-cta="compare">Add to Compare</button>
+        <button type="button" data-cta="advisor">Request Advisor Review</button>
+      </div>
+      <form id="assistant-form" class="assistant-form">
+        <textarea id="assistant-input" rows="1" maxlength="500" placeholder="Ask about this report…" aria-label="Ask the AreaIntel Assistant"></textarea>
+        <button type="submit" id="assistant-send">Send</button>
+      </form>
+    </aside>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js?v=20260527-stability-1"></script>
   </body>

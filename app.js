@@ -4901,3 +4901,197 @@ if (!applyUrlState()) {
   elements.results.hidden = true;
   elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
 }
+
+// --- Phase 6: AreaIntel Assistant ---------------------------------------
+// A floating chat that explains the current report. It only sends a compact,
+// already-computed context to our own /api/assistant backend (the OpenAI key
+// stays server-side); it never changes scoring or the data lifecycle.
+const assistantEls = {
+  toggle: document.querySelector("#assistant-toggle"),
+  panel: document.querySelector("#assistant-panel"),
+  close: document.querySelector("#assistant-close"),
+  messages: document.querySelector("#assistant-messages"),
+  suggestions: document.querySelector("#assistant-suggestions"),
+  form: document.querySelector("#assistant-form"),
+  input: document.querySelector("#assistant-input"),
+  send: document.querySelector("#assistant-send"),
+  cta: document.querySelector(".assistant-cta")
+};
+
+const assistantPrompts = [
+  "Why did this location get this score?",
+  "What are the biggest risks?",
+  "Is the foot traffic strong enough?",
+  "What does data confidence mean?",
+  "Should I export this report?",
+  "Should I compare another location?",
+  "Should I request an advisor review?"
+];
+
+let assistantGreeted = false;
+
+// Compact, honest report context for the model — only values already shown.
+function buildAssistantContext() {
+  if (!state.zip) return null;
+  const profile = profileForZip(state.zip);
+  if (!profile) return null;
+  const recommendations = buildRecommendations(profile);
+  const businessResult = currentBusinessResult();
+  const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  const confidence = confidenceFor(state.zip, businessResult);
+  return {
+    business: businessDisplayName(state.business),
+    area: reportAreaTitle(state.zip, profile),
+    address: state.location?.address || null,
+    decision: analysis.decision,
+    successProbability: `${clampScore(analysis.successProbability)}/100`,
+    dataConfidence: `${confidence.label} (${clampScore(analysis.confidenceScore)}/100) — this is live-data coverage, not the odds of success`,
+    footTraffic: {
+      score: elements.footTrafficScore?.textContent?.trim() || "needs data",
+      modeledDailyVisitors: elements.footTrafficVisitors?.textContent?.trim() || "needs analysis",
+      note: "modeled estimate, not an exact count"
+    },
+    competition: {
+      saturation: elements.businessSaturation?.textContent?.trim() || "checking",
+      localVsChain: elements.businessMix?.textContent?.trim() || "mixed",
+      readout: elements.businessVerdict?.textContent?.trim() || ""
+    },
+    topReasons: analysis.scores
+      .slice()
+      .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
+      .slice(0, 3)
+      .map((s) => `${s.name} ${formatScore(s.value)}`),
+    risks: analysis.topRisks.slice(0, 5),
+    alternatives: analysis.alternatives.slice(0, 3),
+    revenueEstimate: {
+      projection: elements.revenueProjection?.textContent?.trim() || "needs inputs",
+      breakeven: elements.revenueBreakeven?.textContent?.trim() || "needs inputs",
+      note: "modeled range, not verified operator financials"
+    },
+    dataHonesty: "Some signals are modeled or estimated; verify on-site before deciding."
+  };
+}
+
+function assistantAppend(role, text, options = {}) {
+  if (!assistantEls.messages) return null;
+  const node = document.createElement("div");
+  node.className = `assistant-msg assistant-msg-${role}`;
+  if (options.loading) {
+    node.classList.add("assistant-msg-loading");
+    node.innerHTML = '<span class="assistant-dots"><i></i><i></i><i></i></span>';
+  } else {
+    node.textContent = text;
+  }
+  assistantEls.messages.appendChild(node);
+  assistantEls.messages.scrollTop = assistantEls.messages.scrollHeight;
+  return node;
+}
+
+function renderAssistantSuggestions() {
+  if (!assistantEls.suggestions) return;
+  assistantEls.suggestions.innerHTML = assistantPrompts
+    .map((p) => `<button type="button" class="assistant-chip">${escapeText(p)}</button>`)
+    .join("");
+}
+
+function openAssistant() {
+  if (!assistantEls.panel) return;
+  assistantEls.panel.hidden = false;
+  document.body.classList.add("assistant-open");
+  assistantEls.toggle?.setAttribute("aria-expanded", "true");
+  if (!assistantGreeted) {
+    const greeting = state.zip
+      ? `Hi — ask me anything about ${businessDisplayName(state.business)} in ${reportAreaTitle(state.zip, profileForZip(state.zip))}. I can explain the recommendation, confidence, foot traffic, competition, risks, and next steps.`
+      : "Hi — run an analysis first (a business type and a NYC ZIP or address) and I'll explain the recommendation, risks, foot traffic, and next steps.";
+    assistantAppend("bot", greeting);
+    assistantGreeted = true;
+  }
+  renderAssistantSuggestions();
+  window.setTimeout(() => assistantEls.input?.focus(), 50);
+}
+
+function closeAssistant() {
+  if (!assistantEls.panel) return;
+  assistantEls.panel.hidden = true;
+  document.body.classList.remove("assistant-open");
+  assistantEls.toggle?.setAttribute("aria-expanded", "false");
+}
+
+async function sendAssistant(question) {
+  const text = String(question || "").trim();
+  if (!text || !assistantEls.send) return;
+  if (text.length > 500) {
+    assistantAppend("bot", "Please keep your question under 500 characters.");
+    return;
+  }
+  assistantAppend("user", text);
+  if (assistantEls.input) assistantEls.input.value = "";
+  assistantEls.send.disabled = true;
+  const loadingNode = assistantAppend("bot", "", { loading: true });
+
+  try {
+    const response = await fetch("/api/assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: text, context: buildAssistantContext() })
+    });
+    const result = await response.json().catch(() => ({}));
+    const answer = result.answer || "The assistant is unavailable right now. Please try again shortly.";
+    if (loadingNode) {
+      loadingNode.classList.remove("assistant-msg-loading");
+      loadingNode.textContent = answer;
+    }
+  } catch {
+    if (loadingNode) {
+      loadingNode.classList.remove("assistant-msg-loading");
+      loadingNode.textContent = "I couldn't reach the assistant. Check your connection and try again — or use Export PDF / Request Advisor Review.";
+    }
+  } finally {
+    assistantEls.send.disabled = false;
+    assistantEls.messages.scrollTop = assistantEls.messages.scrollHeight;
+  }
+}
+
+function handleAssistantCta(type) {
+  if (type === "export") {
+    if (!state.zip) { assistantAppend("bot", "Run an analysis first, then I can export it as a one-page PDF."); return; }
+    if (!signalsReady()) { assistantAppend("bot", "Market signals are still loading — give it a second, then export so the PDF is complete."); return; }
+    exportExecPdf();
+    assistantAppend("bot", "Opening the print dialog — choose “Save as PDF” to keep the one-page executive summary.");
+  } else if (type === "compare") {
+    if (!state.zip) { assistantAppend("bot", "Run an analysis first, then I can add it to your compare shortlist."); return; }
+    if (!signalsReady()) { assistantAppend("bot", "Signals are still loading — once they finish I can add a clean snapshot to compare."); return; }
+    addToCompare();
+    assistantAppend("bot", `Added ${businessDisplayName(state.business)} to your compare shortlist. Run another ZIP or address and I'll rank them side by side.`);
+  } else if (type === "advisor") {
+    const where = state.zip ? ` for ${businessDisplayName(state.business)} in ${reportAreaTitle(state.zip, profileForZip(state.zip))}` : "";
+    assistantAppend("bot", `Advisor review noted${where}. A specialist would review this screen and follow up here. (Human review is a preview feature and isn't a brokerage, legal, or financial service.)`);
+  }
+}
+
+assistantEls.toggle?.addEventListener("click", () => {
+  if (assistantEls.panel?.hidden) openAssistant();
+  else closeAssistant();
+});
+assistantEls.close?.addEventListener("click", closeAssistant);
+assistantEls.form?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendAssistant(assistantEls.input?.value);
+});
+assistantEls.input?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendAssistant(assistantEls.input.value);
+  }
+});
+assistantEls.suggestions?.addEventListener("click", (event) => {
+  const chip = event.target.closest(".assistant-chip");
+  if (chip) sendAssistant(chip.textContent);
+});
+assistantEls.cta?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-cta]");
+  if (button) handleAssistantCta(button.dataset.cta);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !assistantEls.panel?.hidden) closeAssistant();
+});
