@@ -2009,17 +2009,41 @@ function renderRevenueEstimator(profile) {
   const demandLift = 0.72 + clampScore(demandScore) / 185;
   const incomeLift = 0.82 + clampScore(profile.income) / 420;
   const rentDrag = Math.max(0.72, 1 - clampScore(profile.rent) / 420);
-  const lowRevenue = size * defaults.salesPerSf[0] * demandLift * rentDrag;
-  const highRevenue = size * defaults.salesPerSf[1] * demandLift * incomeLift;
-  const targetRevenueLow = effectiveRent / defaults.rentShare[1];
-  const targetRevenueHigh = effectiveRent / defaults.rentShare[0];
-  const rentPercent = (effectiveRent / Math.max(1, (lowRevenue + highRevenue) / 2)) * 100;
-  const breakEvenLow = defaults.breakeven[0] + Math.round(config.operatingDifficulty / 24);
-  const breakEvenHigh = defaults.breakeven[1] + Math.round(config.rentSensitivity / 18);
 
-  elements.revenueProjection.textContent = moneyRange(lowRevenue, highRevenue);
-  elements.revenueBreakeven.textContent = `${breakEvenLow}-${breakEvenHigh} months`;
-  elements.revenueRentPercent.textContent = `${Math.round(rentPercent)}%`;
+  // Safe parsing + fallbacks: config/defaults fields can be missing (e.g. the
+  // fallback config has no operatingDifficulty), which previously produced
+  // NaN in the lower break-even bound.
+  const salesLow = safeNumber(defaults.salesPerSf?.[0], 60);
+  const salesHigh = safeNumber(defaults.salesPerSf?.[1], 120);
+  const rentShareLow = safeNumber(defaults.rentShare?.[0], 0.08) || 0.08;
+  const rentShareHigh = safeNumber(defaults.rentShare?.[1], 0.12) || 0.12;
+  const beBaseLow = safeNumber(defaults.breakeven?.[0], 10);
+  const beBaseHigh = safeNumber(defaults.breakeven?.[1], 24);
+  const opDifficulty = safeNumber(config.operatingDifficulty, 50);
+  const rentSensitivity = safeNumber(config.rentSensitivity, 60);
+
+  const lowRevenue = size * salesLow * demandLift * rentDrag;
+  const highRevenue = size * salesHigh * demandLift * incomeLift;
+  const avgRevenue = (lowRevenue + highRevenue) / 2;
+  const targetRevenueLow = effectiveRent / rentShareHigh;
+  const targetRevenueHigh = effectiveRent / rentShareLow;
+  const rentPercent = avgRevenue > 0 ? (effectiveRent / avgRevenue) * 100 : null;
+  let breakEvenLow = beBaseLow + Math.round(opDifficulty / 24);
+  let breakEvenHigh = beBaseHigh + Math.round(rentSensitivity / 18);
+  if (breakEvenLow > breakEvenHigh) [breakEvenLow, breakEvenHigh] = [breakEvenHigh, breakEvenLow];
+
+  // Never let NaN / Infinity / null reach the UI.
+  const num = (value) => (Number.isFinite(value) ? value : null);
+  elements.revenueProjection.textContent =
+    num(lowRevenue) !== null && num(highRevenue) !== null && lowRevenue > 0
+      ? moneyRange(lowRevenue, highRevenue)
+      : "Needs inputs";
+  elements.revenueBreakeven.textContent =
+    num(breakEvenLow) !== null && num(breakEvenHigh) !== null
+      ? `${Math.max(1, breakEvenLow)}-${Math.max(1, breakEvenHigh)} months`
+      : "Needs inputs";
+  elements.revenueRentPercent.textContent =
+    num(rentPercent) !== null ? `${Math.round(rentPercent)}%` : "Needs inputs";
   elements.revenueNote.textContent = usingBaseline
     ? `Neighborhood baseline: ≈1,200 sq ft at a modeled local rent of ${formatCurrency(effectiveRent)}/mo. Enter your own rent and size above to tailor this. Modeled ranges, not verified operator financials.`
     : `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
@@ -2241,26 +2265,38 @@ function renderConceptFit(data) {
     .filter((name) => typeof name === "string" && /[a-zA-Z]/.test(name));
 
   elements.conceptFitList.innerHTML = displayConcepts.slice(0, 6).map((concept) => {
-    let cleanNames = (concept.topNames || []).filter(
+    const ownNames = (concept.topNames || []).filter(
       (n) => typeof n === "string" && /[a-zA-Z]/.test(n)
     );
-    if (!cleanNames.length && concept.key === selectedFoodBusiness && mainPlaceNames.length) {
-      cleanNames = mainPlaceNames;
+    let cleanNames = ownNames;
+    // Borrow the real nearby matches for the cuisine the user searched.
+    const injectedCompetitors =
+      !ownNames.length && concept.key === selectedFoodBusiness && mainPlaceNames.length > 0;
+    if (injectedCompetitors) cleanNames = mainPlaceNames;
+
+    // If real competitors are visible for this concept, never present it as an
+    // open lane — override an "open/good" verdict with a competitive one.
+    let displayVerdict = concept.verdict;
+    let displayTone = concept.tone;
+    if (injectedCompetitors && concept.tone === "good") {
+      displayVerdict = "Competitive set present";
+      displayTone = "mixed";
     }
-    // Keep the "examples" line consistent with the competitive verdict: never
-    // claim "no competitors" for a concept the model already flags as crowded.
-    const fallbackExamples = concept.tone === "good"
+
+    // Keep the "examples" line consistent with the verdict: never claim "no
+    // competitors" for a concept the model already flags as crowded.
+    const fallbackExamples = displayTone === "good"
       ? "Few highly-visible competitors in this radius — possible open lane."
       : "Multiple operators already active in this category nearby.";
     const topNames = cleanNames.length
       ? cleanNames.slice(0, 3).map(escapeText).join(", ")
       : fallbackExamples;
     return `
-      <article class="concept-card concept-${concept.tone}">
+      <article class="concept-card concept-${displayTone}">
         <div>
-          <span class="signal-label">${escapeText(concept.verdict)}</span>
+          <span class="signal-label">${escapeText(displayVerdict)}</span>
           <h4>${escapeText(concept.label)}</h4>
-          <p>${escapeText(concept.verdict || "Needs more data")} competitive intensity${safeNumber(concept.avgRating) > 0 ? ` · ${safeNumber(concept.avgRating).toFixed(1)} avg rating` : ""}</p>
+          <p>${escapeText(displayVerdict || "Needs more data")} competitive intensity${safeNumber(concept.avgRating) > 0 ? ` · ${safeNumber(concept.avgRating).toFixed(1)} avg rating` : ""}</p>
           <small>Visible examples: ${topNames}</small>
         </div>
         <strong>${formatBadgeScore(concept.score)}</strong>
@@ -3678,11 +3714,17 @@ function renderDecisionStrip(profile, recommendations) {
   elements.nextMoveCopy.textContent = decision.nextCopy;
 }
 
-function businessVerdictFor(score, profile, config) {
+function businessVerdictFor(score, profile, config, hasCompetitors = false) {
+  // If adjacent competitors are visible nearby, never call it an open lane.
+  if (hasCompetitors && score < 58) return "Competitive set present; validate differentiation.";
   if (score >= 78 && profile.rent >= 78) return "Risky unless the operator has a sharp niche.";
   if (score >= 78) return "Possible, but competition is heavy.";
   if (score >= 58 && config.baseDemand >= 68) return "Good if the operator is stronger than average.";
-  if (score < 38 && config.baseDemand >= 60) return "Potential gap worth validating.";
+  if (score < 38 && config.baseDemand >= 60) {
+    return hasCompetitors
+      ? "Demand exists, but nearby operator density requires sharper positioning."
+      : "Potential gap worth validating.";
+  }
   if (profile.income < 48 && config.rentSensitivity > 70) return "Weak fit for this customer base.";
   return "Worth checking at the exact block level.";
 }
@@ -3691,7 +3733,13 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
   const profile = profileForZip(state.zip);
   const config = modeledBusinessConfig(business);
   const businessLabel = displayBusiness || businessDisplayName(state.business || business);
-  const saturation = saturationFromCount(count, profile);
+  // Include visible nearby competitors (Google Places) so the saturation
+  // label + verdict reflect the adjacent competitive set even when NYC
+  // open-data has few exact-term matches. Display only — scoring is unchanged.
+  const visibleCompetitors = safeNumber(result?.googleVisibleCount, 0) || safeNumber(result?.googlePlaces?.topPlaces?.length, 0);
+  const effectiveCount = Math.max(safeNumber(count, 0), visibleCompetitors);
+  const hasVisibleCompetitors = visibleCompetitors >= 3;
+  const saturation = saturationFromCount(effectiveCount, profile);
   const localAdvantage = Math.round((profile.localPreference + config.localBias - config.chainBias) / 2);
   const mix =
     localAdvantage >= 62
@@ -3736,7 +3784,7 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
   if (loading) {
     setLoadingText(elements.businessVerdict, "Refreshing market signals");
   } else {
-    elements.businessVerdict.textContent = businessVerdictFor(saturation, profile, config);
+    elements.businessVerdict.textContent = businessVerdictFor(saturation, profile, config, hasVisibleCompetitors);
   }
   elements.businessReason.textContent = `${businessLabel} demand: ${config.notes} ${sourceNote || (isLive ? "Verified market signals are available." : "Modeled local estimate.")}`;
   elements.heroBusiness.textContent = loading
@@ -3811,18 +3859,23 @@ async function renderBusinessCheck() {
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
-      elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
+      applyVerdictTier(profile, updatedRecommendations);
       renderTopPlaces(result);
       renderMarketMap();
     } else {
       state.lastBusinessResult = result;
+      // Even with few exact city-record matches, visible nearby operators are a
+      // real competitive set — don't frame it as an empty gap.
+      const visibleNearby = safeNumber(result.googleVisibleCount, 0) || safeNumber(result.googlePlaces?.topPlaces?.length, 0);
       applyBusinessResult({
         count: 0,
         business: result.business || business,
         displayBusiness: businessLabel,
         isLive: true,
         result,
-        sourceNote: "Market signals found limited exact matches for this area and search term. Try a broader term or verify the exact block."
+        sourceNote: visibleNearby >= 3
+          ? "Few exact city-record matches, but several adjacent operators are visible nearby — treat this as a competitive set and validate differentiation."
+          : "Market signals found limited exact matches for this area and search term. Try a broader term or verify the exact block."
       });
       const updatedRecommendations = buildRecommendations(profile);
       renderDecisionStrip(profile, updatedRecommendations);
@@ -3834,7 +3887,7 @@ async function renderBusinessCheck() {
       elements.headline.textContent = headlineFor(updatedRecommendations, profile);
       elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
       elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
-      elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
+      applyVerdictTier(profile, updatedRecommendations);
       renderTopPlaces(result);
       renderMarketMap();
     }
@@ -3872,7 +3925,7 @@ async function renderBusinessCheck() {
     elements.headline.textContent = headlineFor(updatedRecommendations, profile);
     elements.narrative.textContent = narrativeFor(state.zip, profile, updatedRecommendations);
     elements.verdictTitle.textContent = verdictTitleFor(profile, updatedRecommendations);
-    elements.verdictGrade.textContent = verdictGrade(profile, updatedRecommendations);
+    applyVerdictTier(profile, updatedRecommendations);
     renderMarketMap();
   } finally {
     // Only the most recent business check should clear the guard; a stale
@@ -3888,29 +3941,32 @@ function stableGradeProfile(zip, profile) {
   return zipProfiles[zip] || profile;
 }
 
-// Standard letter scale so the grade can never contradict the numeric score
-// (e.g. a 60/100 can't show "A-").
-function letterGrade(score) {
-  const s = clampScore(score);
-  if (s >= 90) return "A";
-  if (s >= 85) return "A-";
-  if (s >= 80) return "B+";
-  if (s >= 75) return "B";
-  if (s >= 70) return "B-";
-  if (s >= 65) return "C+";
-  if (s >= 60) return "C";
-  if (s >= 55) return "C-";
-  if (s >= 50) return "D+";
-  if (s >= 45) return "D";
-  return "D-";
+// SaaS-style decision tier (replaces school letter grades). Maps the success
+// probability to a professional tier + recommended action. Keeps the number;
+// only the label changes.
+function decisionTier(score) {
+  const s = clampScore(safeNumber(score, 0));
+  if (s >= 85) return { tier: "Prime Fit", action: "Priority Opportunity", slug: "prime" };
+  if (s >= 70) return { tier: "Strong Fit", action: "Good Candidate", slug: "strong" };
+  if (s >= 55) return { tier: "Conditional", action: "Validate Before Committing", slug: "conditional" };
+  if (s >= 40) return { tier: "Weak Fit", action: "Proceed Only With Strong Proof", slug: "weak" };
+  return { tier: "High Risk", action: "Do Not Open Without Major Changes", slug: "risk" };
 }
 
-// "Success fit" grade is derived from the same success probability shown in
-// the decision strip, so the letter and the number always agree.
-function verdictGrade(profile, recommendations) {
+// Apply the decision tier (derived from the same success probability) to the
+// verdict card so the label and the number always agree.
+function applyVerdictTier(profile, recommendations) {
+  if (!elements.verdictGrade) return;
   const recs = recommendations || buildRecommendations(profile);
   const analysis = buildInstitutionalAnalysis(profile, recs);
-  return letterGrade(analysis.successProbability);
+  const t = decisionTier(analysis.successProbability);
+  elements.verdictGrade.textContent = t.tier;
+  if (elements.verdictLabel) elements.verdictLabel.textContent = t.action;
+  const box = elements.verdictGrade.closest(".verdict-score");
+  if (box) {
+    box.classList.remove("vt-prime", "vt-strong", "vt-conditional", "vt-weak", "vt-risk");
+    box.classList.add(`vt-${t.slug}`);
+  }
 }
 
 function verdictTitleFor(profile, recommendations) {
@@ -3998,8 +4054,7 @@ function render(zip, options = {}) {
   elements.evidence.innerHTML = profile.evidence.map((item) => `<li>${item}</li>`).join("");
   elements.verdictTitle.textContent = verdictTitleFor(profile, recommendations);
   elements.verdictCopy.textContent = profile.verdict;
-  elements.verdictGrade.textContent = verdictGrade(profile, recommendations);
-  elements.verdictLabel.textContent = profile.rent > 82 ? "Good but risky" : "Success fit";
+  applyVerdictTier(profile, recommendations);
   safeUiUpdate("decision strip", () => renderDecisionStrip(profile, recommendations));
   safeUiUpdate("institutional analysis", () => renderInstitutionalAnalysis(profile, recommendations));
   safeUiUpdate("customer profile", () => {
@@ -4238,7 +4293,7 @@ function renderExecSummary() {
         <p>${escapeText(analysis.decisionCopy)}</p>
       </div>
       <div class="exec-metrics">
-        <div><span>Success probability</span><strong>${formatScore(analysis.successProbability)}</strong></div>
+        <div><span>Success probability</span><strong>${formatScore(analysis.successProbability)} · ${escapeText(decisionTier(analysis.successProbability).tier)}</strong></div>
         <div><span>Confidence</span><strong>${escapeText(confidence.label)} · ${formatScore(analysis.confidenceScore)}</strong></div>
       </div>
     </div>
@@ -4356,6 +4411,7 @@ function buildCompareSnapshot() {
     decision: analysis.decision,
     decisionSlug: analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     successProbability: clampScore(analysis.successProbability),
+    tier: decisionTier(analysis.successProbability).tier,
     confidenceLabel: confidence.label,
     confidenceScore: clampScore(analysis.confidenceScore),
     competition: elements.businessSaturation?.textContent?.trim() || "Checking",
@@ -4586,6 +4642,7 @@ function buildSavedSnapshot() {
     decision: analysis.decision,
     decisionSlug: analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     successProbability: clampScore(analysis.successProbability),
+    tier: decisionTier(analysis.successProbability).tier,
     url: shareableUrl(),
     savedAt: Date.now()
   };
@@ -5021,6 +5078,7 @@ function buildAssistantContext() {
     address: state.location?.address || null,
     decision: analysis.decision,
     successProbability: `${clampScore(analysis.successProbability)}/100`,
+    successTier: `${decisionTier(analysis.successProbability).tier} — ${decisionTier(analysis.successProbability).action}`,
     dataConfidence: `${confidence.label} (${clampScore(analysis.confidenceScore)}/100) — this is live-data coverage, not the odds of success`,
     footTraffic: {
       score: elements.footTrafficScore?.textContent?.trim() || "needs data",
