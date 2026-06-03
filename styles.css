@@ -398,10 +398,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
    ========================================================================== */
 .start-screen {
   display: grid;
-  align-content: center;
-  gap: 24px;
+  align-content: start;
+  gap: 22px;
   min-height: calc(100vh - 28px);
-  padding: clamp(34px, 5vw, 72px);
+  padding: clamp(34px, 4.5vw, 56px);
   overflow: auto;
   background:
     linear-gradient(135deg, rgba(7, 17, 31, 0.78), rgba(15, 44, 66, 0.6)),
@@ -414,9 +414,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 
 .start-screen h2 {
   max-width: 720px;
-  font-size: clamp(2.8rem, 5vw, 4.8rem);
-  line-height: 0.97;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.25rem, 4.2vw, 4.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   color: #ffffff;
   text-shadow: 0 2px 24px rgba(0, 0, 0, 0.28);
 }
@@ -457,8 +457,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 }
 
 .start-steps article {
-  min-height: 160px;
-  padding: 22px;
+  min-height: 142px;
+  padding: 20px;
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.14);
@@ -486,59 +486,6 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 }
 
 .start-steps article p { color: #d4e4ee; line-height: 1.5; }
-
-.start-preview {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
-  gap: 16px;
-  max-width: 920px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(14px);
-}
-
-.start-preview strong {
-  display: inline-flex;
-  margin: 8px 0;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #075f76;
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 950;
-  line-height: 1;
-}
-
-.start-preview p {
-  margin: 0;
-  max-width: 52ch;
-  color: #dbe7ef;
-  line-height: 1.55;
-}
-
-.start-preview-metrics {
-  display: grid;
-  gap: 10px;
-}
-
-.start-preview-metrics span {
-  display: grid;
-  gap: 3px;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(7, 17, 31, 0.48);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #b9c8d6;
-  font-weight: 750;
-}
-
-.start-preview-metrics b {
-  color: #ffffff;
-  font-size: 1.35rem;
-}
 
 /* 6. Results Area
    ========================================================================== */
@@ -2433,11 +2380,7 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
   .results, .start-screen { padding: 18px; }
 
-  .start-preview {
-    grid-template-columns: 1fr;
-  }
-
-  .start-screen h2  { font-size: clamp(2.6rem, 13vw, 4.2rem); }
+  .start-screen h2  { font-size: clamp(2rem, 9vw, 3rem); }
   .hero-report {
     grid-template-columns: 1fr;
     align-items: start;
@@ -2527,7 +2470,6 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .start-screen h2 { font-size: clamp(2.1rem, 11vw, 3rem); }
   .start-steps { grid-template-columns: 1fr; }
 
-  .start-preview,
   .start-steps article {
     border-radius: 16px;
   }
