@@ -49,7 +49,7 @@
           </div>
 
           <div class="positioning-card">
-            <p>Predict business success using market intelligence, demand signals, competition, and decision analysis.</p>
+            <p><strong>Answer first:</strong> should this business open here? AreaIntel returns the decision, then the evidence behind it.</p>
           </div>
 
           <form id="business-form" class="business-form intake-card">
@@ -168,7 +168,7 @@
           </form>
 
           <section id="saved-reports" class="saved-reports-panel" aria-label="Saved reports" hidden>
-            <p class="step-label">Saved reports</p>
+            <p class="step-label">Saved decisions</p>
             <div id="saved-reports-list" class="saved-reports-list"></div>
           </section>
 
@@ -178,7 +178,13 @@
           <div>
             <p class="section-label">Business Success Intelligence</p>
             <h2>Know before you open.</h2>
-            <p>Enter a business type and location. AreaIntel returns a clear open / conditional / do not open decision with confidence, strengths, risks, conditions, and better alternatives.</p>
+            <p>Enter a business type and location. AreaIntel answers the question operators, advisors, and investors actually care about: should this business open here?</p>
+            <div class="start-cta-row" aria-label="AreaIntel output">
+              <span>Decision</span>
+              <span>Success probability</span>
+              <span>Risks</span>
+              <span>Alternatives</span>
+            </div>
           </div>
           <div class="start-steps">
             <article>
@@ -194,8 +200,19 @@
             <article>
               <span>3</span>
               <strong>Decision</strong>
-              <p>Get success probability, confidence, evidence, risks, conditions, and better alternatives.</p>
+              <p>See Open, Conditional, Do Not Open, or Needs More Data before reviewing the supporting evidence.</p>
             </article>
+          </div>
+          <div class="start-preview" aria-label="Example executive decision">
+            <div>
+              <span class="section-label">Executive decision</span>
+              <strong>CONDITIONAL</strong>
+              <p>Opportunity exists, but rent, competition, and operator strength must be verified before opening.</p>
+            </div>
+            <div class="start-preview-metrics">
+              <span><b>66/100</b> Success</span>
+              <span><b>High</b> Confidence</span>
+            </div>
           </div>
         </section>
 
@@ -260,12 +277,12 @@
           <section id="compare-panel" class="panel compare-panel" hidden>
             <div class="panel-header">
               <div>
-                <p class="section-label">Compare locations</p>
-                <h3 id="compare-title">Saved locations side by side</h3>
+              <p class="section-label">Compare opportunities</p>
+              <h3 id="compare-title">Pick the strongest business decision</h3>
               </div>
               <button id="compare-clear" class="subtle-button" type="button">Clear all</button>
             </div>
-            <p class="panel-note">Add this business + location to your shortlist, then run another ZIP or address to compare them. Ranked by success probability. Saved on this device only.</p>
+            <p class="panel-note">Compare business ideas and locations by decision, probability, confidence, risk, and required conditions. Use this to choose the stronger opportunity, not just the busier area.</p>
             <div id="compare-body" class="compare-body" aria-live="polite"></div>
           </section>
 
@@ -295,8 +312,8 @@
           <section class="panel evidence-panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Live evidence</p>
-                <h3>Signals available for this decision</h3>
+                <p class="section-label">Evidence</p>
+                <h3>What AreaIntel used for this decision</h3>
               </div>
               <span id="evidence-source" class="pill">Checking evidence</span>
             </div>
@@ -305,8 +322,8 @@
 
           <section class="verdict-panel">
             <div>
-              <p class="section-label">Executive summary</p>
-              <h3 id="verdict-title">Good area for premium daily-use concepts</h3>
+                <p class="section-label">Why</p>
+                <h3 id="verdict-title">Good area for premium daily-use concepts</h3>
               <p id="verdict-copy"></p>
             </div>
             <div class="verdict-score">
@@ -318,8 +335,8 @@
           <section class="panel business-checker">
             <div class="panel-header">
               <div>
-                <p class="section-label">Market fit</p>
-                <h3>Business-specific decision signals</h3>
+                <p class="section-label">Business fit</p>
+                <h3>How this business screens in this area</h3>
               </div>
             </div>
             <p class="panel-note">AreaIntel compares category demand, competitive intensity, customer fit, cost pressure, and local activity signals.</p>
@@ -418,7 +435,7 @@
               </article>
             </div>
             <div class="unknown-factors">
-              <span class="signal-label">Still needs verification</span>
+              <span class="signal-label">Needs verification</span>
               <ul id="missing-data-list" class="compact-list"></ul>
             </div>
             <details class="methodology-details">
