@@ -3207,3 +3207,24 @@ body.assistant-open .assistant-toggle { display: none; }
 
 /* External-search indicator on Location Options links */
 .ext-mark { font-size: 0.8em; opacity: 0.75; }
+
+/* Compare table: dedicated rank/status row (badges out of column headers) */
+.compare-rank-row th { border-bottom: none; padding-bottom: 4px; vertical-align: bottom; }
+.compare-rank-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.compare-rank-num {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #5a6b75;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+.compare-table thead th:first-child {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5a6b75;
+  vertical-align: bottom;
+}

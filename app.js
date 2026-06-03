@@ -4410,6 +4410,41 @@ function compareScoreNumber(value) {
   return match ? Number(match[1]) : null;
 }
 
+// Location-only foot traffic: identical for the same physical site regardless
+// of concept. It is the report's foot-traffic model WITHOUT the concept-
+// specific restaurant-concentration term (renormalized to the 0-100 scale).
+// Concept-specific demand stays in the Success Probability score instead.
+function locationFootTraffic(profile) {
+  if (!profile) return null;
+  const siteIntel = currentSiteIntelResult();
+  const mobilityScore = siteIntel?.mta?.available
+    ? (siteIntel.mta.totalDecember2024Ridership > 250000 ? 90 : 68)
+    : safeNumber(profile.transit, 50);
+  const commercialMixScore = siteIntel?.pluto?.retailArea > 500000
+    ? 88
+    : siteIntel?.pluto?.retailArea > 150000
+      ? 68
+      : safeNumber(profile.office, 50);
+  const locationOnly =
+    safeNumber(profile.density, 50) * 0.24 +
+    safeNumber(profile.transit, 50) * 0.2 +
+    mobilityScore * 0.14 +
+    safeNumber(profile.office, 50) * 0.12 +
+    safeNumber(profile.nightlife, 50) * 0.1 +
+    safeNumber(profile.tourist, 50) * 0.08 +
+    commercialMixScore * 0.07;
+  return clampScore(locationOnly / 0.95);
+}
+
+// Short, comparison-friendly address: keep the street line, drop city/state/zip.
+function conciseAddress(snapshot) {
+  if (snapshot.address) {
+    const street = String(snapshot.address).split(",")[0].trim();
+    return street || snapshot.address;
+  }
+  return snapshot.area;
+}
+
 function buildCompareSnapshot() {
   const profile = profileForZip(state.zip);
   if (!profile) return null;
@@ -4430,7 +4465,8 @@ function buildCompareSnapshot() {
     confidenceLabel: confidence.label,
     confidenceScore: clampScore(analysis.confidenceScore),
     competition: elements.businessSaturation?.textContent?.trim() || "Checking",
-    footTraffic: elements.footTrafficScore?.textContent?.trim() || "Needs data",
+    // Static, location-based metric (same address -> same value across concepts).
+    footTraffic: `${locationFootTraffic(profile)}/100`,
     savedAt: Date.now()
   };
 }
@@ -4479,6 +4515,9 @@ function addToCompare() {
     state.compareList.push(snapshot);
     if (state.compareList.length > compareMax) state.compareList.shift();
   }
+  // Force descending order by success probability so the highest-scoring concept
+  // is always the left-most "Top Pick" column.
+  state.compareList.sort((a, b) => safeNumber(b.successProbability, 0) - safeNumber(a.successProbability, 0));
   saveCompare();
   renderCompare();
   updateActionGuards();
@@ -4512,14 +4551,27 @@ function renderCompare() {
   const bestConf = Math.max(...ranked.map((item) => item.confidenceScore));
   const bestFoot = Math.max(...ranked.map((item) => compareScoreNumber(item.footTraffic) ?? -1));
 
-  const header = ranked
+  // Dedicated rank/status row — keeps badges out of the column-header string.
+  const rankRow = ranked
     .map((item, index) => `
       <th scope="col">
+        <div class="compare-rank-cell">
+          ${index === 0
+            ? '<span class="compare-top">Top Pick</span>'
+            : `<span class="compare-rank-num">#${index + 1}</span>`}
+          <button class="compare-remove" type="button" data-id="${escapeText(item.id)}" aria-label="Remove ${escapeText(item.business)}">Remove</button>
+        </div>
+      </th>
+    `)
+    .join("");
+
+  // Column headers: strictly the business type + a clean, concise address.
+  const optionRow = ranked
+    .map((item) => `
+      <th scope="col">
         <div class="compare-col-head">
-          ${index === 0 ? '<span class="compare-top">Top pick</span>' : ""}
           <strong>${escapeText(item.business)}</strong>
-          <span>${escapeText(item.address || item.area)}</span>
-          <button class="compare-remove" type="button" data-id="${escapeText(item.id)}">Remove</button>
+          <span>${escapeText(conciseAddress(item))}</span>
         </div>
       </th>
     `)
@@ -4531,7 +4583,10 @@ function renderCompare() {
   elements.compareBody.innerHTML = `
     <div class="compare-table-wrap">
       <table class="compare-table">
-        <thead><tr><th scope="col">Metric</th>${header}</tr></thead>
+        <thead>
+          <tr class="compare-rank-row"><th scope="col">Rank</th>${rankRow}</tr>
+          <tr><th scope="col">Option</th>${optionRow}</tr>
+        </thead>
         <tbody>
           ${row("Decision", (i) => `<td><span class="compare-badge decision-${i.decisionSlug}">${escapeText(i.decision)}</span></td>`)}
           ${row("Success probability", (i) => `<td class="${i.successProbability === bestProb ? "compare-best" : ""}">${formatScore(i.successProbability)}</td>`)}
