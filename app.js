@@ -856,6 +856,7 @@ const elements = {
   compareClear: document.querySelector("#compare-clear"),
   copyLinkButton: document.querySelector("#copy-link-button"),
   saveReportButton: document.querySelector("#save-report-button"),
+  newSearchButton: document.querySelector("#new-search-button"),
   savedReportsPanel: document.querySelector("#saved-reports"),
   savedReportsList: document.querySelector("#saved-reports-list"),
   businessForm: document.querySelector("#business-form"),
@@ -2045,7 +2046,7 @@ function renderRevenueEstimator(profile) {
   elements.revenueRentPercent.textContent =
     num(rentPercent) !== null ? `${Math.round(rentPercent)}%` : "Needs inputs";
   elements.revenueNote.textContent = usingBaseline
-    ? `Neighborhood baseline: ≈1,200 sq ft at a modeled local rent of ${formatCurrency(effectiveRent)}/mo. Enter your own rent and size above to tailor this. Modeled ranges, not verified operator financials.`
+    ? `Neighborhood baseline: ≈1,200 sq ft at a modeled local rent of ${formatCurrency(effectiveRent)}/mo. Enter your own rent and size above to tailor this. Modeled ranges, Due Diligence Required on operator financials.`
     : `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
 }
 
@@ -2264,29 +2265,28 @@ function renderConceptFit(data) {
     .map((place) => place?.name)
     .filter((name) => typeof name === "string" && /[a-zA-Z]/.test(name));
 
+  const searchedHasCompetitiveSet = hasCompetitiveSet(currentBusinessResult());
+
   elements.conceptFitList.innerHTML = displayConcepts.slice(0, 6).map((concept) => {
     const ownNames = (concept.topNames || []).filter(
       (n) => typeof n === "string" && /[a-zA-Z]/.test(n)
     );
-    let cleanNames = ownNames;
+    const isSelected = concept.key === selectedFoodBusiness;
     // Borrow the real nearby matches for the cuisine the user searched.
-    const injectedCompetitors =
-      !ownNames.length && concept.key === selectedFoodBusiness && mainPlaceNames.length > 0;
-    if (injectedCompetitors) cleanNames = mainPlaceNames;
+    let cleanNames = ownNames;
+    if (isSelected && mainPlaceNames.length) cleanNames = ownNames.length ? ownNames : mainPlaceNames;
 
-    // If real competitors are visible for this concept, never present it as an
-    // open lane — override an "open/good" verdict with a competitive one.
+    // Post-processing competitor override: when adjacent operators are present
+    // nearby, never present this concept as an open lane.
     let displayVerdict = concept.verdict;
     let displayTone = concept.tone;
-    if (injectedCompetitors && concept.tone === "good") {
-      displayVerdict = "Competitive set present";
+    if (concept.tone === "good" && ((isSelected && searchedHasCompetitiveSet) || cleanNames.length > 2)) {
+      displayVerdict = "Competitive Set Present";
       displayTone = "mixed";
     }
 
-    // Keep the "examples" line consistent with the verdict: never claim "no
-    // competitors" for a concept the model already flags as crowded.
     const fallbackExamples = displayTone === "good"
-      ? "Few highly-visible competitors in this radius — possible open lane."
+      ? "Limited visible competitors here — validate positioning before committing."
       : "Multiple operators already active in this category nearby.";
     const topNames = cleanNames.length
       ? cleanNames.slice(0, 3).map(escapeText).join(", ")
@@ -2584,13 +2584,15 @@ function quickSearchUrl(source, zip) {
 }
 
 function renderLeaseSearchLinks() {
+  // Each card runs an external web search on a named platform and opens in a
+  // new tab. Labels name the source so nothing looks like an in-app feature.
   const links = [
-    ["Market listing search", "Established commercial platforms", quickSearchUrl("loopnet", state.zip)],
-    ["Retail availability", "Commercial space directories", quickSearchUrl("commercialCafe", state.zip)],
-    ["Flexible space", "Pop-up / short-term options", quickSearchUrl("storefront", state.zip)],
-    ["Commercial inventory", "Additional public listings", quickSearchUrl("crexi", state.zip)],
-    ["Local posts", "Owner / local posts", quickSearchUrl("craigslist", state.zip)],
-    ["Broad web search", "General public listings", quickSearchUrl("google", state.zip)]
+    ["LoopNet", "Commercial listings", quickSearchUrl("loopnet", state.zip)],
+    ["CommercialCafe", "Retail availability", quickSearchUrl("commercialCafe", state.zip)],
+    ["Storefront", "Pop-up / flexible space", quickSearchUrl("storefront", state.zip)],
+    ["Crexi", "Commercial inventory", quickSearchUrl("crexi", state.zip)],
+    ["Craigslist", "Local owner posts", quickSearchUrl("craigslist", state.zip)],
+    ["Web search", "Broad public listings", quickSearchUrl("google", state.zip)]
   ];
 
   elements.listingSearchContext.textContent = state.location?.address
@@ -2598,9 +2600,9 @@ function renderLeaseSearchLinks() {
     : `ZIP ${state.zip}`;
   elements.leaseSearchLinks.innerHTML = links
     .map(([label, copy, href]) => `
-      <a href="${href}" target="_blank" rel="noreferrer">
-        <strong>${label}</strong>
-        <span>${copy}</span>
+      <a href="${href}" target="_blank" rel="noopener noreferrer">
+        <strong>${escapeText(label)} <span class="ext-mark" aria-hidden="true">↗</span></strong>
+        <span>${escapeText(copy)} — external search</span>
       </a>
     `)
     .join("");
@@ -2873,6 +2875,21 @@ async function renderSiteIntelCheck() {
     elements.plutoLevel.textContent = "Estimated commercial mix";
     elements.plutoCopy.textContent = "Commercial mix did not return in time. AreaIntel is using a neutral fallback until retry.";
   }
+}
+
+// Centralized competitor evaluation: how many direct/adjacent operators are
+// visible nearby. Used to override "open lane" language everywhere.
+function competitiveSetSize(result) {
+  const r = result || currentBusinessResult();
+  if (!r) return 0;
+  return Math.max(
+    safeNumber(r?.googlePlaces?.topPlaces?.length, 0),
+    safeNumber(r?.googleVisibleCount, 0),
+    safeNumber(r?.count, 0)
+  );
+}
+function hasCompetitiveSet(result) {
+  return competitiveSetSize(result) > 2;
 }
 
 function currentBusinessResult() {
@@ -3198,7 +3215,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     !civic && "Local risk and development activity need confirmation.",
     !siteIntel && "Block-level mobility and commercial mix need confirmation.",
     foodBusiness && !concepts && "Cuisine-specific market gaps are limited; broader food and competition signals are being used.",
-    !address && "Exact storefront, frontage, visibility, and block position are not verified.",
+    !address && "Exact storefront, frontage, visibility, and block position — Site Visit Required.",
     "Dwell time, parking, rent, buildout cost, and operator financials need on-site or operator confirmation."
   ].filter(Boolean);
   const conflicts = [];
@@ -3289,7 +3306,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     !google && "Competitive review/rating visibility is not confirmed",
     !demandSignal && "Consumer demand momentum needs more confirmation",
     civicResult?.complaints?.level === "High" && "Recent complaint volume is high",
-    "Operator financials and exact location economics are not verified"
+    "Operator financials and exact location economics — Due Diligence Required"
   ].filter(Boolean);
   const explainability = [
     {
@@ -3323,7 +3340,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     {
       type: "Estimated Factors",
       items: [
-        `Scenario revenue and failure probability are screening estimates, not verified operator financials.`,
+        `Scenario revenue and failure probability are screening estimates, Due Diligence Required on operator financials.`,
         `Maximum location cost guidance is estimated from category economics and area cost pressure.`,
         `Success probability is weighted as Demand 25%, Customer Fit 20%, Competition 15%, Financial 15%, Location 10%, Growth 10%, Risk 5%.`
       ]
@@ -3725,7 +3742,7 @@ function businessVerdictFor(score, profile, config, hasCompetitors = false) {
       ? "Demand exists, but nearby operator density requires sharper positioning."
       : "Potential gap worth validating.";
   }
-  if (profile.income < 48 && config.rentSensitivity > 70) return "Weak fit for this customer base.";
+  if (profile.income < 48 && config.rentSensitivity > 70) return "Limited fit for this customer base.";
   return "Worth checking at the exact block level.";
 }
 
@@ -3736,9 +3753,9 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
   // Include visible nearby competitors (Google Places) so the saturation
   // label + verdict reflect the adjacent competitive set even when NYC
   // open-data has few exact-term matches. Display only — scoring is unchanged.
-  const visibleCompetitors = safeNumber(result?.googleVisibleCount, 0) || safeNumber(result?.googlePlaces?.topPlaces?.length, 0);
+  const visibleCompetitors = competitiveSetSize(result);
   const effectiveCount = Math.max(safeNumber(count, 0), visibleCompetitors);
-  const hasVisibleCompetitors = visibleCompetitors >= 3;
+  const hasVisibleCompetitors = effectiveCount > 2;
   const saturation = saturationFromCount(effectiveCount, profile);
   const localAdvantage = Math.round((profile.localPreference + config.localBias - config.chainBias) / 2);
   const mix =
@@ -3866,16 +3883,15 @@ async function renderBusinessCheck() {
       state.lastBusinessResult = result;
       // Even with few exact city-record matches, visible nearby operators are a
       // real competitive set — don't frame it as an empty gap.
-      const visibleNearby = safeNumber(result.googleVisibleCount, 0) || safeNumber(result.googlePlaces?.topPlaces?.length, 0);
       applyBusinessResult({
         count: 0,
         business: result.business || business,
         displayBusiness: businessLabel,
         isLive: true,
         result,
-        sourceNote: visibleNearby >= 3
-          ? "Few exact city-record matches, but several adjacent operators are visible nearby — treat this as a competitive set and validate differentiation."
-          : "Market signals found limited exact matches for this area and search term. Try a broader term or verify the exact block."
+        sourceNote: hasCompetitiveSet(result)
+          ? "Competitive set present: several adjacent operators are visible nearby. Demand exists, but nearby operator density requires differentiation."
+          : "Few exact city-record matches for this term. Validate the exact block and adjacent operators before committing."
       });
       const updatedRecommendations = buildRecommendations(profile);
       renderDecisionStrip(profile, updatedRecommendations);
@@ -3946,10 +3962,9 @@ function stableGradeProfile(zip, profile) {
 // only the label changes.
 function decisionTier(score) {
   const s = clampScore(safeNumber(score, 0));
-  if (s >= 85) return { tier: "Prime Fit", action: "Priority Opportunity", slug: "prime" };
-  if (s >= 70) return { tier: "Strong Fit", action: "Good Candidate", slug: "strong" };
-  if (s >= 55) return { tier: "Conditional", action: "Validate Before Committing", slug: "conditional" };
-  if (s >= 40) return { tier: "Weak Fit", action: "Proceed Only With Strong Proof", slug: "weak" };
+  if (s >= 81) return { tier: "Definite Fit", action: "Priority Opportunity", slug: "definite" };
+  if (s >= 66) return { tier: "Strong Fit", action: "Good Candidate", slug: "strong" };
+  if (s >= 51) return { tier: "Conditional", action: "Validate Before Committing", slug: "conditional" };
   return { tier: "High Risk", action: "Do Not Open Without Major Changes", slug: "risk" };
 }
 
@@ -3964,7 +3979,7 @@ function applyVerdictTier(profile, recommendations) {
   if (elements.verdictLabel) elements.verdictLabel.textContent = t.action;
   const box = elements.verdictGrade.closest(".verdict-score");
   if (box) {
-    box.classList.remove("vt-prime", "vt-strong", "vt-conditional", "vt-weak", "vt-risk");
+    box.classList.remove("vt-definite", "vt-strong", "vt-conditional", "vt-risk");
     box.classList.add(`vt-${t.slug}`);
   }
 }
@@ -4213,7 +4228,7 @@ function exportSummary() {
     ...recommendations.slice(0, 5).map((item) => `- ${item.name}: ${formatScore(item.score)} (${item.band})`),
     "",
     "Profit note:",
-    "Profit ranges in the app are modeled screening estimates, not verified operator profit.",
+    "Profit ranges in the app are modeled screening estimates, Due Diligence Required on operator profit.",
     "",
     "Research signals:",
     ...profile.evidence.map((item) => `- ${item}`),
@@ -4331,7 +4346,7 @@ function renderExecSummary() {
       <span class="status status--estimated"><i class="status__dot"></i>Estimated · proxy</span>
       <span class="status status--risk"><i class="status__dot"></i>Risk</span>
     </div>
-    <p class="exec-foot-note">${escapeText(businessLabel)} screen · Modeled values are estimates, not verified financials or guaranteed outcomes. Use “Full report PDF” for methodology, evidence coverage, and full detail.</p>
+    <p class="exec-foot-note">${escapeText(businessLabel)} screen · Modeled values are estimates, not guaranteed outcomes — Due Diligence Required on financials. Use “Full report PDF” for methodology, evidence coverage, and full detail.</p>
   `;
 }
 
@@ -4969,6 +4984,26 @@ elements.compareBody?.addEventListener("click", (event) => {
 });
 elements.copyLinkButton?.addEventListener("click", copyShareLink);
 elements.saveReportButton?.addEventListener("click", toggleSaveReport);
+elements.newSearchButton?.addEventListener("click", newSearch);
+
+// Clear the active report + URL params and return to a clean start screen.
+// Saved reports and the compare shortlist persist (localStorage untouched).
+function newSearch() {
+  state.zip = "";
+  state.business = "restaurant";
+  state.location = null;
+  state.lastBusinessResult = null;
+  if (elements.input) elements.input.value = "";
+  if (elements.businessInput) elements.businessInput.value = "";
+  if (elements.addressInput) elements.addressInput.value = "";
+  if (elements.budgetInput) elements.budgetInput.value = "";
+  if (elements.addressMessage) elements.addressMessage.textContent = "";
+  try { history.replaceState(null, "", `${location.origin}${location.pathname}`); } catch { /* ignore */ }
+  elements.results.hidden = true;
+  elements.startScreen.hidden = false;
+  elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 elements.savedReportsList?.addEventListener("click", (event) => {
   const remove = event.target.closest(".saved-remove");
   if (remove) { removeSaved(remove.dataset.id); return; }
@@ -5100,7 +5135,7 @@ function buildAssistantContext() {
     revenueEstimate: {
       projection: elements.revenueProjection?.textContent?.trim() || "needs inputs",
       breakeven: elements.revenueBreakeven?.textContent?.trim() || "needs inputs",
-      note: "modeled range, not verified operator financials"
+      note: "modeled range, Due Diligence Required on operator financials"
     },
     dataHonesty: "Some signals are modeled or estimated; verify on-site before deciding."
   };

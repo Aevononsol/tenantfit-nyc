@@ -2213,10 +2213,10 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .verdict-score small { display: block; margin-top: 6px; color: #3a4a52; font-weight: 700; font-size: 0.74rem; }
 
 /* Decision-tier color variants (replaces the single green grade box). */
-.verdict-score.vt-prime, .verdict-score.vt-strong { background: var(--st-verified-bg); border-color: rgba(14, 159, 110, 0.42); }
-.verdict-score.vt-prime span, .verdict-score.vt-strong span { color: var(--st-verified-fg); }
-.verdict-score.vt-conditional, .verdict-score.vt-weak { background: var(--st-modeled-bg); border-color: rgba(224, 162, 58, 0.5); }
-.verdict-score.vt-conditional span, .verdict-score.vt-weak span { color: var(--st-modeled-fg); }
+.verdict-score.vt-definite, .verdict-score.vt-strong { background: var(--st-verified-bg); border-color: rgba(14, 159, 110, 0.42); }
+.verdict-score.vt-definite span, .verdict-score.vt-strong span { color: var(--st-verified-fg); }
+.verdict-score.vt-conditional { background: var(--st-modeled-bg); border-color: rgba(224, 162, 58, 0.5); }
+.verdict-score.vt-conditional span { color: var(--st-modeled-fg); }
 .verdict-score.vt-risk { background: var(--st-risk-bg); border-color: rgba(217, 83, 79, 0.45); }
 .verdict-score.vt-risk span { color: var(--st-risk-fg); }
 
@@ -3204,3 +3204,6 @@ body.assistant-open .assistant-toggle { display: none; }
 .executive-decision-strip article[title],
 .foot-traffic-grid article[title],
 .business-results article[title] { cursor: help; }
+
+/* External-search indicator on Location Options links */
+.ext-mark { font-size: 0.8em; opacity: 0.75; }

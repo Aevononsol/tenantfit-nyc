@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260601-designsystem-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260603-qa-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -218,6 +218,7 @@
               </div>
             </div>
             <div class="hero-actions">
+              <button id="new-search-button" class="ghost-button" type="button">↺ New Search</button>
               <button id="export-pdf-button" class="primary-button" type="button">Export PDF</button>
               <button id="copy-link-button" class="primary-button" type="button">Copy link</button>
               <button id="save-report-button" class="ghost-button" type="button">Save report</button>
@@ -309,8 +310,8 @@
               <p id="verdict-copy"></p>
             </div>
             <div class="verdict-score">
-              <span id="verdict-grade">A-</span>
-              <small id="verdict-label">Success fit</small>
+              <span id="verdict-grade">Analyzing…</span>
+              <small id="verdict-label">Decision tier</small>
             </div>
           </section>
 
@@ -605,7 +606,7 @@
                 <strong id="revenue-rent-percent">Needs inputs</strong>
               </article>
             </div>
-            <p id="revenue-note" class="panel-note">Enter rent and size to estimate revenue pressure. Results are modeled ranges, not verified operator financials.</p>
+            <p id="revenue-note" class="panel-note">Enter rent and size to estimate revenue pressure. Results are modeled ranges — Due Diligence Required on operator financials.</p>
             <p class="verify-note">To verify: compare against real operator P&amp;Ls, broker rent comps, and a CPA review before committing.</p>
           </section>
 
@@ -715,11 +716,11 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Location options</p>
-                <h3>Find public location pages inside AreaIntel</h3>
+                <h3>Find location options</h3>
               </div>
               <span id="listing-search-context" class="pill">ZIP search</span>
             </div>
-            <p class="panel-note">AreaIntel can search public location pages and source links. Save promising options below for cost-fit analysis.</p>
+            <p class="panel-note">Run an AI-assisted search for public listings, or use the named platform searches below (each opens an external search in a new tab). Save promising options for cost-fit analysis.</p>
             <button id="listing-finder-button" class="memo-button" type="button">Find location options</button>
             <div id="listing-results" class="listing-results" aria-live="polite"></div>
             <details class="manual-platform-links">
@@ -831,7 +832,7 @@
       </form>
     </aside>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="./app.js?v=20260601-designsystem-1"></script>
+    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script defer src="./app.js?v=20260603-qa-1"></script>
   </body>
 </html>
