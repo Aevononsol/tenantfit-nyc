@@ -5080,21 +5080,28 @@ const assistantPrompts = [
 
 let assistantGreeted = false;
 
-const assistantOnboardEl = document.querySelector("#assistant-onboard");
 const assistantOnboardClose = document.querySelector("#assistant-onboard-close");
+
+// Queried lazily so these can be called from render() during bootstrap (when a
+// shared link / refresh has URL params) before this module's consts initialize.
+function assistantOnboardNode() { return document.querySelector("#assistant-onboard"); }
 
 function assistantSeen() {
   try { return localStorage.getItem("areaintel-assistant-seen") === "1"; } catch { return true; }
 }
 function markAssistantSeen() {
   try { localStorage.setItem("areaintel-assistant-seen", "1"); } catch { /* ignore */ }
-  if (assistantOnboardEl) assistantOnboardEl.hidden = true;
+  const el = assistantOnboardNode();
+  if (el) el.hidden = true;
 }
-// Subtle one-time nudge, shown once a report is on screen.
+// Subtle one-time nudge, shown once a report is on screen. Fully lazy (no
+// module consts) so it is safe to call during bootstrap render().
 function maybeShowAssistantOnboard() {
-  if (!assistantOnboardEl || assistantSeen()) return;
-  if (!assistantEls.panel || !assistantEls.panel.hidden) return;
-  assistantOnboardEl.hidden = false;
+  const el = assistantOnboardNode();
+  const panel = document.querySelector("#assistant-panel");
+  if (!el || assistantSeen()) return;
+  if (!panel || !panel.hidden) return;
+  el.hidden = false;
 }
 assistantOnboardClose?.addEventListener("click", markAssistantSeen);
 
