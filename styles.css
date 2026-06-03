@@ -553,42 +553,86 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
    ========================================================================== */
 .decision-strip {
   display: grid;
-  grid-template-columns: 1.4fr 0.8fr 0.9fr 0.9fr;
-  gap: 14px;
+  grid-template-columns: minmax(300px, 1.35fr) repeat(3, minmax(170px, 0.72fr));
+  gap: 12px;
+  padding: 6px;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(14, 116, 144, 0.11), transparent 35%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(232, 243, 247, 0.84));
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
 }
 
 .decision-strip article {
+  position: relative;
   display: grid;
-  gap: 8px;
-  padding: 20px;
+  align-content: start;
+  gap: 10px;
+  min-height: 176px;
+  padding: 18px;
   border-radius: var(--radius);
-  border: 1px solid #d8e2e8;
-  border-top: 7px solid var(--teal);
-  background: #ffffff;
-  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-top: 0;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
   color: var(--ink);
+  overflow: hidden;
 }
 
-.decision-strip article:nth-child(2) { border-top-color: var(--blue); }
-.decision-strip article:nth-child(3) { border-top-color: var(--green); }
-.decision-strip article:nth-child(4) { border-top-color: var(--amber); }
+.decision-strip article::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: var(--teal);
+}
 
-.decision-main-card {
-  border-color: #a9ccd6;
-  background: linear-gradient(145deg, #f8fcfd, #e7f2f5);
+.decision-strip article:nth-child(2)::before { background: var(--blue); }
+.decision-strip article:nth-child(3)::before { background: var(--green); }
+.decision-strip article:nth-child(4)::before { background: var(--amber); }
+
+.decision-strip .decision-main-card {
+  align-content: center;
+  min-height: 214px;
+  padding: 26px;
+  border-color: rgba(103, 232, 249, 0.28);
+  background:
+    radial-gradient(circle at 16% 6%, rgba(103, 232, 249, 0.22), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(22, 163, 74, 0.18), transparent 30%),
+    linear-gradient(145deg, #07111f, #0d3047 54%, #0e7490);
+  color: #ffffff;
+}
+
+.decision-strip .decision-main-card::before {
+  height: 0;
+}
+
+.decision-strip .decision-main-card::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
 }
 
 .decision-strip p { margin: 0; color: #475569; line-height: 1.48; }
-.decision-strip strong { color: var(--ink); font-size: 1.24rem; line-height: 1.2; }
+.decision-strip strong { color: var(--ink); font-size: 1.22rem; line-height: 1.2; }
+.decision-strip article:not(.decision-main-card) p { font-size: 0.88rem; }
+.decision-strip article:not(.decision-main-card) strong { font-size: clamp(1.25rem, 2vw, 1.6rem); }
+.decision-strip .decision-main-card .signal-label { color: rgba(255, 255, 255, 0.78); }
+.decision-strip .decision-main-card p { color: rgba(255, 255, 255, 0.78); max-width: 38ch; }
 
 .decision-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: start;
   max-width: 100%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: clamp(1.85rem, 3vw, 2.8rem);
   font-weight: 950;
   line-height: 1;
   letter-spacing: 0;
@@ -602,6 +646,16 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .decision-conditional    { background: #e8f3f7; color: #075f76; }
 .decision-do-not-open    { background: #f9e4df; color: #963226; }
 .decision-needs-more-data{ background: #eef2f6; color: #334155; }
+
+.decision-strip .decision-main-card .decision-badge {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.16);
+}
+
+.decision-strip .decision-main-card .decision-open { color: #075e3a; }
+.decision-strip .decision-main-card .decision-conditional { color: #075f76; }
+.decision-strip .decision-main-card .decision-do-not-open { color: #963226; }
+.decision-strip .decision-main-card .decision-needs-more-data { color: #334155; }
 
 .data-connected-strip {
   display: flex;
@@ -982,9 +1036,15 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
 .place-card p, .place-card small, .empty-places p { color: var(--muted); line-height: 1.45; }
 
-/* 14. Institutional Panel (main decision)
+/* 14. Institutional Panel (supporting analysis)
    ========================================================================== */
-.institutional-panel { display: grid; gap: 16px; }
+.institutional-panel {
+  display: grid;
+  gap: 16px;
+  background:
+    linear-gradient(180deg, rgba(248, 251, 252, 0.96), rgba(241, 247, 249, 0.96));
+  border-color: rgba(15, 23, 42, 0.08);
+}
 
 .institutional-grid,
 .analysis-columns {
@@ -998,9 +1058,9 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 .score-drivers-card {
   padding: 18px;
   border-radius: var(--radius);
-  border: 1px solid #d8e2e8;
-  background: #ffffff;
-  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
 .institutional-grid strong { display: block; margin-top: 6px; font-size: 1.35rem; color: var(--ink); }
@@ -2316,6 +2376,20 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .summary-grid,
   .business-results { grid-template-columns: 1fr; }
 
+  .decision-strip {
+    padding: 4px;
+    border-radius: 16px;
+  }
+
+  .decision-strip article {
+    min-height: auto;
+  }
+
+  .decision-strip .decision-main-card {
+    min-height: 190px;
+    padding: 22px;
+  }
+
   .source-map-row {
     grid-template-columns: 1fr;
     align-items: start;
@@ -2421,7 +2495,16 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
   .panel-header   { flex-direction: column; align-items: stretch; }
 
-  .decision-badge { font-size: clamp(1.3rem, 8vw, 1.85rem); }
+  .decision-badge {
+    justify-self: stretch;
+    font-size: clamp(1.25rem, 7vw, 1.75rem);
+    text-align: center;
+  }
+
+  .decision-strip .decision-main-card {
+    min-height: 0;
+    padding: 20px;
+  }
 
   .business-count > span { font-size: clamp(2rem, 12vw, 3.1rem); }
 
