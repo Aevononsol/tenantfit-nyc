@@ -3228,3 +3228,15 @@ body.assistant-open .assistant-toggle { display: none; }
   color: #5a6b75;
   vertical-align: bottom;
 }
+
+/* Compare headers: keep business name tidy, truncate long addresses (full
+   address shown via the title tooltip). */
+.compare-col-head { max-width: 200px; }
+.compare-col-head strong { white-space: normal; overflow-wrap: anywhere; }
+.compare-addr {
+  display: block;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

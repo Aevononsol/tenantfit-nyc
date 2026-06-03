@@ -4465,10 +4465,45 @@ function buildCompareSnapshot() {
     confidenceLabel: confidence.label,
     confidenceScore: clampScore(analysis.confidenceScore),
     competition: elements.businessSaturation?.textContent?.trim() || "Checking",
-    // Static, location-based metric (same address -> same value across concepts).
+    radius: state.location?.radiusMiles || null,
+    // Static, location-level metrics — identical across concepts at the same
+    // address. (Concept demand lives in successProbability, not here.)
+    density: labelFor("density", safeNumber(profile.density, 50)),
+    income: labelFor("income", safeNumber(profile.income, 50)),
+    transit: labelFor("transit", safeNumber(profile.transit, 50)),
+    costPressure: labelFor("rent", safeNumber(profile.rent, 50)),
     footTraffic: `${locationFootTraffic(profile)}/100`,
     savedAt: Date.now()
   };
+}
+
+// --- Compare location-metric helpers ------------------------------------
+// Normalize an address for same-location comparison (drop trailing country,
+// collapse whitespace, case-insensitive).
+function normalizeCompareAddress(address) {
+  return String(address || "")
+    .toLowerCase()
+    .replace(/,?\s*usa\.?\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+// Same physical location (same ZIP + same normalized address; ZIP-only counts
+// as same location for ZIP-level metrics).
+function isSameLocation(a, b) {
+  if (!a || !b || a.zip !== b.zip) return false;
+  return normalizeCompareAddress(a.address) === normalizeCompareAddress(b.address);
+}
+// Same site AND same radius — for radius-sensitive metrics (foot traffic).
+function isSameSite(a, b) {
+  return isSameLocation(a, b) && String(a.radius || "") === String(b.radius || "");
+}
+// Return a column's location metric; if missing (e.g. an older snapshot),
+// replicate it from a same-location sibling so shared rows never go blank.
+function getLocationMetricForColumn(item, key, list, siteLevel = false) {
+  if (item[key] != null && item[key] !== "") return item[key];
+  const same = siteLevel ? isSameSite : isSameLocation;
+  const sibling = list.find((o) => o !== item && same(o, item) && o[key] != null && o[key] !== "");
+  return sibling ? sibling[key] : "—";
 }
 
 function signalsReady() {
@@ -4566,12 +4601,13 @@ function renderCompare() {
     .join("");
 
   // Column headers: strictly the business type + a clean, concise address.
+  // Full address is available on hover/tap via the title attribute.
   const optionRow = ranked
     .map((item) => `
       <th scope="col">
         <div class="compare-col-head">
           <strong>${escapeText(item.business)}</strong>
-          <span>${escapeText(conciseAddress(item))}</span>
+          <span class="compare-addr" title="${escapeText(item.address || item.area)}">${escapeText(conciseAddress(item))}</span>
         </div>
       </th>
     `)
@@ -4592,7 +4628,11 @@ function renderCompare() {
           ${row("Success probability", (i) => `<td class="${i.successProbability === bestProb ? "compare-best" : ""}">${formatScore(i.successProbability)}</td>`)}
           ${row("Confidence", (i) => `<td class="${i.confidenceScore === bestConf ? "compare-best" : ""}">${escapeText(i.confidenceLabel)} · ${formatScore(i.confidenceScore)}</td>`)}
           ${row("Competition", (i) => `<td>${escapeText(i.competition)}</td>`)}
-          ${row("Foot traffic", (i) => `<td class="${(compareScoreNumber(i.footTraffic) ?? -1) === bestFoot ? "compare-best" : ""}">${escapeText(i.footTraffic)}</td>`)}
+          ${row("Population density", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "density", ranked))}</td>`)}
+          ${row("Income strength", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "income", ranked))}</td>`)}
+          ${row("Transit access", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "transit", ranked))}</td>`)}
+          ${row("Cost pressure", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "costPressure", ranked))}</td>`)}
+          ${row("Foot traffic", (i) => { const v = getLocationMetricForColumn(i, "footTraffic", ranked, true); return `<td class="${(compareScoreNumber(v) ?? -1) === bestFoot ? "compare-best" : ""}">${escapeText(v)}</td>`; })}
         </tbody>
       </table>
     </div>
