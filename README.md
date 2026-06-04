@@ -1,10 +1,18 @@
 # AreaIntel
 
-AreaIntel is an MVP web app for real estate agents. Enter a NYC ZIP code and it returns a business category fit report with local demand signals, ranked categories, evidence, competition checks, and an exportable summary.
+AreaIntel is a Business Success Intelligence platform for operators, franchise buyers, commercial advisors, and investors.
+
+It answers the core decision question:
+
+```text
+Should this business open here?
+```
+
+The product combines market demographics, competitive signals, consumer demand, mobility, local activity, risk signals, modeled foot traffic, and explainable decision analysis.
 
 ## Run locally
 
-Use the Node server when you want API keys to work. It reads keys from `.env` and keeps them out of browser code.
+Use the Node server when you want live API keys and server-side routes to work.
 
 ```bash
 npm start
@@ -16,55 +24,111 @@ Open:
 http://localhost:5174
 ```
 
-## What is built
+## Current product surface
 
-- ZIP code search with sample NYC areas
-- Area signal cards for density, income, transit, and rent pressure
-- Category scoring for coffee, fitness, lunch, daycare, med spa, discount retail, restaurants, and laundry
-- Strong, mixed, and weak filtering
-- Broker-style narrative and evidence list
-- Text export for client notes
+- Business type + ZIP/address analysis
+- Executive decision: Open, Conditional, Do Not Open, or Needs More Data
+- Success probability and evidence confidence
+- Business fit, food concept intelligence, risk signals, site intelligence, map, and modeled foot traffic
+- Revenue estimator and unit economics screens
+- AI assistant
+- Saved reports, share links, comparison table
+- Executive PDF, full PDF, and text exports
+- Pricing section
+- Paid report request flow
+- Contact/lead capture form
+- Consultation waitlist request flow
+- Account signup/sign-in MVP
+- Admin lead dashboard
+- Internal productized agents and task queue
 
-## API keys for the next version
+## API keys
 
-Do not put API keys in frontend code. Put them in `.env`:
+Do not put API keys in frontend code. Put them in `.env` locally or Render environment variables in production:
 
 ```text
 CENSUS_API_KEY=
 GOOGLE_PLACES_API_KEY=
 NYC_OPEN_DATA_APP_TOKEN=
 OPENAI_API_KEY=
-```
-
-The app checks `/api/key-status` and shows whether each key is connected without exposing the key itself.
-You can also paste keys into the local API key form in the app. It saves them into `.env` on your machine.
-
-## Deploy on Render
-
-This app is ready for Render. The production site should use hosting environment variables instead of `.env`.
-
-1. Push this folder to a GitHub repository.
-2. In Render, create a new Blueprint or Web Service from the repo.
-3. Render can use `render.yaml`, or set these manually:
-   - Build command: `npm install`
-   - Start command: `npm start`
-   - Environment: `Node`
-4. Add these environment variables in Render:
-
-```text
-CENSUS_API_KEY
-GOOGLE_PLACES_API_KEY
-NYC_OPEN_DATA_APP_TOKEN
-OPENAI_API_KEY
 OPENAI_MODEL=gpt-4o-mini
 NODE_ENV=production
 ```
 
-Do not upload `.env` to GitHub or Render. In production, the in-app key form is disabled and keys must be managed in Render.
+The app checks `/api/key-status` and `/api/health` without exposing secret values.
 
-Recommended next build step:
+## Launch/revenue environment variables
 
-1. Fetch Census ACS ZIP data for population, income, age, household size, and commute.
-2. Fetch Google Places competitors by category around the ZIP centroid.
-3. Fetch NYC Open Data signals for permits, licenses, inspections, and 311 complaints.
-4. Keep OpenAI optional for polished written reports after the structured score is calculated.
+AreaIntel can accept report requests immediately. To enable checkout links, add one or more payment URLs:
+
+```text
+STRIPE_REPORT_PAYMENT_URL=
+STRIPE_FULL_REPORT_PAYMENT_URL=
+STRIPE_THREE_LOCATION_COMPARE_PAYMENT_URL=
+```
+
+If payment URLs are not configured, the paid report request is still saved and the admin dashboard shows the lead.
+
+Launch pricing:
+
+- Free Demo: decision, score, and summary
+- Full Report: $9
+- Compare 3 Locations: $29
+- Team / Enterprise: custom
+
+Protect the admin dashboard with:
+
+```text
+ADMIN_TOKEN=
+```
+
+Optional persistent storage path:
+
+```text
+AREAINTEL_DATA_DIR=
+```
+
+Without `AREAINTEL_DATA_DIR`, AreaIntel writes accounts, sessions, leads, and agent-task JSON files to `data/` in the project folder. For production durability, use a Render disk or migrate the same API shape to Postgres/Supabase.
+
+## Admin and agents
+
+Admin routes:
+
+```text
+GET /api/admin/leads
+GET /api/admin/agent-tasks
+POST /api/admin/agent-tasks
+```
+
+Public/launch routes:
+
+```text
+GET /api/pricing
+GET /api/agents
+POST /api/signup
+POST /api/login
+POST /api/contact
+POST /api/report-request
+POST /api/advisor-request
+```
+
+Productized agent roles:
+
+- Product Manager Agent
+- Software Engineer Agent
+- Data Research Agent
+- Sales Agent
+- Customer Support Agent
+- Marketing Agent
+
+Incoming contact, report, and advisor requests automatically create follow-up tasks for the appropriate agent queue.
+
+## Deploy on Render
+
+1. Push the repository to GitHub.
+2. In Render, deploy from `render.yaml` or create a Web Service manually.
+3. Build command: `npm install`
+4. Start command: `npm start`
+5. Add the environment variables listed above.
+
+Do not upload `.env` to GitHub or Render.

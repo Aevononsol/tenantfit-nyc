@@ -824,6 +824,13 @@ const elements = {
   dataConfidenceCopy: document.querySelector("#data-confidence-copy"),
   nextMove: document.querySelector("#next-move"),
   nextMoveCopy: document.querySelector("#next-move-copy"),
+  memoDecisionTitle: document.querySelector("#memo-decision-title"),
+  memoDecisionCopy: document.querySelector("#memo-decision-copy"),
+  memoSuccessScore: document.querySelector("#memo-success-score"),
+  memoConfidenceScore: document.querySelector("#memo-confidence-score"),
+  memoThesisList: document.querySelector("#memo-thesis-list"),
+  memoRiskList: document.querySelector("#memo-risk-list"),
+  memoActionList: document.querySelector("#memo-action-list"),
   evidenceSource: document.querySelector("#evidence-source"),
   evidenceSignalGrid: document.querySelector("#evidence-signal-grid"),
   institutionalConfidence: document.querySelector("#institutional-confidence"),
@@ -3715,6 +3722,86 @@ function scoreSignalCopy(score) {
   return "Weak signal or risk factor for this business in the selected area.";
 }
 
+function memoDecisionLabel(decision) {
+  if (decision === "OPEN") return "Open here";
+  if (decision === "DO NOT OPEN") return "Do not open here";
+  if (decision === "NEEDS MORE DATA") return "Do not decide yet";
+  return "Open with conditions";
+}
+
+function memoRiskSeverity(risk, index) {
+  const text = String(risk).toLowerCase();
+  if (text.includes("cost") || text.includes("competition") || text.includes("financial") || text.includes("high")) return "High";
+  if (index <= 1) return "Medium";
+  return "Monitor";
+}
+
+function memoRiskMitigation(risk) {
+  const text = String(risk).toLowerCase();
+  if (text.includes("cost") || text.includes("rent") || text.includes("financial")) {
+    return "Set a rent-to-sales ceiling before signing.";
+  }
+  if (text.includes("competition") || text.includes("saturation")) {
+    return "Validate differentiation against nearby operators.";
+  }
+  if (text.includes("zip-level") || text.includes("address") || text.includes("block")) {
+    return "Run exact-address and daypart checks.";
+  }
+  if (text.includes("demand")) {
+    return "Confirm category demand with live and on-site signals.";
+  }
+  return "Resolve during due diligence before commitment.";
+}
+
+function renderInvestmentMemo(analysis, decision) {
+  if (!elements.memoDecisionTitle) return;
+
+  const decisionLabel = memoDecisionLabel(analysis.decision);
+  elements.memoDecisionTitle.textContent = `${decisionLabel}: ${analysis.topRecommendation.name}`;
+  elements.memoDecisionCopy.textContent = analysis.decisionCopy;
+  elements.memoSuccessScore.textContent = formatScore(analysis.successProbability);
+  elements.memoConfidenceScore.textContent = `${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
+
+  const thesis = analysis.scores
+    .filter((score) => safeNumber(score.value, 0) >= 55)
+    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
+    .slice(0, 4);
+
+  elements.memoThesisList.innerHTML = thesis.length
+    ? thesis.map((score) => `
+      <div class="memo-list-row">
+        <span>${escapeText(score.name)}</span>
+        <strong>${formatBadgeScore(score.value)}</strong>
+        <p>${escapeText(scoreSignalCopy(score))}</p>
+      </div>
+    `).join("")
+    : `<div class="empty-places">AreaIntel needs stronger evidence before naming the investment thesis.</div>`;
+
+  elements.memoRiskList.innerHTML = analysis.topRisks.slice(0, 4)
+    .map((risk, index) => `
+      <div class="memo-list-row memo-risk-row">
+        <span>${escapeText(memoRiskSeverity(risk, index))} risk</span>
+        <strong>${escapeText(risk)}</strong>
+        <p>${escapeText(memoRiskMitigation(risk))}</p>
+      </div>
+    `)
+    .join("") || `<div class="empty-places">No severe risk signals detected yet. Still verify rent, operator strength, and the exact site.</div>`;
+
+  const actions = [
+    `${decision.next}: ${decision.nextCopy}`,
+    ...analysis.conditions.slice(0, 3)
+  ];
+  elements.memoActionList.innerHTML = actions
+    .map((action, index) => `
+      <div class="memo-list-row">
+        <span>Step ${index + 1}</span>
+        <strong>${escapeText(action.split(":")[0])}</strong>
+        <p>${escapeText(action.includes(":") ? action.slice(action.indexOf(":") + 1).trim() : action)}</p>
+      </div>
+    `)
+    .join("");
+}
+
 function renderDecisionStrip(profile, recommendations) {
   const businessResult = currentBusinessResult();
   const decision = decisionFor(profile, recommendations, businessResult);
@@ -3729,6 +3816,7 @@ function renderDecisionStrip(profile, recommendations) {
   elements.dataConfidenceCopy.textContent = confidence.copy;
   elements.nextMove.textContent = decision.next;
   elements.nextMoveCopy.textContent = decision.nextCopy;
+  renderInvestmentMemo(analysis, decision);
 }
 
 function businessVerdictFor(score, profile, config, hasCompetitors = false) {
@@ -5141,6 +5229,221 @@ renderSaved();
 updateActionGuards();
 updateSaveButton();
 
+// --- Launch revenue / admin workflows -----------------------------------
+// These forms do not affect the report engine. They turn AreaIntel into a
+// customer-ready site: report requests, advisor requests, contact capture,
+// lead admin, and internal agent task queues.
+const launchEls = {
+  signupForm: document.querySelector("#signup-form"),
+  signupStatus: document.querySelector("#signup-status"),
+  loginForm: document.querySelector("#login-form"),
+  loginStatus: document.querySelector("#login-status"),
+  paidReportForm: document.querySelector("#paid-report-form"),
+  paidReportStatus: document.querySelector("#paid-report-status"),
+  advisorForm: document.querySelector("#advisor-form"),
+  advisorStatus: document.querySelector("#advisor-status"),
+  contactForm: document.querySelector("#contact-form"),
+  contactStatus: document.querySelector("#contact-status"),
+  agentsList: document.querySelector("#agents-list"),
+  adminForm: document.querySelector("#admin-form"),
+  adminToken: document.querySelector("#admin-token"),
+  adminLeads: document.querySelector("#admin-leads"),
+  adminTasks: document.querySelector("#admin-tasks")
+};
+
+function saveAccountSession(result) {
+  if (!result?.token || !result?.account) return;
+  try {
+    localStorage.setItem("areaIntelAccount", JSON.stringify(result.account));
+    localStorage.setItem("areaIntelSession", result.token);
+  } catch {
+    // Account access still works server-side if browser storage is unavailable.
+  }
+}
+
+function formPayload(form) {
+  const data = new FormData(form);
+  const payload = {};
+  for (const [key, value] of data.entries()) payload[key] = String(value || "").trim();
+  return payload;
+}
+
+async function postAccountForm(endpoint, form, statusEl, successCopy) {
+  if (!form || !statusEl) return;
+  statusEl.textContent = "Saving...";
+  statusEl.className = "launch-status";
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formPayload(form))
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Account request failed");
+    saveAccountSession(result);
+    statusEl.classList.add("launch-status-ok");
+    statusEl.textContent = `${successCopy} ${result.account?.email || ""}`.trim();
+    form.reset();
+  } catch (error) {
+    statusEl.classList.add("launch-status-error");
+    statusEl.textContent = error.message || "Could not complete account request.";
+  }
+}
+
+function currentReportContext() {
+  if (!state.zip) return null;
+  const profile = profileForZip(state.zip);
+  const businessResult = currentBusinessResult();
+  const recommendations = profile ? buildRecommendations(profile) : [];
+  const analysis = profile ? buildInstitutionalAnalysis(profile, recommendations) : null;
+  return {
+    business: businessDisplayName(state.business),
+    zip: state.zip,
+    address: state.location?.address || "",
+    radiusMiles: state.location?.radiusMiles || "",
+    decision: analysis?.decision || "",
+    successProbability: analysis ? clampScore(analysis.successProbability) : null,
+    confidence: analysis ? clampScore(analysis.confidenceScore) : null,
+    competition: businessResult ? {
+      count: businessResult.count,
+      saturation: elements.businessSaturation?.textContent?.trim() || ""
+    } : null
+  };
+}
+
+async function postLaunchForm(endpoint, form, statusEl, successCopy) {
+  if (!form || !statusEl) return;
+  statusEl.textContent = "Saving...";
+  statusEl.className = "launch-status";
+  try {
+    const payload = {
+      ...formPayload(form),
+      reportContext: currentReportContext()
+    };
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Request failed");
+    statusEl.classList.add("launch-status-ok");
+    if (result.checkout?.url) {
+      statusEl.innerHTML = `${escapeText(successCopy)} <a href="${escapeText(result.checkout.url)}" target="_blank" rel="noopener">Continue to checkout</a>.`;
+    } else {
+      statusEl.textContent = result.checkout?.message || result.message || successCopy;
+    }
+    form.reset();
+    await loadAgents();
+    await loadAdmin(false);
+  } catch (error) {
+    statusEl.classList.add("launch-status-error");
+    statusEl.textContent = error.message || "Could not save this request. Try again.";
+  }
+}
+
+async function loadAgents() {
+  if (!launchEls.agentsList) return;
+  try {
+    const response = await fetch("/api/agents");
+    const result = await response.json();
+    launchEls.agentsList.innerHTML = (result.agents || []).map((agent) => `
+      <article class="agent-card">
+        <span>${escapeText(agent.cadence)} agent</span>
+        <strong>${escapeText(agent.name)}</strong>
+        <p>${escapeText(agent.goal)}</p>
+        <em>${safeNumber(agent.openTasks, 0)} open task${safeNumber(agent.openTasks, 0) === 1 ? "" : "s"}</em>
+      </article>
+    `).join("");
+  } catch {
+    launchEls.agentsList.innerHTML = '<p class="launch-status launch-status-error">Agent status is unavailable right now.</p>';
+  }
+}
+
+function adminQuery() {
+  const token = launchEls.adminToken?.value?.trim();
+  return token ? `?token=${encodeURIComponent(token)}` : "";
+}
+
+async function loadAdmin(showErrors = true) {
+  if (!launchEls.adminLeads || !launchEls.adminTasks) return;
+  if (!adminQuery()) {
+    if (showErrors) {
+      launchEls.adminLeads.innerHTML = '<p class="launch-status launch-status-error">Enter the admin token first.</p>';
+      launchEls.adminTasks.innerHTML = "";
+    }
+    return;
+  }
+  try {
+    const [leadsResponse, tasksResponse] = await Promise.all([
+      fetch(`/api/admin/leads${adminQuery()}`),
+      fetch(`/api/admin/agent-tasks${adminQuery()}`)
+    ]);
+    if (!leadsResponse.ok || !tasksResponse.ok) throw new Error("Admin token required or admin API unavailable.");
+    const [leadsResult, tasksResult] = await Promise.all([leadsResponse.json(), tasksResponse.json()]);
+    const leads = leadsResult.leads || [];
+    const tasks = tasksResult.tasks || [];
+    launchEls.adminLeads.innerHTML = leads.length ? leads.slice(0, 20).map((lead) => `
+      <div class="admin-row">
+        <strong>${escapeText(lead.name || lead.email || "New lead")}</strong>
+        <span>${escapeText(lead.type)} · ${escapeText(lead.business || "No business")} · ${escapeText(lead.location || "No location")}</span>
+        <small>${escapeText(lead.email || lead.phone || "No contact")} · ${new Date(lead.createdAt).toLocaleString()}</small>
+      </div>
+    `).join("") : '<p class="launch-status">No leads yet.</p>';
+    launchEls.adminTasks.innerHTML = tasks.length ? tasks.slice(0, 30).map((task) => `
+      <div class="admin-row">
+        <strong>${escapeText(task.title)}</strong>
+        <span>${escapeText(task.agentId)} · ${escapeText(task.priority)} priority</span>
+        <small>${escapeText(task.nextAction)}</small>
+      </div>
+    `).join("") : '<p class="launch-status">No agent tasks yet.</p>';
+  } catch (error) {
+    if (showErrors) {
+      launchEls.adminLeads.innerHTML = `<p class="launch-status launch-status-error">${escapeText(error.message)}</p>`;
+      launchEls.adminTasks.innerHTML = "";
+    }
+  }
+}
+
+document.querySelectorAll(".launch-scroll").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelector(button.dataset.scroll)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+launchEls.paidReportForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/report-request", launchEls.paidReportForm, launchEls.paidReportStatus, "Report request saved.");
+});
+
+launchEls.signupForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postAccountForm("/api/signup", launchEls.signupForm, launchEls.signupStatus, "Account created for");
+});
+
+launchEls.loginForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postAccountForm("/api/login", launchEls.loginForm, launchEls.loginStatus, "Signed in as");
+});
+
+launchEls.advisorForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/advisor-request", launchEls.advisorForm, launchEls.advisorStatus, "Consultation request saved.");
+});
+
+launchEls.contactForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/contact", launchEls.contactForm, launchEls.contactStatus, "Message saved. AreaIntel will follow up.");
+});
+
+launchEls.adminForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadAdmin(true);
+});
+
+loadAgents();
+loadAdmin(false);
+
 if (!applyUrlState()) {
   elements.startScreen.hidden = false;
   elements.results.hidden = true;
@@ -5170,7 +5473,7 @@ const assistantPrompts = [
   "What does data confidence mean?",
   "Should I export this report?",
   "Should I compare another location?",
-  "Should I request an advisor review?"
+  "Should I request a consultation?"
 ];
 
 let assistantGreeted = false;
@@ -5195,6 +5498,10 @@ function maybeShowAssistantOnboard() {
   const el = assistantOnboardNode();
   const panel = document.querySelector("#assistant-panel");
   if (!el || assistantSeen()) return;
+  if (state.zip) {
+    el.hidden = true;
+    return;
+  }
   if (!panel || !panel.hidden) return;
   el.hidden = false;
 }
@@ -5318,7 +5625,7 @@ async function sendAssistant(question) {
   } catch {
     if (loadingNode) {
       loadingNode.classList.remove("assistant-msg-loading");
-      loadingNode.textContent = "I couldn't reach the assistant. Check your connection and try again — or use Export PDF / Request Advisor Review.";
+      loadingNode.textContent = "I couldn't reach the assistant. Check your connection and try again — or use Export PDF / Request Consultation.";
     }
   } finally {
     assistantEls.send.disabled = false;
@@ -5339,7 +5646,7 @@ function handleAssistantCta(type) {
     assistantAppend("bot", `Added ${businessDisplayName(state.business)} to your compare shortlist. Run another ZIP or address and I'll rank them side by side.`);
   } else if (type === "advisor") {
     const where = state.zip ? ` for ${businessDisplayName(state.business)} in ${reportAreaTitle(state.zip, profileForZip(state.zip))}` : "";
-    assistantAppend("bot", `Advisor review noted${where}. A specialist would review this screen and follow up here. (Human review is a preview feature and isn't a brokerage, legal, or financial service.)`);
+    assistantAppend("bot", `Consultation request noted${where}. AreaIntel can capture this request for follow-up when consultation support is available. This is not brokerage, legal, or financial service.`);
   }
 }
 
