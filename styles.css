@@ -3848,3 +3848,428 @@ body.assistant-open .assistant-toggle { display: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ==========================================================================
+   Executive Report Visual Redesign — Investment Terminal
+   Applies a premium decision-platform identity over the legacy AreaIntel UI.
+   ========================================================================== */
+:root {
+  --ink: #101318;
+  --muted: #66717f;
+  --line: rgba(16, 19, 24, 0.12);
+  --panel: #ffffff;
+  --wash: #e8ebef;
+  --nav: #070a0f;
+  --teal: #2f6feb;
+  --blue: #4b8cff;
+  --green: #16a66a;
+  --red: #d94a3a;
+  --amber: #d99a2b;
+  --brick: #b84235;
+  --violet: #6b5cff;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 10px;
+  --shadow: 0 34px 80px rgba(7, 10, 15, 0.22);
+  --soft-shadow: 0 18px 42px rgba(7, 10, 15, 0.12);
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 42px rgba(7, 10, 15, 0.08);
+  --terminal: #070a0f;
+  --terminal-2: #111827;
+  --paper: #f7f8fa;
+  --porcelain: #fbfcfd;
+  --memo-border: rgba(16, 19, 24, 0.1);
+}
+
+body {
+  background:
+    linear-gradient(180deg, #070a0f 0, #111827 360px, #e8ebef 361px);
+  color: var(--ink);
+}
+
+.app-shell {
+  padding: 16px;
+}
+
+.workspace {
+  border-radius: 14px;
+  background: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.38);
+}
+
+.sidebar {
+  background:
+    linear-gradient(180deg, rgba(7, 10, 15, 0.96), rgba(12, 17, 25, 0.98));
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.sidebar::before {
+  background:
+    linear-gradient(180deg, rgba(75, 140, 255, 0.08), transparent 34%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 55%);
+}
+
+.brand {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.mark {
+  border-radius: 9px;
+  background: linear-gradient(145deg, #f7f8fa, #dbe3ea);
+  color: #070a0f;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+}
+
+.eyebrow,
+.step-label,
+.section-label {
+  color: #7dd3fc;
+  letter-spacing: 0.12em;
+}
+
+.brand-title {
+  letter-spacing: -0.04em;
+}
+
+.brand-tagline,
+.positioning-card p,
+.nyc-notice p {
+  color: #c8d2dc;
+}
+
+.positioning-card,
+.nyc-notice,
+.intake-card,
+.search-panel,
+.address-panel,
+.saved-reports-panel {
+  border-radius: 10px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: none;
+}
+
+.sidebar input,
+.sidebar select,
+.sidebar textarea {
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.92);
+  color: #101318;
+}
+
+.sidebar button,
+.sidebar .zip-row button,
+.sidebar .address-row button,
+.sidebar .business-form button,
+.primary-button,
+.ghost-button,
+.export-button,
+.memo-button {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #f8fafc, #dfe7ee);
+  color: #101318;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  letter-spacing: 0;
+}
+
+.sidebar button:hover,
+.primary-button:hover,
+.ghost-button:hover,
+.export-button:hover,
+.memo-button:hover {
+  background: #ffffff;
+}
+
+.business-suggestions {
+  border-radius: 10px;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(7, 10, 15, 0.98);
+}
+
+.business-suggestions button {
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.results {
+  gap: 14px;
+  background:
+    linear-gradient(180deg, #f7f8fa, #eceff3);
+}
+
+.hero-report {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(7, 10, 15, 0.98), rgba(17, 24, 39, 0.94)),
+    linear-gradient(90deg, rgba(75, 140, 255, 0.15), transparent);
+  box-shadow: 0 26px 70px rgba(7, 10, 15, 0.22);
+}
+
+.hero-report h2 {
+  max-width: 18ch;
+  letter-spacing: -0.045em;
+}
+
+.hero-report p {
+  color: #c8d2dc;
+}
+
+.hero-tags span {
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #dce6ef;
+}
+
+.hero-actions {
+  max-width: 380px;
+  justify-content: flex-end;
+}
+
+.hero-actions button {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hero-actions #export-pdf-button,
+.hero-actions #copy-link-button {
+  background: #f8fafc;
+  color: #101318;
+}
+
+.decision-strip {
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.decision-strip article {
+  min-height: 168px;
+  border-radius: 10px;
+  border: 1px solid var(--memo-border);
+  border-top: 1px solid var(--memo-border);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--card-shadow);
+}
+
+.decision-strip article::before {
+  height: 3px;
+  background: #4b8cff;
+}
+
+.decision-strip .decision-main-card {
+  min-height: 238px;
+  background:
+    linear-gradient(145deg, #070a0f, #101827 56%, #172033);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 26px 70px rgba(7, 10, 15, 0.28);
+}
+
+.decision-strip .decision-main-card::after {
+  inset: 10px;
+  border-radius: 8px;
+}
+
+.decision-badge {
+  border-radius: 8px;
+  letter-spacing: -0.03em;
+}
+
+.decision-open {
+  background: #e8f8ef;
+  color: #0d7449;
+}
+
+.decision-conditional {
+  background: #eaf2ff;
+  color: #245fcc;
+}
+
+.decision-do-not-open {
+  background: #fff0ec;
+  color: #b84235;
+}
+
+.decision-needs-more-data {
+  background: #eef1f5;
+  color: #46515f;
+}
+
+.investment-memo {
+  border-radius: 12px;
+  border-color: rgba(16, 19, 24, 0.12);
+  background: #fbfcfd;
+  box-shadow: var(--soft-shadow);
+}
+
+.memo-hero-copy,
+.memo-card,
+.memo-score-stack article,
+.signal-card,
+.panel,
+.verdict-panel,
+.business-results article,
+.institutional-grid article,
+.analysis-columns article,
+.score-drivers-card,
+.unknown-factors,
+.foot-traffic-grid article,
+.revenue-output-grid article,
+.revenue-input-grid label,
+.market-panel,
+.diligence-panel {
+  border-radius: 10px;
+  border: 1px solid rgba(16, 19, 24, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--card-shadow);
+}
+
+.memo-hero-copy h3 {
+  letter-spacing: -0.045em;
+}
+
+.memo-score-stack article {
+  background: #101318;
+  color: #f8fafc;
+}
+
+.memo-score-stack article:nth-child(2) {
+  background: #1f2937;
+}
+
+.memo-index {
+  border-radius: 7px;
+  background: #eaf2ff;
+  color: #245fcc;
+}
+
+.memo-list-row,
+.score-row,
+.scenario-card,
+.mini-metric-grid div,
+.source-map-row,
+.evidence-signal-card {
+  border-radius: 8px;
+  border-color: rgba(16, 19, 24, 0.09);
+  background: #f8fafc;
+}
+
+.memo-risk-row,
+.scenario-card--risk {
+  background: #fff4f1;
+}
+
+.data-connected-strip {
+  border-radius: 10px;
+  border-color: rgba(16, 19, 24, 0.1);
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+.summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.signal-card::before {
+  height: 3px;
+}
+
+.signal-card strong,
+.business-results strong,
+.institutional-grid strong,
+.memo-score-stack strong,
+.decision-strip article:not(.decision-main-card) strong {
+  letter-spacing: -0.035em;
+}
+
+.evidence-panel,
+.institutional-panel,
+.compare-panel {
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+.panel-header {
+  border-bottom-color: rgba(16, 19, 24, 0.08);
+  background: #f8fafc;
+}
+
+.pill,
+.status,
+.signal-chip,
+.mini-status,
+.source-map-status {
+  border-radius: 999px;
+}
+
+.market-map {
+  border-radius: 10px;
+  filter: saturate(0.82) contrast(1.03);
+}
+
+.assistant-toggle {
+  background: #101318;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 860px) {
+  body {
+    background: #e8ebef;
+  }
+
+  .app-shell {
+    padding: 0;
+  }
+
+  .workspace {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .results {
+    padding: 14px;
+    background: #e8ebef;
+  }
+
+  .decision-strip {
+    gap: 10px;
+  }
+
+  .decision-strip .decision-main-card {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .decision-badge {
+    font-size: clamp(1.35rem, 7vw, 1.85rem);
+  }
+
+  .investment-memo {
+    padding: 10px;
+  }
+
+  .memo-hero-copy {
+    padding: 18px;
+  }
+
+  .hero-report {
+    grid-template-columns: 1fr;
+    border-radius: 10px;
+  }
+
+  .hero-actions {
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
