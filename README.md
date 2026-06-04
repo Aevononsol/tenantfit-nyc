@@ -37,7 +37,7 @@ http://localhost:5174
 - Pricing section
 - Paid report request flow
 - Contact/lead capture form
-- Advisor review request flow
+- Consultation waitlist request flow
 - Account signup/sign-in MVP
 - Admin lead dashboard
 - Internal productized agents and task queue
@@ -63,13 +63,18 @@ AreaIntel can accept report requests immediately. To enable checkout links, add 
 
 ```text
 STRIPE_REPORT_PAYMENT_URL=
-STRIPE_SINGLE_REPORT_PAYMENT_URL=
-STRIPE_THREE_PACK_PAYMENT_URL=
-STRIPE_ADVISOR_REVIEW_PAYMENT_URL=
-STRIPE_BROKER_PACK_PAYMENT_URL=
+STRIPE_FULL_REPORT_PAYMENT_URL=
+STRIPE_THREE_LOCATION_COMPARE_PAYMENT_URL=
 ```
 
 If payment URLs are not configured, the paid report request is still saved and the admin dashboard shows the lead.
+
+Launch pricing:
+
+- Free Demo: decision, score, and summary
+- Full Report: $9
+- Compare 3 Locations: $29
+- Team / Enterprise: custom
 
 Protect the admin dashboard with:
 

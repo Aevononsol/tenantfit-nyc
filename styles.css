@@ -679,6 +679,200 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .decision-strip .decision-main-card .decision-do-not-open { color: #963226; }
 .decision-strip .decision-main-card .decision-needs-more-data { color: #334155; }
 
+/* Investment memo
+   ========================================================================== */
+.investment-memo {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 250, 0.98));
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+}
+
+.memo-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.42fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.memo-hero-copy {
+  min-width: 0;
+  padding: clamp(20px, 3vw, 30px);
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.memo-hero-copy h3 {
+  max-width: 22ch;
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.55rem, 2.4vw, 2.45rem);
+  line-height: 1.05;
+  overflow-wrap: break-word;
+}
+
+.memo-hero-copy p:last-child {
+  max-width: 66ch;
+  margin: 12px 0 0;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.memo-score-stack {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.memo-score-stack article {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-height: 120px;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #10202a;
+  color: #ffffff;
+}
+
+.memo-score-stack article:nth-child(2) {
+  background: #263238;
+}
+
+.memo-score-stack span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.memo-score-stack strong {
+  color: #ffffff;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  line-height: 1;
+}
+
+.memo-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.memo-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.memo-card-header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.memo-card h4 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.memo-index {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #e8f3f7;
+  color: #075f76;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.memo-risk-card .memo-index {
+  background: var(--st-risk-bg);
+  color: var(--st-risk-fg);
+}
+
+.memo-actions-card .memo-index {
+  background: #fff4e2;
+  color: #8a5a0a;
+}
+
+.memo-list {
+  display: grid;
+  gap: 9px;
+}
+
+.memo-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  padding: 12px;
+  border-radius: 9px;
+  border: 1px solid #dfe8ed;
+  background: #f8fbfc;
+}
+
+.memo-list-row span {
+  color: #64717a;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.memo-list-row strong {
+  color: var(--ink);
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.memo-list-row p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #53636c;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.memo-thesis-card .memo-list-row strong:nth-child(2) {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  min-height: 32px;
+  padding: 0 7px;
+  border-radius: 7px;
+  background: #e5f7ef;
+  color: #08724a;
+}
+
+.memo-risk-row {
+  border-color: rgba(217, 83, 79, 0.24);
+  background: #fff8f6;
+}
+
+.memo-risk-row span {
+  color: var(--st-risk-fg);
+}
+
+.memo-action-list .memo-list-row {
+  background: #fffdf8;
+  border-color: rgba(202, 153, 55, 0.24);
+}
+
 .data-connected-strip {
   display: flex;
   flex-wrap: wrap;
@@ -2363,6 +2557,16 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .memo-hero,
+  .memo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .memo-score-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
   .photo-strip,
   .photo-modal-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -2375,10 +2579,32 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   .workspace {
     grid-template-columns: 1fr;
     min-height: 100vh;
+    overflow: visible;
     border-radius: 0;
   }
 
+  .sidebar {
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
   .results, .start-screen { padding: 18px; }
+
+  .results {
+    order: -1;
+  }
+
+  .results > .executive-decision-strip {
+    order: -3;
+  }
+
+  .results > .investment-memo {
+    order: -2;
+  }
+
+  .results > .hero-report {
+    order: -1;
+  }
 
   .start-screen h2  { font-size: clamp(2rem, 9vw, 3rem); }
   .hero-report {
@@ -2408,7 +2634,8 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
 
   .decision-strip,
   .summary-grid,
-  .business-results { grid-template-columns: 1fr; }
+  .business-results,
+  .memo-score-stack { grid-template-columns: 1fr; }
 
   .decision-strip {
     padding: 4px;
@@ -2475,15 +2702,15 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   }
 
   .business-suggestions {
-    max-height: 58vh;
-    padding: 10px;
-    position: fixed;
-    left: 18px;
-    right: 18px;
-    bottom: max(16px, env(safe-area-inset-bottom));
-    z-index: 1600;
-    border-radius: 18px;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: 40;
+    max-height: min(240px, 32vh);
+    padding: 8px;
+    border-radius: 14px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.26);
   }
 
   .business-suggestions button {
@@ -2492,6 +2719,14 @@ meter::-webkit-meter-optimum-value { background: var(--teal); }
   }
 
   .hero-report        { padding: 18px; }
+  .investment-memo    { padding: 12px; border-radius: 14px; }
+  .memo-hero-copy     { padding: 18px; }
+  .memo-hero-copy h3  { font-size: clamp(1.35rem, 7vw, 1.85rem); }
+  .memo-score-stack article { min-height: 104px; }
+  .memo-list-row      { grid-template-columns: 1fr; }
+  .memo-thesis-card .memo-list-row strong:nth-child(2) {
+    justify-self: start;
+  }
   .hero-report h2 {
     font-size: clamp(1.45rem, 5.8vw, 1.85rem);
     line-height: 1.1;
@@ -3210,7 +3445,15 @@ body.assistant-open .assistant-toggle { display: none; }
     background: rgba(255, 255, 255, 0.28);
   }
   .assistant-form { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
-  .assistant-toggle { right: 14px; bottom: 14px; padding: 11px 15px; }
+  .assistant-toggle {
+    right: 14px;
+    bottom: 14px;
+    width: 52px;
+    height: 52px;
+    justify-content: center;
+    padding: 0;
+  }
+  .assistant-toggle span { display: none; }
 }
 
 /* Keep the assistant out of printed reports. */

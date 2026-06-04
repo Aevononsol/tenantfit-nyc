@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260603-homefix" />
+    <link rel="stylesheet" href="./styles.css?v=20260604-exec-memo-5" />
   </head>
   <body>
     <main class="app-shell">
@@ -239,37 +239,37 @@
 
           <section id="pricing" class="launch-section pricing-section">
             <div class="launch-section-header">
-              <p class="section-label">Pricing</p>
-              <h3>Buy a decision-ready location report</h3>
-              <p>Start with one report, compare several locations, or request advisor review when the decision matters.</p>
+              <p class="section-label">Launch pricing</p>
+              <h3>Start with a low-cost location decision</h3>
+              <p>Early pricing is built to validate demand, help first customers, and make AreaIntel easy to try.</p>
             </div>
             <div class="pricing-grid">
               <article class="pricing-card">
-                <span>Starter</span>
-                <strong>$149</strong>
-                <h4>Single Location Report</h4>
-                <p>One business, one location, executive PDF, risks, conditions, and alternatives.</p>
-                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request report</button>
+                <span>Demo</span>
+                <strong>Free</strong>
+                <h4>Free Demo</h4>
+                <p>Decision, score, and short summary so first-time users can see the value before paying.</p>
+                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request demo</button>
               </article>
               <article class="pricing-card pricing-card-featured">
                 <span>Most useful</span>
-                <strong>$399</strong>
-                <h4>3-Location Compare</h4>
-                <p>Compare three sites or concepts and pick the strongest business decision.</p>
-                <button class="launch-scroll" type="button" data-scroll="#paid-report">Start comparison</button>
+                <strong>$9</strong>
+                <h4>Full Report</h4>
+                <p>Full report, PDF export, risks, conditions, and better alternatives for one location.</p>
+                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request full report</button>
               </article>
               <article class="pricing-card">
-                <span>Advisor</span>
-                <strong>$699</strong>
-                <h4>Advisor Review</h4>
-                <p>AreaIntel report plus human review of the decision, risks, and next steps.</p>
-                <button class="launch-scroll" type="button" data-scroll="#advisor-marketplace">Request advisor</button>
+                <span>Compare</span>
+                <strong>$29</strong>
+                <h4>Compare 3 Locations</h4>
+                <p>Compare three candidate ZIPs, storefronts, or business ideas before choosing a direction.</p>
+                <button class="launch-scroll" type="button" data-scroll="#paid-report">Compare locations</button>
               </article>
               <article class="pricing-card">
                 <span>Teams</span>
-                <strong>$999</strong>
-                <h4>Broker / Investor Pack</h4>
-                <p>Ten screenings for advisors, brokers, franchise buyers, or landlords.</p>
+                <strong>Custom</strong>
+                <h4>Team / Enterprise</h4>
+                <p>Bulk reports, broker workflows, saved reports, and customer support for teams.</p>
                 <button class="launch-scroll" type="button" data-scroll="#contact">Talk to sales</button>
               </article>
             </div>
@@ -288,10 +288,10 @@
               <input name="business" placeholder="Business type, e.g. Italian restaurant" required />
               <input name="location" placeholder="ZIP or address" required />
               <select name="package" aria-label="Report package">
-                <option value="single-report">Single Location Report — $149</option>
-                <option value="three-pack">3-Location Compare — $399</option>
-                <option value="advisor-review">Advisor Review — $699</option>
-                <option value="broker-pack">Broker / Investor Pack — $999</option>
+                <option value="free-demo">Free Demo — decision, score, summary</option>
+                <option value="full-report">Full Report — $9</option>
+                <option value="three-location-compare">Compare 3 Locations — $29</option>
+                <option value="team-enterprise">Team / Enterprise — custom</option>
               </select>
               <textarea name="message" placeholder="Timeline, budget, site details, or questions"></textarea>
               <button type="submit">Request paid report</button>
@@ -301,22 +301,22 @@
 
           <section id="advisor-marketplace" class="launch-section marketplace-section">
             <div class="launch-section-header">
-              <p class="section-label">Advisor marketplace</p>
-              <h3>Request human review when the report is not enough</h3>
-              <p>For restaurant owners, franchise buyers, brokers, and investors who need a second look before committing.</p>
+              <p class="section-label">Request consultation</p>
+              <h3>Join the consultation waitlist</h3>
+              <p>AreaIntel is collecting consultation requests now. This is a lead capture flow for future follow-up.</p>
             </div>
             <div class="advisor-grid">
               <article>
-                <strong>Restaurant concept review</strong>
-                <p>Concept fit, saturation, menu positioning, and operating risks.</p>
+                <strong>Business review request</strong>
+                <p>Tell us the business, location, and decision you are trying to make.</p>
               </article>
               <article>
-                <strong>Franchise site screen</strong>
-                <p>Compare a candidate site against customer fit, competition, and conditions.</p>
+                <strong>Priority follow-up</strong>
+                <p>Strong requests become follow-up opportunities for AreaIntel support and sales.</p>
               </article>
               <article>
-                <strong>Broker client memo</strong>
-                <p>Turn an AreaIntel report into a client-ready location recommendation.</p>
+                <strong>Future expert network</strong>
+                <p>Consultation demand helps decide which expert workflows to build first.</p>
               </article>
             </div>
             <form id="advisor-form" class="launch-form compact-launch-form">
@@ -324,8 +324,8 @@
               <input name="email" type="email" placeholder="Email" autocomplete="email" required />
               <input name="business" placeholder="Business or client concept" />
               <input name="location" placeholder="ZIP or address" />
-              <textarea name="message" placeholder="What should the advisor review?"></textarea>
-              <button type="submit">Request advisor review</button>
+              <textarea name="message" placeholder="What decision do you need help with?"></textarea>
+              <button type="submit">Request consultation</button>
               <p id="advisor-status" class="launch-status" role="status"></p>
             </form>
           </section>
@@ -437,6 +437,58 @@
             </article>
           </section>
 
+          <section class="investment-memo" aria-label="Executive investment memo">
+            <div class="memo-hero">
+              <div class="memo-hero-copy">
+                <p class="section-label">Investment memo</p>
+                <h3 id="memo-decision-title">Recommendation is building</h3>
+                <p id="memo-decision-copy">AreaIntel is turning market, competition, risk, and site signals into a decision-first executive report.</p>
+              </div>
+              <div class="memo-score-stack" aria-label="Decision scores">
+                <article>
+                  <span>Success probability</span>
+                  <strong id="memo-success-score">Building</strong>
+                </article>
+                <article>
+                  <span>Evidence confidence</span>
+                  <strong id="memo-confidence-score">Building</strong>
+                </article>
+              </div>
+            </div>
+            <div class="memo-grid">
+              <article class="memo-card memo-thesis-card">
+                <div class="memo-card-header">
+                  <span class="memo-index">01</span>
+                  <div>
+                    <p class="section-label">Why this works</p>
+                    <h4>Investment thesis</h4>
+                  </div>
+                </div>
+                <div id="memo-thesis-list" class="memo-list"></div>
+              </article>
+              <article class="memo-card memo-risk-card">
+                <div class="memo-card-header">
+                  <span class="memo-index">02</span>
+                  <div>
+                    <p class="section-label">Risks</p>
+                    <h4>Risk register</h4>
+                  </div>
+                </div>
+                <div id="memo-risk-list" class="memo-list"></div>
+              </article>
+              <article class="memo-card memo-actions-card">
+                <div class="memo-card-header">
+                  <span class="memo-index">03</span>
+                  <div>
+                    <p class="section-label">Next best actions</p>
+                    <h4>Move from screen to decision</h4>
+                  </div>
+                </div>
+                <div id="memo-action-list" class="memo-list memo-action-list"></div>
+              </article>
+            </div>
+          </section>
+
           <section class="data-connected-strip" aria-label="Signals in this report">
             <strong>Signals in this report:</strong>
             <div id="signals-strip-list" class="signals-strip-list" aria-live="polite"></div>
@@ -481,7 +533,7 @@
           <section class="panel evidence-panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Evidence</p>
+                <p class="section-label">Evidence summary</p>
                 <h3>What AreaIntel used for this decision</h3>
               </div>
               <span id="evidence-source" class="pill">Checking evidence</span>
@@ -608,7 +660,7 @@
               <ul id="missing-data-list" class="compact-list"></ul>
             </div>
             <details class="methodology-details">
-              <summary>View Methodology</summary>
+              <summary>Assumptions &amp; Data Quality</summary>
               <p class="trust-note">AreaIntel shows which market signals were available for this report and which items still need real-world verification.</p>
               <div class="methodology-source-map">
                 <span class="signal-label">Signal coverage</span>
@@ -897,7 +949,7 @@
           </div>
 
           <details class="advanced-tools">
-            <summary>Advanced location economics</summary>
+            <summary>Appendix: advanced location economics</summary>
             <section class="panel available-spaces-panel">
             <div class="panel-header">
               <div>
@@ -1010,7 +1062,7 @@
       <div class="assistant-cta" aria-label="Quick actions">
         <button type="button" data-cta="export">Export PDF</button>
         <button type="button" data-cta="compare">Add to Compare</button>
-        <button type="button" data-cta="advisor">Request Advisor Review</button>
+        <button type="button" data-cta="advisor">Request Consultation</button>
       </div>
       <form id="assistant-form" class="assistant-form">
         <textarea id="assistant-input" rows="1" maxlength="500" placeholder="Ask about this report…" aria-label="Ask the AreaIntel Assistant"></textarea>
@@ -1019,6 +1071,6 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260603-qa-3"></script>
+    <script defer src="./app.js?v=20260604-exec-memo"></script>
   </body>
 </html>

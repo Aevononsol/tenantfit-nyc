@@ -824,6 +824,13 @@ const elements = {
   dataConfidenceCopy: document.querySelector("#data-confidence-copy"),
   nextMove: document.querySelector("#next-move"),
   nextMoveCopy: document.querySelector("#next-move-copy"),
+  memoDecisionTitle: document.querySelector("#memo-decision-title"),
+  memoDecisionCopy: document.querySelector("#memo-decision-copy"),
+  memoSuccessScore: document.querySelector("#memo-success-score"),
+  memoConfidenceScore: document.querySelector("#memo-confidence-score"),
+  memoThesisList: document.querySelector("#memo-thesis-list"),
+  memoRiskList: document.querySelector("#memo-risk-list"),
+  memoActionList: document.querySelector("#memo-action-list"),
   evidenceSource: document.querySelector("#evidence-source"),
   evidenceSignalGrid: document.querySelector("#evidence-signal-grid"),
   institutionalConfidence: document.querySelector("#institutional-confidence"),
@@ -3715,6 +3722,86 @@ function scoreSignalCopy(score) {
   return "Weak signal or risk factor for this business in the selected area.";
 }
 
+function memoDecisionLabel(decision) {
+  if (decision === "OPEN") return "Open here";
+  if (decision === "DO NOT OPEN") return "Do not open here";
+  if (decision === "NEEDS MORE DATA") return "Do not decide yet";
+  return "Open with conditions";
+}
+
+function memoRiskSeverity(risk, index) {
+  const text = String(risk).toLowerCase();
+  if (text.includes("cost") || text.includes("competition") || text.includes("financial") || text.includes("high")) return "High";
+  if (index <= 1) return "Medium";
+  return "Monitor";
+}
+
+function memoRiskMitigation(risk) {
+  const text = String(risk).toLowerCase();
+  if (text.includes("cost") || text.includes("rent") || text.includes("financial")) {
+    return "Set a rent-to-sales ceiling before signing.";
+  }
+  if (text.includes("competition") || text.includes("saturation")) {
+    return "Validate differentiation against nearby operators.";
+  }
+  if (text.includes("zip-level") || text.includes("address") || text.includes("block")) {
+    return "Run exact-address and daypart checks.";
+  }
+  if (text.includes("demand")) {
+    return "Confirm category demand with live and on-site signals.";
+  }
+  return "Resolve during due diligence before commitment.";
+}
+
+function renderInvestmentMemo(analysis, decision) {
+  if (!elements.memoDecisionTitle) return;
+
+  const decisionLabel = memoDecisionLabel(analysis.decision);
+  elements.memoDecisionTitle.textContent = `${decisionLabel}: ${analysis.topRecommendation.name}`;
+  elements.memoDecisionCopy.textContent = analysis.decisionCopy;
+  elements.memoSuccessScore.textContent = formatScore(analysis.successProbability);
+  elements.memoConfidenceScore.textContent = `${formatScore(analysis.confidenceScore)} · ${analysis.validation.sourceReliability}`;
+
+  const thesis = analysis.scores
+    .filter((score) => safeNumber(score.value, 0) >= 55)
+    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
+    .slice(0, 4);
+
+  elements.memoThesisList.innerHTML = thesis.length
+    ? thesis.map((score) => `
+      <div class="memo-list-row">
+        <span>${escapeText(score.name)}</span>
+        <strong>${formatBadgeScore(score.value)}</strong>
+        <p>${escapeText(scoreSignalCopy(score))}</p>
+      </div>
+    `).join("")
+    : `<div class="empty-places">AreaIntel needs stronger evidence before naming the investment thesis.</div>`;
+
+  elements.memoRiskList.innerHTML = analysis.topRisks.slice(0, 4)
+    .map((risk, index) => `
+      <div class="memo-list-row memo-risk-row">
+        <span>${escapeText(memoRiskSeverity(risk, index))} risk</span>
+        <strong>${escapeText(risk)}</strong>
+        <p>${escapeText(memoRiskMitigation(risk))}</p>
+      </div>
+    `)
+    .join("") || `<div class="empty-places">No severe risk signals detected yet. Still verify rent, operator strength, and the exact site.</div>`;
+
+  const actions = [
+    `${decision.next}: ${decision.nextCopy}`,
+    ...analysis.conditions.slice(0, 3)
+  ];
+  elements.memoActionList.innerHTML = actions
+    .map((action, index) => `
+      <div class="memo-list-row">
+        <span>Step ${index + 1}</span>
+        <strong>${escapeText(action.split(":")[0])}</strong>
+        <p>${escapeText(action.includes(":") ? action.slice(action.indexOf(":") + 1).trim() : action)}</p>
+      </div>
+    `)
+    .join("");
+}
+
 function renderDecisionStrip(profile, recommendations) {
   const businessResult = currentBusinessResult();
   const decision = decisionFor(profile, recommendations, businessResult);
@@ -3729,6 +3816,7 @@ function renderDecisionStrip(profile, recommendations) {
   elements.dataConfidenceCopy.textContent = confidence.copy;
   elements.nextMove.textContent = decision.next;
   elements.nextMoveCopy.textContent = decision.nextCopy;
+  renderInvestmentMemo(analysis, decision);
 }
 
 function businessVerdictFor(score, profile, config, hasCompetitors = false) {
@@ -5279,6 +5367,13 @@ function adminQuery() {
 
 async function loadAdmin(showErrors = true) {
   if (!launchEls.adminLeads || !launchEls.adminTasks) return;
+  if (!adminQuery()) {
+    if (showErrors) {
+      launchEls.adminLeads.innerHTML = '<p class="launch-status launch-status-error">Enter the admin token first.</p>';
+      launchEls.adminTasks.innerHTML = "";
+    }
+    return;
+  }
   try {
     const [leadsResponse, tasksResponse] = await Promise.all([
       fetch(`/api/admin/leads${adminQuery()}`),
@@ -5333,7 +5428,7 @@ launchEls.loginForm?.addEventListener("submit", (event) => {
 
 launchEls.advisorForm?.addEventListener("submit", (event) => {
   event.preventDefault();
-  postLaunchForm("/api/advisor-request", launchEls.advisorForm, launchEls.advisorStatus, "Advisor request saved.");
+  postLaunchForm("/api/advisor-request", launchEls.advisorForm, launchEls.advisorStatus, "Consultation request saved.");
 });
 
 launchEls.contactForm?.addEventListener("submit", (event) => {
@@ -5378,7 +5473,7 @@ const assistantPrompts = [
   "What does data confidence mean?",
   "Should I export this report?",
   "Should I compare another location?",
-  "Should I request an advisor review?"
+  "Should I request a consultation?"
 ];
 
 let assistantGreeted = false;
@@ -5403,6 +5498,10 @@ function maybeShowAssistantOnboard() {
   const el = assistantOnboardNode();
   const panel = document.querySelector("#assistant-panel");
   if (!el || assistantSeen()) return;
+  if (state.zip) {
+    el.hidden = true;
+    return;
+  }
   if (!panel || !panel.hidden) return;
   el.hidden = false;
 }
@@ -5526,7 +5625,7 @@ async function sendAssistant(question) {
   } catch {
     if (loadingNode) {
       loadingNode.classList.remove("assistant-msg-loading");
-      loadingNode.textContent = "I couldn't reach the assistant. Check your connection and try again — or use Export PDF / Request Advisor Review.";
+      loadingNode.textContent = "I couldn't reach the assistant. Check your connection and try again — or use Export PDF / Request Consultation.";
     }
   } finally {
     assistantEls.send.disabled = false;
@@ -5547,7 +5646,7 @@ function handleAssistantCta(type) {
     assistantAppend("bot", `Added ${businessDisplayName(state.business)} to your compare shortlist. Run another ZIP or address and I'll rank them side by side.`);
   } else if (type === "advisor") {
     const where = state.zip ? ` for ${businessDisplayName(state.business)} in ${reportAreaTitle(state.zip, profileForZip(state.zip))}` : "";
-    assistantAppend("bot", `Advisor review noted${where}. A specialist would review this screen and follow up here. (Human review is a preview feature and isn't a brokerage, legal, or financial service.)`);
+    assistantAppend("bot", `Consultation request noted${where}. AreaIntel can capture this request for follow-up when consultation support is available. This is not brokerage, legal, or financial service.`);
   }
 }
 
