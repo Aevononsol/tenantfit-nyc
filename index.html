@@ -203,6 +203,186 @@
               <p>See Open, Conditional, Do Not Open, or Needs More Data before reviewing the supporting evidence.</p>
             </article>
           </div>
+
+          <section id="account-access" class="launch-section account-section">
+            <div class="launch-section-header">
+              <p class="section-label">Account access</p>
+              <h3>Create an AreaIntel account</h3>
+              <p>Save customer details, report requests, and launch workflow records in the AreaIntel data store.</p>
+            </div>
+            <div class="account-grid">
+              <form id="signup-form" class="launch-form">
+                <strong>Create account</strong>
+                <input name="name" placeholder="Your name" autocomplete="name" />
+                <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+                <input name="company" placeholder="Company optional" autocomplete="organization" />
+                <select name="role" aria-label="Role">
+                  <option value="restaurant-owner">Restaurant owner</option>
+                  <option value="retail-operator">Retail operator</option>
+                  <option value="broker-advisor">Broker / advisor</option>
+                  <option value="franchise-buyer">Franchise buyer</option>
+                  <option value="investor">Investor</option>
+                </select>
+                <input name="password" type="password" placeholder="Password" autocomplete="new-password" required minlength="8" />
+                <button type="submit">Create account</button>
+                <p id="signup-status" class="launch-status" role="status"></p>
+              </form>
+              <form id="login-form" class="launch-form">
+                <strong>Sign in</strong>
+                <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+                <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+                <button type="submit">Sign in</button>
+                <p id="login-status" class="launch-status" role="status"></p>
+              </form>
+            </div>
+          </section>
+
+          <section id="pricing" class="launch-section pricing-section">
+            <div class="launch-section-header">
+              <p class="section-label">Pricing</p>
+              <h3>Buy a decision-ready location report</h3>
+              <p>Start with one report, compare several locations, or request advisor review when the decision matters.</p>
+            </div>
+            <div class="pricing-grid">
+              <article class="pricing-card">
+                <span>Starter</span>
+                <strong>$149</strong>
+                <h4>Single Location Report</h4>
+                <p>One business, one location, executive PDF, risks, conditions, and alternatives.</p>
+                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request report</button>
+              </article>
+              <article class="pricing-card pricing-card-featured">
+                <span>Most useful</span>
+                <strong>$399</strong>
+                <h4>3-Location Compare</h4>
+                <p>Compare three sites or concepts and pick the strongest business decision.</p>
+                <button class="launch-scroll" type="button" data-scroll="#paid-report">Start comparison</button>
+              </article>
+              <article class="pricing-card">
+                <span>Advisor</span>
+                <strong>$699</strong>
+                <h4>Advisor Review</h4>
+                <p>AreaIntel report plus human review of the decision, risks, and next steps.</p>
+                <button class="launch-scroll" type="button" data-scroll="#advisor-marketplace">Request advisor</button>
+              </article>
+              <article class="pricing-card">
+                <span>Teams</span>
+                <strong>$999</strong>
+                <h4>Broker / Investor Pack</h4>
+                <p>Ten screenings for advisors, brokers, franchise buyers, or landlords.</p>
+                <button class="launch-scroll" type="button" data-scroll="#contact">Talk to sales</button>
+              </article>
+            </div>
+          </section>
+
+          <section id="paid-report" class="launch-section">
+            <div class="launch-section-header">
+              <p class="section-label">Paid report request</p>
+              <h3>Get a location report prepared for a real decision</h3>
+              <p>Send the business, location, and timeline. AreaIntel stores the request and creates a follow-up task for the revenue agents.</p>
+            </div>
+            <form id="paid-report-form" class="launch-form">
+              <input name="name" placeholder="Your name" autocomplete="name" />
+              <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+              <input name="company" placeholder="Company optional" autocomplete="organization" />
+              <input name="business" placeholder="Business type, e.g. Italian restaurant" required />
+              <input name="location" placeholder="ZIP or address" required />
+              <select name="package" aria-label="Report package">
+                <option value="single-report">Single Location Report — $149</option>
+                <option value="three-pack">3-Location Compare — $399</option>
+                <option value="advisor-review">Advisor Review — $699</option>
+                <option value="broker-pack">Broker / Investor Pack — $999</option>
+              </select>
+              <textarea name="message" placeholder="Timeline, budget, site details, or questions"></textarea>
+              <button type="submit">Request paid report</button>
+              <p id="paid-report-status" class="launch-status" role="status"></p>
+            </form>
+          </section>
+
+          <section id="advisor-marketplace" class="launch-section marketplace-section">
+            <div class="launch-section-header">
+              <p class="section-label">Advisor marketplace</p>
+              <h3>Request human review when the report is not enough</h3>
+              <p>For restaurant owners, franchise buyers, brokers, and investors who need a second look before committing.</p>
+            </div>
+            <div class="advisor-grid">
+              <article>
+                <strong>Restaurant concept review</strong>
+                <p>Concept fit, saturation, menu positioning, and operating risks.</p>
+              </article>
+              <article>
+                <strong>Franchise site screen</strong>
+                <p>Compare a candidate site against customer fit, competition, and conditions.</p>
+              </article>
+              <article>
+                <strong>Broker client memo</strong>
+                <p>Turn an AreaIntel report into a client-ready location recommendation.</p>
+              </article>
+            </div>
+            <form id="advisor-form" class="launch-form compact-launch-form">
+              <input name="name" placeholder="Your name" autocomplete="name" />
+              <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+              <input name="business" placeholder="Business or client concept" />
+              <input name="location" placeholder="ZIP or address" />
+              <textarea name="message" placeholder="What should the advisor review?"></textarea>
+              <button type="submit">Request advisor review</button>
+              <p id="advisor-status" class="launch-status" role="status"></p>
+            </form>
+          </section>
+
+          <section id="contact" class="launch-section contact-section">
+            <div class="launch-section-header">
+              <p class="section-label">Contact</p>
+              <h3>Talk to AreaIntel</h3>
+              <p>Use this for broker packs, franchise review, landlord repositioning, partnerships, or support.</p>
+            </div>
+            <form id="contact-form" class="launch-form">
+              <input name="name" placeholder="Your name" autocomplete="name" />
+              <input name="email" type="email" placeholder="Email" autocomplete="email" />
+              <input name="phone" placeholder="Phone optional" autocomplete="tel" />
+              <input name="company" placeholder="Company optional" autocomplete="organization" />
+              <select name="type" aria-label="Reason">
+                <option value="sales">Sales / pricing</option>
+                <option value="support">Support</option>
+                <option value="broker">Broker or advisor workflow</option>
+                <option value="partnership">Partnership</option>
+              </select>
+              <textarea name="message" placeholder="How can AreaIntel help?"></textarea>
+              <button type="submit">Send message</button>
+              <p id="contact-status" class="launch-status" role="status"></p>
+            </form>
+          </section>
+
+          <section id="agents-dashboard" class="launch-section agents-section">
+            <div class="launch-section-header">
+              <p class="section-label">Internal agents</p>
+              <h3>Automatic launch operating system</h3>
+              <p>Each incoming lead creates a follow-up task for the right AreaIntel agent.</p>
+            </div>
+            <div id="agents-list" class="agents-grid" aria-live="polite"></div>
+          </section>
+
+          <section id="admin-dashboard" class="launch-section admin-section">
+            <div class="launch-section-header">
+              <p class="section-label">Admin dashboard</p>
+              <h3>Leads and agent tasks</h3>
+              <p>Private launch dashboard. Set <code>ADMIN_TOKEN</code> in Render to protect it, then enter the token here.</p>
+            </div>
+            <form id="admin-form" class="admin-token-row">
+              <input id="admin-token" type="password" placeholder="Admin token optional" autocomplete="current-password" />
+              <button type="submit">Load admin</button>
+            </form>
+            <div class="admin-grid">
+              <article>
+                <h4>Leads</h4>
+                <div id="admin-leads" class="admin-list"></div>
+              </article>
+              <article>
+                <h4>Agent tasks</h4>
+                <div id="admin-tasks" class="admin-list"></div>
+              </article>
+            </div>
+          </section>
         </section>
 
         <section id="results" class="results" aria-live="polite" hidden>

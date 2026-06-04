@@ -1,13 +1,15 @@
 import { createServer } from "node:http";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { fetchDemandMomentum } from "./services/googleTrends.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 5174);
 const startedAt = new Date();
+const dataRoot = process.env.AREAINTEL_DATA_DIR || join(root, "data");
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -22,6 +24,51 @@ const allowedKeyNames = [
   "GOOGLE_PLACES_API_KEY",
   "NYC_OPEN_DATA_APP_TOKEN",
   "OPENAI_API_KEY"
+];
+
+const productAgents = [
+  {
+    id: "product-manager",
+    name: "Product Manager Agent",
+    goal: "Keep AreaIntel focused on revenue, priorities, and user feedback.",
+    cadence: "daily",
+    tasks: ["Prioritize user feedback", "Review launch metrics", "Write next engineering tasks"]
+  },
+  {
+    id: "software-engineer",
+    name: "Software Engineer Agent",
+    goal: "Keep the platform working and ready for customers.",
+    cadence: "daily",
+    tasks: ["QA production flows", "Track bugs", "Prepare safe implementation notes"]
+  },
+  {
+    id: "data-research",
+    name: "Data Research Agent",
+    goal: "Improve location intelligence and research source coverage.",
+    cadence: "weekly",
+    tasks: ["Review data gaps", "Find source upgrades", "Flag weak confidence areas"]
+  },
+  {
+    id: "sales",
+    name: "Sales Agent",
+    goal: "Find brokers, operators, and investors who may buy reports.",
+    cadence: "daily",
+    tasks: ["Draft outreach", "Qualify leads", "Track paid report opportunities"]
+  },
+  {
+    id: "customer-support",
+    name: "Customer Support Agent",
+    goal: "Onboard customers and turn questions into feature requests.",
+    cadence: "daily",
+    tasks: ["Answer customer questions", "Create tutorials", "Collect objections"]
+  },
+  {
+    id: "marketing",
+    name: "Marketing Agent",
+    goal: "Drive traffic with practical location-decision content.",
+    cadence: "weekly",
+    tasks: ["Write posts", "Create case studies", "Package sample reports"]
+  }
 ];
 
 const isHostedProduction = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
@@ -231,6 +278,167 @@ function sendJson(response, statusCode, data) {
 function clientIp(request) {
   const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
   return forwarded || request.socket?.remoteAddress || "unknown";
+}
+
+function safeText(value, max = 2000) {
+  return String(value || "").trim().slice(0, max);
+}
+
+function publicLead(record) {
+  return {
+    id: record.id,
+    type: record.type,
+    status: record.status,
+    name: record.name,
+    email: record.email,
+    company: record.company,
+    phone: record.phone,
+    business: record.business,
+    location: record.location,
+    budget: record.budget,
+    package: record.package,
+    message: record.message,
+    assignedAgent: record.assignedAgent,
+    createdAt: record.createdAt
+  };
+}
+
+function leadId(prefix = "lead") {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function accountId() {
+  return leadId("acct");
+}
+
+async function ensureDataRoot() {
+  await mkdir(dataRoot, { recursive: true });
+}
+
+async function readJsonStore(name, fallback) {
+  await ensureDataRoot();
+  const filePath = join(dataRoot, `${name}.json`);
+  try {
+    const raw = await readFile(filePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJsonStore(name, value) {
+  await ensureDataRoot();
+  const filePath = join(dataRoot, `${name}.json`);
+  await writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+}
+
+async function appendLead(type, payload, request) {
+  const leads = await readJsonStore("leads", []);
+  const clean = {
+    id: leadId(type),
+    type,
+    status: "new",
+    source: "website",
+    name: safeText(payload.name, 160),
+    email: safeText(payload.email, 180),
+    company: safeText(payload.company, 160),
+    phone: safeText(payload.phone, 80),
+    business: safeText(payload.business, 160),
+    location: safeText(payload.location || payload.zip || payload.address, 260),
+    budget: safeText(payload.budget, 80),
+    package: safeText(payload.package || payload.plan, 120),
+    message: safeText(payload.message || payload.notes, 2000),
+    assignedAgent: safeText(payload.assignedAgent, 80),
+    reportContext: payload.reportContext && typeof payload.reportContext === "object" ? payload.reportContext : null,
+    ip: clientIp(request),
+    userAgent: safeText(request.headers["user-agent"], 260),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  leads.unshift(clean);
+  await writeJsonStore("leads", leads.slice(0, 1000));
+  await createAgentTaskForLead(clean);
+  return clean;
+}
+
+async function createAgentTaskForLead(lead) {
+  const tasks = await readJsonStore("agent-tasks", []);
+  const agentByLeadType = {
+    contact: "sales",
+    report: "sales",
+    advisor: "customer-support"
+  };
+  const agentId = agentByLeadType[lead.type] || "product-manager";
+  const task = {
+    id: leadId("task"),
+    agentId,
+    leadId: lead.id,
+    status: "open",
+    priority: lead.type === "report" ? "high" : "normal",
+    title: lead.type === "advisor"
+      ? `Advisor follow-up: ${lead.business || "new request"}`
+      : lead.type === "report"
+        ? `Paid report request: ${lead.business || "business"}`
+        : `Lead follow-up: ${lead.name || lead.email || "website lead"}`,
+    nextAction: lead.type === "report"
+      ? "Confirm scope, collect payment, and prepare a decision report."
+      : lead.type === "advisor"
+        ? "Match the customer with an advisor and request missing details."
+        : "Qualify the lead and offer the correct AreaIntel package.",
+    createdAt: new Date().toISOString()
+  };
+  tasks.unshift(task);
+  await writeJsonStore("agent-tasks", tasks.slice(0, 1000));
+  return task;
+}
+
+function adminAuthorized(request, url) {
+  const configured = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD;
+  if (!configured) return true;
+  const headerToken = String(request.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const queryToken = String(url.searchParams.get("token") || "");
+  return headerToken === configured || queryToken === configured;
+}
+
+function checkoutUrlFor(plan) {
+  const normalized = safeText(plan, 80).toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  const specific = process.env[`STRIPE_${normalized}_PAYMENT_URL`];
+  return specific || process.env.STRIPE_REPORT_PAYMENT_URL || process.env.AREAINTEL_PAYMENT_URL || "";
+}
+
+function publicAccount(account) {
+  if (!account) return null;
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    company: account.company,
+    role: account.role,
+    plan: account.plan,
+    createdAt: account.createdAt
+  };
+}
+
+function normalizeEmail(value) {
+  return safeText(value, 180).toLowerCase();
+}
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(String(password), salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, storedHash] = String(stored || "").split(":");
+  if (!salt || !storedHash) return false;
+  const hash = scryptSync(String(password), salt, 64);
+  const storedBuffer = Buffer.from(storedHash, "hex");
+  return storedBuffer.length === hash.length && timingSafeEqual(storedBuffer, hash);
+}
+
+function sessionToken() {
+  return randomBytes(24).toString("hex");
 }
 
 // Basic in-memory rate limiter (per-IP sliding window). Good enough for a
@@ -1503,8 +1711,211 @@ createServer(async (request, response) => {
         startedAt: startedAt.toISOString(),
         uptimeSeconds: Math.round((Date.now() - startedAt.getTime()) / 1000),
         cacheEntries: responseCache.size,
+        storage: {
+          configured: true,
+          mode: process.env.AREAINTEL_DATA_DIR ? "configured-json-store" : "local-json-store"
+        },
         keyStatus: keyStatus()
       });
+      return;
+    }
+
+    if (url.pathname === "/api/pricing") {
+      sendJson(response, 200, {
+        plans: [
+          {
+            id: "single-report",
+            name: "Single Location Report",
+            price: "$149",
+            description: "One decision-ready AreaIntel report for one business and location.",
+            cta: "Request report"
+          },
+          {
+            id: "three-pack",
+            name: "3-Location Compare",
+            price: "$399",
+            description: "Compare three candidate locations or three business ideas.",
+            cta: "Start comparison"
+          },
+          {
+            id: "advisor-review",
+            name: "Advisor Review",
+            price: "$699",
+            description: "AreaIntel report plus human review of risks, conditions, and next steps.",
+            cta: "Request advisor"
+          },
+          {
+            id: "broker-pack",
+            name: "Broker / Investor Pack",
+            price: "$999",
+            description: "Ten screening reports for advisors, brokers, investors, or franchise buyers.",
+            cta: "Talk to sales"
+          }
+        ],
+        paymentConfigured: Boolean(checkoutUrlFor("single-report"))
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/signup" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      const email = normalizeEmail(body.email);
+      const password = String(body.password || "");
+      if (!email || !email.includes("@")) {
+        sendJson(response, 400, { error: "Use a valid email address." });
+        return;
+      }
+      if (password.length < 8) {
+        sendJson(response, 400, { error: "Use at least 8 characters for the password." });
+        return;
+      }
+      const accounts = await readJsonStore("accounts", []);
+      if (accounts.some((account) => account.email === email)) {
+        sendJson(response, 409, { error: "An account already exists for this email." });
+        return;
+      }
+      const account = {
+        id: accountId(),
+        name: safeText(body.name, 160),
+        email,
+        company: safeText(body.company, 160),
+        role: safeText(body.role, 120),
+        plan: "free",
+        passwordHash: hashPassword(password),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      accounts.unshift(account);
+      await writeJsonStore("accounts", accounts.slice(0, 5000));
+      const sessions = await readJsonStore("sessions", []);
+      const token = sessionToken();
+      sessions.unshift({ token, accountId: account.id, createdAt: new Date().toISOString() });
+      await writeJsonStore("sessions", sessions.slice(0, 5000));
+      sendJson(response, 200, { ok: true, account: publicAccount(account), token });
+      return;
+    }
+
+    if (url.pathname === "/api/login" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      const email = normalizeEmail(body.email);
+      const password = String(body.password || "");
+      const accounts = await readJsonStore("accounts", []);
+      const account = accounts.find((candidate) => candidate.email === email);
+      if (!account || !verifyPassword(password, account.passwordHash)) {
+        sendJson(response, 401, { error: "Email or password is incorrect." });
+        return;
+      }
+      const sessions = await readJsonStore("sessions", []);
+      const token = sessionToken();
+      sessions.unshift({ token, accountId: account.id, createdAt: new Date().toISOString() });
+      await writeJsonStore("sessions", sessions.slice(0, 5000));
+      sendJson(response, 200, { ok: true, account: publicAccount(account), token });
+      return;
+    }
+
+    if (url.pathname === "/api/contact" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      if (!safeText(body.email, 180) && !safeText(body.phone, 80)) {
+        sendJson(response, 400, { error: "Provide an email or phone so AreaIntel can follow up." });
+        return;
+      }
+      const lead = await appendLead("contact", body, request);
+      sendJson(response, 200, { ok: true, lead: publicLead(lead) });
+      return;
+    }
+
+    if (url.pathname === "/api/report-request" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      if (!safeText(body.email, 180)) {
+        sendJson(response, 400, { error: "Provide an email for the report request." });
+        return;
+      }
+      if (!safeText(body.business, 160) || !safeText(body.location || body.zip || body.address, 260)) {
+        sendJson(response, 400, { error: "Provide the business type and location." });
+        return;
+      }
+      const lead = await appendLead("report", body, request);
+      const checkoutUrl = checkoutUrlFor(body.package || body.plan || "single-report");
+      sendJson(response, 200, {
+        ok: true,
+        lead: publicLead(lead),
+        checkout: {
+          configured: Boolean(checkoutUrl),
+          url: checkoutUrl || null,
+          message: checkoutUrl
+            ? "Continue to checkout to pay for this report."
+            : "Report request saved. Add STRIPE_REPORT_PAYMENT_URL or plan-specific payment links to enable checkout."
+        }
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/advisor-request" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      if (!safeText(body.email, 180)) {
+        sendJson(response, 400, { error: "Provide an email so an advisor can follow up." });
+        return;
+      }
+      const lead = await appendLead("advisor", body, request);
+      sendJson(response, 200, {
+        ok: true,
+        lead: publicLead(lead),
+        message: "Advisor request saved. AreaIntel will use the current report context and follow up."
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/leads") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const leads = await readJsonStore("leads", []);
+      sendJson(response, 200, { leads: leads.map(publicLead) });
+      return;
+    }
+
+    if (url.pathname === "/api/agents") {
+      const tasks = await readJsonStore("agent-tasks", []);
+      sendJson(response, 200, {
+        agents: productAgents.map((agent) => ({
+          ...agent,
+          openTasks: tasks.filter((task) => task.agentId === agent.id && task.status === "open").length
+        }))
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/agent-tasks" && request.method === "POST") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const tasks = await readJsonStore("agent-tasks", []);
+      const task = {
+        id: leadId("task"),
+        agentId: safeText(body.agentId, 80) || "product-manager",
+        leadId: safeText(body.leadId, 80),
+        status: "open",
+        priority: safeText(body.priority, 40) || "normal",
+        title: safeText(body.title, 240) || "Manual AreaIntel task",
+        nextAction: safeText(body.nextAction, 1000) || "Review and take action.",
+        createdAt: new Date().toISOString()
+      };
+      tasks.unshift(task);
+      await writeJsonStore("agent-tasks", tasks.slice(0, 1000));
+      sendJson(response, 200, { ok: true, task });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/agent-tasks") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const tasks = await readJsonStore("agent-tasks", []);
+      sendJson(response, 200, { tasks, agents: productAgents });
       return;
     }
 

@@ -5141,6 +5141,214 @@ renderSaved();
 updateActionGuards();
 updateSaveButton();
 
+// --- Launch revenue / admin workflows -----------------------------------
+// These forms do not affect the report engine. They turn AreaIntel into a
+// customer-ready site: report requests, advisor requests, contact capture,
+// lead admin, and internal agent task queues.
+const launchEls = {
+  signupForm: document.querySelector("#signup-form"),
+  signupStatus: document.querySelector("#signup-status"),
+  loginForm: document.querySelector("#login-form"),
+  loginStatus: document.querySelector("#login-status"),
+  paidReportForm: document.querySelector("#paid-report-form"),
+  paidReportStatus: document.querySelector("#paid-report-status"),
+  advisorForm: document.querySelector("#advisor-form"),
+  advisorStatus: document.querySelector("#advisor-status"),
+  contactForm: document.querySelector("#contact-form"),
+  contactStatus: document.querySelector("#contact-status"),
+  agentsList: document.querySelector("#agents-list"),
+  adminForm: document.querySelector("#admin-form"),
+  adminToken: document.querySelector("#admin-token"),
+  adminLeads: document.querySelector("#admin-leads"),
+  adminTasks: document.querySelector("#admin-tasks")
+};
+
+function saveAccountSession(result) {
+  if (!result?.token || !result?.account) return;
+  try {
+    localStorage.setItem("areaIntelAccount", JSON.stringify(result.account));
+    localStorage.setItem("areaIntelSession", result.token);
+  } catch {
+    // Account access still works server-side if browser storage is unavailable.
+  }
+}
+
+function formPayload(form) {
+  const data = new FormData(form);
+  const payload = {};
+  for (const [key, value] of data.entries()) payload[key] = String(value || "").trim();
+  return payload;
+}
+
+async function postAccountForm(endpoint, form, statusEl, successCopy) {
+  if (!form || !statusEl) return;
+  statusEl.textContent = "Saving...";
+  statusEl.className = "launch-status";
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formPayload(form))
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Account request failed");
+    saveAccountSession(result);
+    statusEl.classList.add("launch-status-ok");
+    statusEl.textContent = `${successCopy} ${result.account?.email || ""}`.trim();
+    form.reset();
+  } catch (error) {
+    statusEl.classList.add("launch-status-error");
+    statusEl.textContent = error.message || "Could not complete account request.";
+  }
+}
+
+function currentReportContext() {
+  if (!state.zip) return null;
+  const profile = profileForZip(state.zip);
+  const businessResult = currentBusinessResult();
+  const recommendations = profile ? buildRecommendations(profile) : [];
+  const analysis = profile ? buildInstitutionalAnalysis(profile, recommendations) : null;
+  return {
+    business: businessDisplayName(state.business),
+    zip: state.zip,
+    address: state.location?.address || "",
+    radiusMiles: state.location?.radiusMiles || "",
+    decision: analysis?.decision || "",
+    successProbability: analysis ? clampScore(analysis.successProbability) : null,
+    confidence: analysis ? clampScore(analysis.confidenceScore) : null,
+    competition: businessResult ? {
+      count: businessResult.count,
+      saturation: elements.businessSaturation?.textContent?.trim() || ""
+    } : null
+  };
+}
+
+async function postLaunchForm(endpoint, form, statusEl, successCopy) {
+  if (!form || !statusEl) return;
+  statusEl.textContent = "Saving...";
+  statusEl.className = "launch-status";
+  try {
+    const payload = {
+      ...formPayload(form),
+      reportContext: currentReportContext()
+    };
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Request failed");
+    statusEl.classList.add("launch-status-ok");
+    if (result.checkout?.url) {
+      statusEl.innerHTML = `${escapeText(successCopy)} <a href="${escapeText(result.checkout.url)}" target="_blank" rel="noopener">Continue to checkout</a>.`;
+    } else {
+      statusEl.textContent = result.checkout?.message || result.message || successCopy;
+    }
+    form.reset();
+    await loadAgents();
+    await loadAdmin(false);
+  } catch (error) {
+    statusEl.classList.add("launch-status-error");
+    statusEl.textContent = error.message || "Could not save this request. Try again.";
+  }
+}
+
+async function loadAgents() {
+  if (!launchEls.agentsList) return;
+  try {
+    const response = await fetch("/api/agents");
+    const result = await response.json();
+    launchEls.agentsList.innerHTML = (result.agents || []).map((agent) => `
+      <article class="agent-card">
+        <span>${escapeText(agent.cadence)} agent</span>
+        <strong>${escapeText(agent.name)}</strong>
+        <p>${escapeText(agent.goal)}</p>
+        <em>${safeNumber(agent.openTasks, 0)} open task${safeNumber(agent.openTasks, 0) === 1 ? "" : "s"}</em>
+      </article>
+    `).join("");
+  } catch {
+    launchEls.agentsList.innerHTML = '<p class="launch-status launch-status-error">Agent status is unavailable right now.</p>';
+  }
+}
+
+function adminQuery() {
+  const token = launchEls.adminToken?.value?.trim();
+  return token ? `?token=${encodeURIComponent(token)}` : "";
+}
+
+async function loadAdmin(showErrors = true) {
+  if (!launchEls.adminLeads || !launchEls.adminTasks) return;
+  try {
+    const [leadsResponse, tasksResponse] = await Promise.all([
+      fetch(`/api/admin/leads${adminQuery()}`),
+      fetch(`/api/admin/agent-tasks${adminQuery()}`)
+    ]);
+    if (!leadsResponse.ok || !tasksResponse.ok) throw new Error("Admin token required or admin API unavailable.");
+    const [leadsResult, tasksResult] = await Promise.all([leadsResponse.json(), tasksResponse.json()]);
+    const leads = leadsResult.leads || [];
+    const tasks = tasksResult.tasks || [];
+    launchEls.adminLeads.innerHTML = leads.length ? leads.slice(0, 20).map((lead) => `
+      <div class="admin-row">
+        <strong>${escapeText(lead.name || lead.email || "New lead")}</strong>
+        <span>${escapeText(lead.type)} · ${escapeText(lead.business || "No business")} · ${escapeText(lead.location || "No location")}</span>
+        <small>${escapeText(lead.email || lead.phone || "No contact")} · ${new Date(lead.createdAt).toLocaleString()}</small>
+      </div>
+    `).join("") : '<p class="launch-status">No leads yet.</p>';
+    launchEls.adminTasks.innerHTML = tasks.length ? tasks.slice(0, 30).map((task) => `
+      <div class="admin-row">
+        <strong>${escapeText(task.title)}</strong>
+        <span>${escapeText(task.agentId)} · ${escapeText(task.priority)} priority</span>
+        <small>${escapeText(task.nextAction)}</small>
+      </div>
+    `).join("") : '<p class="launch-status">No agent tasks yet.</p>';
+  } catch (error) {
+    if (showErrors) {
+      launchEls.adminLeads.innerHTML = `<p class="launch-status launch-status-error">${escapeText(error.message)}</p>`;
+      launchEls.adminTasks.innerHTML = "";
+    }
+  }
+}
+
+document.querySelectorAll(".launch-scroll").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelector(button.dataset.scroll)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+launchEls.paidReportForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/report-request", launchEls.paidReportForm, launchEls.paidReportStatus, "Report request saved.");
+});
+
+launchEls.signupForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postAccountForm("/api/signup", launchEls.signupForm, launchEls.signupStatus, "Account created for");
+});
+
+launchEls.loginForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postAccountForm("/api/login", launchEls.loginForm, launchEls.loginStatus, "Signed in as");
+});
+
+launchEls.advisorForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/advisor-request", launchEls.advisorForm, launchEls.advisorStatus, "Advisor request saved.");
+});
+
+launchEls.contactForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postLaunchForm("/api/contact", launchEls.contactForm, launchEls.contactStatus, "Message saved. AreaIntel will follow up.");
+});
+
+launchEls.adminForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadAdmin(true);
+});
+
+loadAgents();
+loadAdmin(false);
+
 if (!applyUrlState()) {
   elements.startScreen.hidden = false;
   elements.results.hidden = true;

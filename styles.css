@@ -3299,6 +3299,225 @@ body.assistant-open .assistant-toggle { display: none; }
 
 .form-message-warn { color: #9a5b09 !important; font-weight: 700; }
 
+/* Launch/revenue sections
+   ========================================================================== */
+.launch-section {
+  margin-top: 28px;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid rgba(11, 28, 46, 0.11);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 22px 70px rgba(13, 34, 52, 0.1);
+}
+
+.launch-section-header {
+  max-width: 780px;
+  margin-bottom: 18px;
+}
+
+.launch-section-header h3 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.55rem, 3vw, 2.45rem);
+  letter-spacing: -0.03em;
+  color: #101923;
+}
+
+.launch-section-header p {
+  margin: 0;
+  color: #5d6b77;
+  line-height: 1.55;
+}
+
+.pricing-grid,
+.advisor-grid,
+.agents-grid,
+.admin-grid,
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.pricing-card,
+.advisor-grid article,
+.agent-card,
+.admin-grid article,
+.account-grid form {
+  border: 1px solid rgba(14, 42, 64, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f7fbfc);
+  padding: 18px;
+  box-shadow: 0 14px 34px rgba(13, 34, 52, 0.08);
+}
+
+.pricing-card-featured {
+  border-color: rgba(14, 116, 144, 0.34);
+  background: linear-gradient(180deg, #f0fcfb, #ffffff);
+}
+
+.pricing-card span,
+.agent-card span {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 10px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e7f7f5;
+  color: #0f766e;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pricing-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 2rem;
+  color: #0b1c2e;
+  letter-spacing: -0.04em;
+}
+
+.pricing-card h4,
+.advisor-grid strong,
+.agent-card strong,
+.admin-grid h4,
+.account-grid strong {
+  display: block;
+  margin: 0 0 8px;
+  color: #101923;
+  font-size: 1.05rem;
+}
+
+.pricing-card p,
+.advisor-grid p,
+.agent-card p {
+  margin: 0 0 16px;
+  color: #5d6b77;
+  line-height: 1.5;
+}
+
+.pricing-card button,
+.launch-form button,
+.admin-token-row button {
+  border: none;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #128099, #0f766e);
+  color: #ffffff;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(14, 116, 144, 0.24);
+}
+
+.pricing-card button {
+  width: 100%;
+  padding: 12px 14px;
+}
+
+.launch-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compact-launch-form { margin-top: 16px; }
+
+.launch-form input,
+.launch-form select,
+.launch-form textarea,
+.admin-token-row input {
+  width: 100%;
+  border: 1px solid rgba(11, 28, 46, 0.16);
+  border-radius: 13px;
+  background: #ffffff;
+  padding: 12px 13px;
+  color: #10202f;
+  font: inherit;
+}
+
+.launch-form textarea {
+  min-height: 112px;
+  grid-column: 1 / -1;
+  resize: vertical;
+}
+
+.launch-form button {
+  grid-column: 1 / -1;
+  padding: 13px 16px;
+}
+
+.launch-status {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #5d6b77;
+  font-weight: 700;
+}
+
+.launch-status a { color: #0e7490; }
+.launch-status-ok { color: #0f766e; }
+.launch-status-error { color: #a33b2f; }
+
+.agent-card em {
+  display: inline-flex;
+  font-style: normal;
+  font-weight: 850;
+  color: #0e7490;
+}
+
+.admin-token-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admin-token-row input { flex: 1; }
+.admin-token-row button { padding: 0 18px; }
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-row {
+  padding: 12px;
+  border: 1px solid rgba(11, 28, 46, 0.09);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.admin-row strong,
+.admin-row span,
+.admin-row small {
+  display: block;
+}
+
+.admin-row span {
+  margin-top: 4px;
+  color: #52616f;
+}
+
+.admin-row small {
+  margin-top: 6px;
+  color: #7b8995;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .launch-form,
+  .admin-grid,
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-token-row {
+    flex-direction: column;
+  }
+
+  .admin-token-row button {
+    min-height: 46px;
+  }
+}
+
 /* Design system: 5-state status atom + extended pill/chip tones
    ========================================================================== */
 .status {
