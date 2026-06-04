@@ -1196,6 +1196,13 @@ function renderMarketMap() {
       try {
         elements.map.classList.remove("map-fallback");
         elements.map.innerHTML = "";
+        if (elements.map._leaflet_id) {
+          try {
+            delete elements.map._leaflet_id;
+          } catch {
+            elements.map._leaflet_id = undefined;
+          }
+        }
         marketMap = L.map(elements.map, { scrollWheelZoom: false });
         const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
