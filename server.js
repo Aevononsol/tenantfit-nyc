@@ -394,7 +394,7 @@ async function createAgentTaskForLead(lead) {
 
 function adminAuthorized(request, url) {
   const configured = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD;
-  if (!configured) return true;
+  if (!configured) return false;
   const headerToken = String(request.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const queryToken = String(url.searchParams.get("token") || "");
   return headerToken === configured || queryToken === configured;
