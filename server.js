@@ -357,39 +357,95 @@ async function appendLead(type, payload, request) {
   };
   leads.unshift(clean);
   await writeJsonStore("leads", leads.slice(0, 1000));
-  await createAgentTaskForLead(clean);
+  await createAgentTasksForLead(clean);
   return clean;
 }
 
-async function createAgentTaskForLead(lead) {
+function leadMatches(lead, words) {
+  const haystack = [
+    lead.type,
+    lead.name,
+    lead.email,
+    lead.company,
+    lead.business,
+    lead.location,
+    lead.package,
+    lead.message
+  ].join(" ").toLowerCase();
+  return words.some((word) => haystack.includes(word));
+}
+
+function agentTaskTemplatesForLead(lead) {
+  const label = lead.business || lead.location || lead.email || "new AreaIntel lead";
+  const tasks = [
+    {
+      agentId: "product-manager",
+      priority: "normal",
+      title: `Review product signal: ${label}`,
+      nextAction: "Classify this lead by revenue potential, friction, and any product gap it reveals."
+    },
+    {
+      agentId: "sales",
+      priority: lead.type === "report" ? "high" : "normal",
+      title: lead.type === "report" ? `Convert paid report request: ${label}` : `Qualify commercial lead: ${label}`,
+      nextAction: lead.type === "report"
+        ? "Confirm the report scope, payment path, business type, and location before delivery."
+        : "Qualify the buyer, identify the right package, and prepare follow-up outreach."
+    },
+    {
+      agentId: "customer-support",
+      priority: lead.type === "advisor" ? "high" : "normal",
+      title: lead.type === "advisor" ? `Consultation request intake: ${label}` : `Customer onboarding follow-up: ${label}`,
+      nextAction: "Answer questions, collect missing details, and turn confusion into a clear support note."
+    }
+  ];
+
+  if (lead.type === "report" || lead.type === "advisor" || lead.location || lead.business) {
+    tasks.push({
+      agentId: "data-research",
+      priority: lead.type === "report" ? "high" : "normal",
+      title: `Research readiness check: ${label}`,
+      nextAction: "Review the location, business type, data confidence, missing signals, and source gaps before a customer-facing report is finalized."
+    });
+  }
+
+  if (lead.type === "report" || lead.type === "advisor") {
+    tasks.push({
+      agentId: "marketing",
+      priority: "normal",
+      title: `Launch story opportunity: ${label}`,
+      nextAction: "If this request converts, prepare an anonymized case-study angle or outreach lesson without exposing customer details."
+    });
+  }
+
+  if (
+    lead.type === "report" ||
+    leadMatches(lead, ["bug", "broken", "error", "not working", "slow", "map", "mobile", "api", "payment", "login"])
+  ) {
+    tasks.push({
+      agentId: "software-engineer",
+      priority: leadMatches(lead, ["bug", "broken", "error", "not working", "payment", "login"]) ? "high" : "normal",
+      title: `Technical QA follow-up: ${label}`,
+      nextAction: "Check whether this lead exposes a product bug, broken flow, deployment issue, or report-generation reliability problem."
+    });
+  }
+
+  return tasks;
+}
+
+async function createAgentTasksForLead(lead) {
   const tasks = await readJsonStore("agent-tasks", []);
-  const agentByLeadType = {
-    contact: "sales",
-    report: "sales",
-    advisor: "customer-support"
-  };
-  const agentId = agentByLeadType[lead.type] || "product-manager";
-  const task = {
+  const createdAt = new Date().toISOString();
+  const newTasks = agentTaskTemplatesForLead(lead).map((task) => ({
     id: leadId("task"),
-    agentId,
     leadId: lead.id,
     status: "open",
-    priority: lead.type === "report" ? "high" : "normal",
-    title: lead.type === "advisor"
-      ? `Consultation waitlist follow-up: ${lead.business || "new request"}`
-      : lead.type === "report"
-        ? `Paid report request: ${lead.business || "business"}`
-        : `Lead follow-up: ${lead.name || lead.email || "website lead"}`,
-    nextAction: lead.type === "report"
-      ? "Confirm scope, collect payment, and prepare a decision report."
-      : lead.type === "advisor"
-        ? "Qualify the consultation request and request missing details."
-        : "Qualify the lead and offer the correct AreaIntel package.",
-    createdAt: new Date().toISOString()
-  };
-  tasks.unshift(task);
+    createdAt,
+    ...task
+  }));
+  tasks.unshift(...newTasks);
   await writeJsonStore("agent-tasks", tasks.slice(0, 1000));
-  return task;
+  return newTasks;
 }
 
 function adminAuthorized(request, url) {
@@ -1671,7 +1727,7 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
 }
 
 async function sendFile(response, pathname) {
-  const requested = pathname === "/" ? "index.html" : pathname.slice(1);
+  const requested = pathname === "/" ? "index.html" : pathname === "/admin" ? "admin.html" : pathname.slice(1);
   const normalized = normalize(requested);
 
   if (normalized.startsWith("..") || normalized.includes("/.env")) {
@@ -1875,7 +1931,11 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (url.pathname === "/api/agents") {
+    if (url.pathname === "/api/admin/agents" || url.pathname === "/api/agents") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
       const tasks = await readJsonStore("agent-tasks", []);
       sendJson(response, 200, {
         agents: productAgents.map((agent) => ({

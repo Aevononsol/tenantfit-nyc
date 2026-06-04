@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AreaIntel Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-page">
+    <main class="admin-shell">
+      <header class="admin-hero">
+        <a href="/" class="admin-home-link">AreaIntel</a>
+        <div>
+          <p class="section-label">Internal operations</p>
+          <h1>Admin control center</h1>
+          <p>Private workspace for leads, agent tasks, internal operations, and launch controls.</p>
+        </div>
+      </header>
+
+      <section class="launch-section admin-auth-panel">
+        <div class="launch-section-header">
+          <p class="section-label">Admin access</p>
+          <h3>Load protected operations</h3>
+          <p>Enter the admin token configured in the hosting environment. This page is not part of the public AreaIntel product experience.</p>
+        </div>
+        <form id="admin-auth-form" class="admin-token-row">
+          <input id="admin-token" type="password" placeholder="Admin token" autocomplete="current-password" required />
+          <button type="submit">Load admin</button>
+        </form>
+        <p id="admin-status" class="launch-status" role="status"></p>
+      </section>
+
+      <section class="launch-section">
+        <div class="launch-section-header">
+          <p class="section-label">Leads</p>
+          <h3>Lead queue</h3>
+          <p>Report requests, consultation requests, and contact form submissions.</p>
+        </div>
+        <div id="admin-leads" class="admin-list">
+          <p class="launch-status">Enter admin token to load leads.</p>
+        </div>
+      </section>
+
+      <section class="launch-section">
+        <div class="launch-section-header">
+          <p class="section-label">Agent tasks</p>
+          <h3>Agent tasks</h3>
+          <p>Operational tasks generated from customer requests and manual owner follow-ups.</p>
+        </div>
+        <div id="admin-tasks" class="admin-list">
+          <p class="launch-status">Enter admin token to load agent tasks.</p>
+        </div>
+      </section>
+
+      <section class="launch-section">
+        <div class="launch-section-header">
+          <p class="section-label">Internal agents</p>
+          <h3>Launch operating system</h3>
+          <p>Internal roles used by the owner team. These are hidden from normal users.</p>
+        </div>
+        <div id="admin-agents" class="agents-grid" aria-live="polite">
+          <p class="launch-status">Enter admin token to load agents.</p>
+        </div>
+      </section>
+
+      <section class="launch-section">
+        <div class="launch-section-header">
+          <p class="section-label">Admin controls</p>
+          <h3>Create manual task</h3>
+          <p>Add an internal follow-up task without exposing any admin tooling to public users.</p>
+        </div>
+        <form id="admin-task-form" class="launch-form">
+          <select name="agentId" aria-label="Agent">
+            <option value="product-manager">Product Manager Agent</option>
+            <option value="software-engineer">Software Engineer Agent</option>
+            <option value="data-research">Data Research Agent</option>
+            <option value="sales">Sales Agent</option>
+            <option value="customer-support">Customer Support Agent</option>
+            <option value="marketing">Marketing Agent</option>
+          </select>
+          <select name="priority" aria-label="Priority">
+            <option value="normal">Normal priority</option>
+            <option value="high">High priority</option>
+            <option value="urgent">Urgent</option>
+            <option value="low">Low priority</option>
+          </select>
+          <input name="title" placeholder="Task title" required />
+          <input name="leadId" placeholder="Lead ID optional" />
+          <textarea name="nextAction" placeholder="Next action"></textarea>
+          <button type="submit">Create internal task</button>
+        </form>
+        <p id="admin-task-status" class="launch-status" role="status"></p>
+      </section>
+    </main>
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>

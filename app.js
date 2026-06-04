@@ -5238,8 +5238,7 @@ updateSaveButton();
 
 // --- Launch revenue / admin workflows -----------------------------------
 // These forms do not affect the report engine. They turn AreaIntel into a
-// customer-ready site: report requests, advisor requests, contact capture,
-// lead admin, and internal agent task queues.
+// customer-ready site: report requests, consultation requests, and contact capture.
 const launchEls = {
   signupForm: document.querySelector("#signup-form"),
   signupStatus: document.querySelector("#signup-status"),
@@ -5250,12 +5249,7 @@ const launchEls = {
   advisorForm: document.querySelector("#advisor-form"),
   advisorStatus: document.querySelector("#advisor-status"),
   contactForm: document.querySelector("#contact-form"),
-  contactStatus: document.querySelector("#contact-status"),
-  agentsList: document.querySelector("#agents-list"),
-  adminForm: document.querySelector("#admin-form"),
-  adminToken: document.querySelector("#admin-token"),
-  adminLeads: document.querySelector("#admin-leads"),
-  adminTasks: document.querySelector("#admin-tasks")
+  contactStatus: document.querySelector("#contact-status")
 };
 
 function saveAccountSession(result) {
@@ -5341,74 +5335,9 @@ async function postLaunchForm(endpoint, form, statusEl, successCopy) {
       statusEl.textContent = result.checkout?.message || result.message || successCopy;
     }
     form.reset();
-    await loadAgents();
-    await loadAdmin(false);
   } catch (error) {
     statusEl.classList.add("launch-status-error");
     statusEl.textContent = error.message || "Could not save this request. Try again.";
-  }
-}
-
-async function loadAgents() {
-  if (!launchEls.agentsList) return;
-  try {
-    const response = await fetch("/api/agents");
-    const result = await response.json();
-    launchEls.agentsList.innerHTML = (result.agents || []).map((agent) => `
-      <article class="agent-card">
-        <span>${escapeText(agent.cadence)} agent</span>
-        <strong>${escapeText(agent.name)}</strong>
-        <p>${escapeText(agent.goal)}</p>
-        <em>${safeNumber(agent.openTasks, 0)} open task${safeNumber(agent.openTasks, 0) === 1 ? "" : "s"}</em>
-      </article>
-    `).join("");
-  } catch {
-    launchEls.agentsList.innerHTML = '<p class="launch-status launch-status-error">Agent status is unavailable right now.</p>';
-  }
-}
-
-function adminQuery() {
-  const token = launchEls.adminToken?.value?.trim();
-  return token ? `?token=${encodeURIComponent(token)}` : "";
-}
-
-async function loadAdmin(showErrors = true) {
-  if (!launchEls.adminLeads || !launchEls.adminTasks) return;
-  if (!adminQuery()) {
-    if (showErrors) {
-      launchEls.adminLeads.innerHTML = '<p class="launch-status launch-status-error">Enter the admin token first.</p>';
-      launchEls.adminTasks.innerHTML = "";
-    }
-    return;
-  }
-  try {
-    const [leadsResponse, tasksResponse] = await Promise.all([
-      fetch(`/api/admin/leads${adminQuery()}`),
-      fetch(`/api/admin/agent-tasks${adminQuery()}`)
-    ]);
-    if (!leadsResponse.ok || !tasksResponse.ok) throw new Error("Admin token required or admin API unavailable.");
-    const [leadsResult, tasksResult] = await Promise.all([leadsResponse.json(), tasksResponse.json()]);
-    const leads = leadsResult.leads || [];
-    const tasks = tasksResult.tasks || [];
-    launchEls.adminLeads.innerHTML = leads.length ? leads.slice(0, 20).map((lead) => `
-      <div class="admin-row">
-        <strong>${escapeText(lead.name || lead.email || "New lead")}</strong>
-        <span>${escapeText(lead.type)} · ${escapeText(lead.business || "No business")} · ${escapeText(lead.location || "No location")}</span>
-        <small>${escapeText(lead.email || lead.phone || "No contact")} · ${new Date(lead.createdAt).toLocaleString()}</small>
-      </div>
-    `).join("") : '<p class="launch-status">No leads yet.</p>';
-    launchEls.adminTasks.innerHTML = tasks.length ? tasks.slice(0, 30).map((task) => `
-      <div class="admin-row">
-        <strong>${escapeText(task.title)}</strong>
-        <span>${escapeText(task.agentId)} · ${escapeText(task.priority)} priority</span>
-        <small>${escapeText(task.nextAction)}</small>
-      </div>
-    `).join("") : '<p class="launch-status">No agent tasks yet.</p>';
-  } catch (error) {
-    if (showErrors) {
-      launchEls.adminLeads.innerHTML = `<p class="launch-status launch-status-error">${escapeText(error.message)}</p>`;
-      launchEls.adminTasks.innerHTML = "";
-    }
   }
 }
 
@@ -5442,14 +5371,6 @@ launchEls.contactForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   postLaunchForm("/api/contact", launchEls.contactForm, launchEls.contactStatus, "Message saved. AreaIntel will follow up.");
 });
-
-launchEls.adminForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  loadAdmin(true);
-});
-
-loadAgents();
-loadAdmin(false);
 
 if (!applyUrlState()) {
   elements.startScreen.hidden = false;
