@@ -659,7 +659,8 @@ async function runAgentTasks(options = {}) {
 }
 
 function startAgentAutopilot() {
-  const enabled = /^(1|true|yes)$/i.test(String(process.env.AREAINTEL_AGENT_AUTORUN || process.env.AGENT_AUTORUN || ""));
+  const setting = String(process.env.AREAINTEL_AGENT_AUTORUN || process.env.AGENT_AUTORUN || "true");
+  const enabled = !/^(0|false|no|off)$/i.test(setting);
   if (!enabled) return;
   const minutes = Math.max(5, Math.min(Number(process.env.AGENT_AUTORUN_INTERVAL_MINUTES || 15) || 15, 120));
   const interval = setInterval(() => {
