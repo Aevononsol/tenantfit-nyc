@@ -4,7 +4,10 @@ const adminEls = {
   status: document.querySelector("#admin-status"),
   leads: document.querySelector("#admin-leads"),
   tasks: document.querySelector("#admin-tasks"),
+  runs: document.querySelector("#admin-runs"),
   agents: document.querySelector("#admin-agents"),
+  runButton: document.querySelector("#admin-run-agents"),
+  runStatus: document.querySelector("#admin-run-status"),
   taskForm: document.querySelector("#admin-task-form"),
   taskStatus: document.querySelector("#admin-task-status")
 };
@@ -36,6 +39,17 @@ async function getJson(path) {
   return result;
 }
 
+async function postJson(path, payload = {}) {
+  const response = await fetch(`${path}${tokenQuery()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Admin request failed.");
+  return result;
+}
+
 function renderLeads(leads) {
   if (!adminEls.leads) return;
   adminEls.leads.innerHTML = leads.length ? leads.slice(0, 50).map((lead) => `
@@ -54,8 +68,24 @@ function renderTasks(tasks) {
       <strong>${escapeText(task.title || "Internal task")}</strong>
       <span>${escapeText(task.agentId || "agent")} · ${escapeText(task.priority || "normal")} priority · ${escapeText(task.status || "open")}</span>
       <small>${escapeText(task.nextAction || "Review and take action.")}</small>
+      ${task.outputSummary ? `<small><strong>Output:</strong> ${escapeText(task.outputSummary)}</small>` : ""}
     </div>
   `).join("") : '<p class="launch-status">No agent tasks yet.</p>';
+}
+
+function renderRuns(runs) {
+  if (!adminEls.runs) return;
+  adminEls.runs.innerHTML = runs.length ? runs.slice(0, 60).map((run) => {
+    const actions = Array.isArray(run.actions) ? run.actions.slice(0, 3) : [];
+    return `
+      <div class="admin-row">
+        <strong>${escapeText(run.agentName || run.agentId || "AreaIntel agent")}</strong>
+        <span>${escapeText(run.summary || "Agent work completed.")}</span>
+        ${actions.length ? `<small>${actions.map((action) => `• ${escapeText(action)}`).join("<br>")}</small>` : ""}
+        <small>${run.createdAt ? new Date(run.createdAt).toLocaleString() : "No timestamp"}</small>
+      </div>
+    `;
+  }).join("") : '<p class="launch-status">No agent output yet. Run agents after tasks are created.</p>';
 }
 
 function renderAgents(agents) {
@@ -80,14 +110,16 @@ async function loadAdmin() {
   setStatus("Loading admin operations...");
 
   try {
-    const [leadsResult, tasksResult, agentsResult] = await Promise.all([
+    const [leadsResult, tasksResult, agentsResult, runsResult] = await Promise.all([
       getJson("/api/admin/leads"),
       getJson("/api/admin/agent-tasks"),
-      getJson("/api/admin/agents")
+      getJson("/api/admin/agents"),
+      getJson("/api/admin/agent-runs")
     ]);
     renderLeads(leadsResult.leads || []);
     renderTasks(tasksResult.tasks || []);
     renderAgents(agentsResult.agents || []);
+    renderRuns(runsResult.runs || []);
     setStatus("Admin operations loaded.", "launch-status-ok");
   } catch (error) {
     setStatus(error.message || "Could not load admin operations.", "launch-status-error");
@@ -106,6 +138,32 @@ adminEls.form?.addEventListener("submit", (event) => {
   loadAdmin();
 });
 
+adminEls.runButton?.addEventListener("click", async () => {
+  if (!tokenQuery()) {
+    adminEls.runStatus.textContent = "Enter the admin token first.";
+    adminEls.runStatus.className = "launch-status launch-status-error";
+    return;
+  }
+
+  adminEls.runStatus.textContent = "Running agents...";
+  adminEls.runStatus.className = "launch-status";
+  adminEls.runButton.disabled = true;
+
+  try {
+    const result = await postJson("/api/admin/agents/run", { limit: 12 });
+    adminEls.runStatus.className = "launch-status launch-status-ok";
+    adminEls.runStatus.textContent = result.processed
+      ? `${result.processed} agent task${result.processed === 1 ? "" : "s"} completed.`
+      : "No open agent tasks to run.";
+    await loadAdmin();
+  } catch (error) {
+    adminEls.runStatus.className = "launch-status launch-status-error";
+    adminEls.runStatus.textContent = error.message || "Could not run agents.";
+  } finally {
+    adminEls.runButton.disabled = false;
+  }
+});
+
 adminEls.taskForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!tokenQuery()) {
@@ -118,13 +176,7 @@ adminEls.taskForm?.addEventListener("submit", async (event) => {
   adminEls.taskStatus.className = "launch-status";
 
   try {
-    const response = await fetch(`/api/admin/agent-tasks${tokenQuery()}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formPayload(adminEls.taskForm))
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || "Could not create task.");
+    await postJson("/api/admin/agent-tasks", formPayload(adminEls.taskForm));
     adminEls.taskStatus.className = "launch-status launch-status-ok";
     adminEls.taskStatus.textContent = "Internal task created.";
     adminEls.taskForm.reset();

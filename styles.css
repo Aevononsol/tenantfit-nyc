@@ -109,6 +109,20 @@
   gap: 10px;
 }
 
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-actions button {
+  width: fit-content;
+  min-height: 42px;
+  padding: 0 18px;
+}
+
 .admin-row {
   display: grid;
   gap: 6px;

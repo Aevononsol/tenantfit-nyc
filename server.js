@@ -448,6 +448,229 @@ async function createAgentTasksForLead(lead) {
   return newTasks;
 }
 
+function agentForTask(task) {
+  return productAgents.find((agent) => agent.id === task.agentId) || productAgents[0];
+}
+
+function leadForTask(task, leads) {
+  return leads.find((lead) => lead.id === task.leadId) || null;
+}
+
+function compactLeadContext(lead) {
+  if (!lead) return "No lead context attached";
+  const parts = [
+    lead.type ? `${lead.type} lead` : "lead",
+    lead.business ? `business: ${lead.business}` : "",
+    lead.location ? `location: ${lead.location}` : "",
+    lead.package ? `package: ${lead.package}` : "",
+    lead.email ? `contact: ${lead.email}` : ""
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function leadRevenueSignal(lead) {
+  if (!lead) return "unknown";
+  const haystack = `${lead.type} ${lead.package} ${lead.budget} ${lead.message}`.toLowerCase();
+  if (lead.type === "report" || haystack.includes("29") || haystack.includes("compare") || haystack.includes("paid")) return "high";
+  if (lead.type === "advisor" || haystack.includes("consult") || haystack.includes("team")) return "medium";
+  return "early";
+}
+
+function agentRunPayload(task, lead) {
+  const agent = agentForTask(task);
+  const context = compactLeadContext(lead);
+  const revenueSignal = leadRevenueSignal(lead);
+  const taskTitle = task.title || "AreaIntel internal task";
+  const nextAction = task.nextAction || "Review and take action.";
+
+  const common = {
+    taskTitle,
+    context,
+    input: nextAction,
+    revenueSignal
+  };
+
+  if (agent.id === "product-manager") {
+    return {
+      summary: `Prioritized ${revenueSignal} product signal for ${context}.`,
+      actions: [
+        "Classify whether this request maps to Free Demo, Full Report, Compare, or Consultation flow.",
+        "Check if the request reveals confusion in onboarding, pricing, report trust, or market-fit language.",
+        "Turn repeated friction into one scoped engineering or copy task."
+      ],
+      output: {
+        ...common,
+        decision: revenueSignal === "high" ? "Prioritize for revenue validation" : "Track as learning signal",
+        ownerNote: "Keep roadmap focused on paid report conversion, trust clarity, and report reliability."
+      }
+    };
+  }
+
+  if (agent.id === "software-engineer") {
+    return {
+      summary: `QA triage completed for ${context}.`,
+      actions: [
+        "Check for broken public flow, console error, slow API response, mobile layout issue, or payment/signup issue.",
+        "Confirm the defect is reproducible before changing production code.",
+        "Record exact page, input, and expected behavior if a fix is needed."
+      ],
+      output: {
+        ...common,
+        decision: /bug|broken|error|not working|slow|map|payment|login/i.test(`${taskTitle} ${nextAction}`)
+          ? "Create engineering fix ticket"
+          : "Monitor unless repeated",
+        ownerNote: "Do not redesign while triaging reliability defects."
+      }
+    };
+  }
+
+  if (agent.id === "data-research") {
+    return {
+      summary: `Research gap review completed for ${context}.`,
+      actions: [
+        "Check whether demographics, competition, mobility, risk, and consumer demand signals are present.",
+        "Flag any section that relies on modeled estimates instead of live connected signals.",
+        "Recommend the next data upgrade only if it improves paid report trust."
+      ],
+      output: {
+        ...common,
+        decision: lead?.location || lead?.business ? "Ready for report evidence review" : "Needs business and location",
+        ownerNote: "Foot traffic remains modeled unless a licensed mobility provider or customer-provided source is added."
+      }
+    };
+  }
+
+  if (agent.id === "sales") {
+    return {
+      summary: `Sales qualification prepared for ${context}.`,
+      actions: [
+        "Identify buyer type: owner, broker, franchise buyer, landlord, or investor.",
+        "Recommend the lowest-friction next offer: Free Demo, $9 Full Report, $29 Compare, or consultation waitlist.",
+        "Draft a short follow-up focused on one business decision, not dashboard features."
+      ],
+      output: {
+        ...common,
+        decision: revenueSignal === "high" ? "Follow up within 24 hours" : "Nurture with sample report",
+        outreachDraft: `Thanks for checking out AreaIntel. I can help turn this into a clear open / conditional / do not open decision for ${lead?.business || "the business"} in ${lead?.location || "the area"}.`
+      }
+    };
+  }
+
+  if (agent.id === "customer-support") {
+    return {
+      summary: `Support response prepared for ${context}.`,
+      actions: [
+        "Explain what AreaIntel can and cannot verify.",
+        "Collect missing business type, exact address, budget, and timing.",
+        "Route product bugs to engineering and buying questions to sales."
+      ],
+      output: {
+        ...common,
+        decision: "Prepare clear onboarding reply",
+        supportDraft: "AreaIntel gives a business decision using connected market signals and clearly labels unknowns. For the best result, use an exact address plus the exact business concept."
+      }
+    };
+  }
+
+  if (agent.id === "marketing") {
+    return {
+      summary: `Marketing angle created for ${context}.`,
+      actions: [
+        "Create anonymized content only; never expose customer identity or private report details.",
+        "Frame the story around a decision: open, conditional, or do not open.",
+        "Use practical operator language and avoid technical source names."
+      ],
+      output: {
+        ...common,
+        decision: "Save as future case-study candidate",
+        contentAngle: `How a ${lead?.business || "business"} operator can use AreaIntel before choosing ${lead?.location || "a location"}.`
+      }
+    };
+  }
+
+  return {
+    summary: `Agent processed ${context}.`,
+    actions: [nextAction],
+    output: common
+  };
+}
+
+async function runAgentTasks(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit || 6) || 6, 25));
+  const agentId = safeText(options.agentId, 80);
+  const taskId = safeText(options.taskId, 80);
+  const tasks = await readJsonStore("agent-tasks", []);
+  const leads = await readJsonStore("leads", []);
+  const previousRuns = await readJsonStore("agent-runs", []);
+  const now = new Date().toISOString();
+  const candidates = tasks
+    .filter((task) => (task.status || "open") === "open")
+    .filter((task) => !agentId || task.agentId === agentId)
+    .filter((task) => !taskId || task.id === taskId)
+    .slice(0, limit);
+
+  const runs = candidates.map((task) => {
+    const lead = leadForTask(task, leads);
+    const payload = agentRunPayload(task, lead);
+    return {
+      id: leadId("run"),
+      taskId: task.id,
+      leadId: task.leadId || "",
+      agentId: task.agentId,
+      agentName: agentForTask(task).name,
+      status: "completed",
+      summary: payload.summary,
+      actions: payload.actions,
+      output: payload.output,
+      createdAt: now
+    };
+  });
+
+  if (!runs.length) {
+    return {
+      processed: 0,
+      runs: [],
+      remainingOpen: tasks.filter((task) => (task.status || "open") === "open").length
+    };
+  }
+
+  const runByTask = new Map(runs.map((run) => [run.taskId, run]));
+  const updatedTasks = tasks.map((task) => {
+    const run = runByTask.get(task.id);
+    if (!run) return task;
+    return {
+      ...task,
+      status: "completed",
+      lastRunAt: now,
+      completedAt: now,
+      resultId: run.id,
+      outputSummary: run.summary
+    };
+  });
+
+  await writeJsonStore("agent-tasks", updatedTasks.slice(0, 1000));
+  await writeJsonStore("agent-runs", [...runs, ...previousRuns].slice(0, 1000));
+
+  return {
+    processed: runs.length,
+    runs,
+    remainingOpen: updatedTasks.filter((task) => (task.status || "open") === "open").length
+  };
+}
+
+function startAgentAutopilot() {
+  const enabled = /^(1|true|yes)$/i.test(String(process.env.AREAINTEL_AGENT_AUTORUN || process.env.AGENT_AUTORUN || ""));
+  if (!enabled) return;
+  const minutes = Math.max(5, Math.min(Number(process.env.AGENT_AUTORUN_INTERVAL_MINUTES || 15) || 15, 120));
+  const interval = setInterval(() => {
+    runAgentTasks({ limit: 12 }).catch((error) => {
+      console.error(`[AreaIntel] agent autorun error: ${error.message}`);
+    });
+  }, minutes * 60_000);
+  interval.unref?.();
+  console.log(`AreaIntel agent autorun enabled every ${minutes} minutes`);
+}
+
 function adminAuthorized(request, url) {
   const configured = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD;
   if (!configured) return false;
@@ -1750,6 +1973,7 @@ async function sendFile(response, pathname) {
 }
 
 loadEnv();
+startAgentAutopilot();
 
 createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
@@ -1966,6 +2190,31 @@ createServer(async (request, response) => {
       tasks.unshift(task);
       await writeJsonStore("agent-tasks", tasks.slice(0, 1000));
       sendJson(response, 200, { ok: true, task });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/agents/run" && request.method === "POST") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const result = await runAgentTasks({
+        agentId: body.agentId,
+        taskId: body.taskId,
+        limit: body.limit
+      });
+      sendJson(response, 200, { ok: true, ...result });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/agent-runs") {
+      if (!adminAuthorized(request, url)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const runs = await readJsonStore("agent-runs", []);
+      sendJson(response, 200, { runs: runs.slice(0, 100) });
       return;
     }
 
