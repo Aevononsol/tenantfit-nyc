@@ -1616,12 +1616,14 @@ function showBusinessSuggestions(options = {}) {
     .join("");
   elements.businessSuggestions.hidden = false;
   elements.businessInput?.setAttribute("aria-expanded", "true");
+  document.body.classList.add("business-picker-open");
 }
 
 function hideBusinessSuggestions() {
   if (!elements.businessSuggestions) return;
   elements.businessSuggestions.hidden = true;
   elements.businessInput?.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("business-picker-open");
 }
 
 function selectBusinessSuggestion(value) {
@@ -4140,6 +4142,7 @@ function render(zip, options = {}) {
 
   state.zip = zip;
   state.mapRetryCount = 0;
+  document.body.classList.remove("landing-mode");
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
   elements.input.value = zip;
@@ -5191,6 +5194,7 @@ function newSearch() {
   try { history.replaceState(null, "", `${location.origin}${location.pathname}`); } catch { /* ignore */ }
   elements.results.hidden = true;
   elements.startScreen.hidden = false;
+  document.body.classList.add("landing-mode");
   elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -5347,6 +5351,15 @@ document.querySelectorAll(".launch-scroll").forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-start-analysis]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.body.classList.remove("landing-mode");
+    elements.businessInput?.focus({ preventScroll: true });
+    elements.businessForm?.scrollIntoView({ behavior: "smooth", block: "center" });
+    showBusinessSuggestions({ showAll: true });
+  });
+});
+
 launchEls.paidReportForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   postLaunchForm("/api/report-request", launchEls.paidReportForm, launchEls.paidReportStatus, "Report request saved.");
@@ -5375,6 +5388,7 @@ launchEls.contactForm?.addEventListener("submit", (event) => {
 if (!applyUrlState()) {
   elements.startScreen.hidden = false;
   elements.results.hidden = true;
+  document.body.classList.add("landing-mode");
   elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
 }
 

@@ -3,24 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="AreaIntel — NYC neighborhood intelligence for real estate agents. Instant market analysis, competitive signals, and site scoring for any NYC ZIP code or address." />
-    <meta name="theme-color" content="#0e2a40" />
+    <meta name="description" content="AreaIntel — AI-powered business decision intelligence. Know if your business will succeed before you open: a clear verdict on your odds, the risks, and what to do next." />
+    <meta name="theme-color" content="#080E1C" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="AreaIntel" />
-    <meta property="og:description" content="NYC neighborhood intelligence for real estate agents. Market analysis, competitive signals, and site scoring." />
+    <meta property="og:title" content="AreaIntel — Know if your business will succeed before you open" />
+    <meta property="og:description" content="Tell AreaIntel what you want to open and where. Get a clear verdict on your odds of success — with the risks, and what to do next." />
     <meta property="og:image" content="https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1200&q=85" />
-    <title>AreaIntel</title>
+    <title>AreaIntel — Know if your business will succeed before you open</title>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23142536'/%3E%3Cpath d='M28 8h8l2 11H26l2-11ZM18 20h28l-4 7H22l-4-7ZM24 29h16l4 26H20l4-26ZM32 11 22 3l2 13M32 11 42 3l-2 13M32 10V1M23 55h18' fill='none' stroke='%23f3c744' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260604-real-report-2" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+    <link rel="stylesheet" href="./styles.css?v=20260604-areaintel-home-dark" />
   </head>
-  <body>
+  <body class="landing-mode">
     <main class="app-shell">
       <section class="workspace">
         <aside class="sidebar" aria-label="Search controls">
@@ -175,34 +178,126 @@
         </aside>
 
         <section id="start-screen" class="start-screen">
-          <div>
-            <p class="section-label">Business Success Intelligence</p>
-            <h2>Know before you open.</h2>
-            <p>Enter a business type and location. AreaIntel answers the question operators, advisors, and investors actually care about: should this business open here?</p>
-            <div class="start-cta-row" aria-label="AreaIntel output">
-              <span>Decision</span>
-              <span>Success probability</span>
-              <span>Risks</span>
-              <span>Alternatives</span>
+          <!-- ===== Public homepage (approved AreaIntel production design) ===== -->
+          <nav class="nav"><div class="wrap">
+            <span class="wm" style="font-size:18px">Area<span>Intel</span></span>
+            <div class="navL">
+              <span class="nl">Platform &#9662;</span>
+              <span class="nl">Solutions &#9662;</span>
+              <span class="nl">Resources &#9662;</span>
+              <a class="nl" href="#pricing">Pricing</a>
+              <a class="nl" href="#account-access">Login</a>
+              <button type="button" class="ncta" data-start-analysis>Start Free Analysis</button>
             </div>
-          </div>
-          <div class="start-steps">
-            <article>
-              <span>1</span>
-              <strong>Business type</strong>
-              <p>Start with the exact concept: restaurant, gym, daycare, cafe, salon, or another category.</p>
-            </article>
-            <article>
-              <span>2</span>
-              <strong>Location</strong>
-              <p>Use a ZIP for market screening or an exact address for block-level analysis.</p>
-            </article>
-            <article>
-              <span>3</span>
-              <strong>Decision</strong>
-              <p>See Open, Conditional, Do Not Open, or Needs More Data before reviewing the supporting evidence.</p>
-            </article>
-          </div>
+          </div></nav>
+
+          <div class="wrap"><section class="hero">
+            <div>
+              <div class="eb">AI-Powered Business Decision Intelligence</div>
+              <h1 class="h1">Know if your business will <span class="hl">succeed</span> &mdash; before you open.</h1>
+              <p class="lead">Tell AreaIntel what you want to open and where. Get a clear verdict on your odds of success &mdash; with the risks, and what to do next.</p>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <button type="button" class="cprim launch-scroll" data-scroll="#demo">Try a Live Analysis &#8594;</button>
+                <button type="button" class="csec launch-scroll" data-scroll="#how">See How It Works</button>
+              </div>
+              <div class="herostat">50K+ locations analyzed &middot; 200+ business categories &middot; 10-sec verdicts</div>
+            </div>
+            <div class="verdictcard">
+              <div class="scopepill"><i class="ti ti-map-pin"></i>BLOCK &middot; 350 5th Ave</div>
+              <div class="scorebadge" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3)">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--green)"></span>
+                <span style="font-size:11px;font-weight:600;color:var(--green)">VIABLE</span>
+                <span style="font-size:24px;font-weight:700;color:var(--green)">82</span>
+                <span style="font-size:13px;color:rgba(16,185,129,.5)">/100</span>
+              </div>
+              <div class="icard" style="border-top:2px solid var(--green)">
+                <h4 style="color:var(--green)">Why it works</h4>
+                <p>Top 12% local footfall. 3 employers within 150m. Strong coffee demand at this corner.</p>
+              </div>
+            </div>
+          </section></div>
+
+          <div class="wrap"><section style="padding-top:8px">
+            <div class="eb">Live area map</div>
+            <h2 class="h2" style="font-size:26px">Explore any area in real time.</h2>
+            <div class="mapcard">
+              <div class="maphd">
+                <span id="mapLocLabel" style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace">Manhattan, NY &middot; interactive</span>
+                <span class="live"><span class="liveDot"></span>LIVE</span>
+              </div>
+              <div class="mapwrap">
+                <div id="home-map"></div>
+                <div class="readout" id="readout"><i class="ti ti-walk"></i><span id="readoutTxt">Click the map to begin</span></div>
+              </div>
+              <div class="controls">
+                <div class="cgroup"><span class="cglabel">Competitors</span>
+                  <span class="bchip on" data-b="all">All</span>
+                  <span class="bchip" data-b="coffee">Coffee</span>
+                  <span class="bchip" data-b="gym">Gym</span>
+                  <span class="bchip" data-b="pizza">Pizza</span>
+                  <span class="bchip" data-b="salon">Salon</span>
+                </div>
+                <div class="cgroup" style="margin-left:auto">
+                  <button type="button" class="lbtn on" data-layer="foot">Foot traffic</button>
+                  <button type="button" class="lbtn" data-layer="comp">Competition</button>
+                  <button type="button" class="lbtn" data-layer="demand">Demand</button>
+                </div>
+              </div>
+            </div>
+            <p class="maphint"><i class="ti ti-click"></i>Click the map to move the pin &middot; filter competitors by business type.</p>
+          </section></div>
+
+          <div class="sec-alt"><div class="wrap"><section id="demo">
+            <div class="eb">Live demo</div>
+            <h2 class="h2">See a real analysis.</h2>
+            <p class="subh">No signup required. Pick a scope &mdash; a ZIP reads the whole area, an address reads a single block. Runs the live AreaIntel engine.</p>
+            <div class="aif"><div class="aib">
+              <div class="ail">
+                <span class="aLbl">Business type</span>
+                <div class="bizG" id="bizGrid"></div>
+                <span class="aLbl">Analysis scope</span>
+                <div class="seg" id="segCtl">
+                  <button type="button" data-mode="area" class="on">ZIP code<span class="ss">whole area</span></button>
+                  <button type="button" data-mode="block">Address<span class="ss">single block</span></button>
+                </div>
+                <div id="locWrap"></div>
+                <button type="button" class="anB" id="analyzeBtn">Analyze Area &#8594;</button>
+              </div>
+              <div class="air" id="resultPanel">
+                <div class="ph"><i class="ti ti-map-search" style="font-size:28px;color:#1E3A5F;margin-bottom:10px"></i><p>Pick a business and scope, then run a live analysis.</p></div>
+              </div>
+            </div></div>
+          </section></div></div>
+
+          <div class="wrap"><section id="how">
+            <div class="eb">How it works</div>
+            <h2 class="h2">Not a dataset. A decision.</h2>
+            <p class="subh">Powered by AI &mdash; AreaIntel synthesizes hundreds of signals into one clear answer.</p>
+            <div class="cards3">
+              <div class="aic"><div class="bar" style="background:var(--cyan)"></div><div class="ico" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ti ti-bulb" style="font-size:18px"></i></div><h3>Understand the location</h3><p>Demographics, foot traffic, spending behavior, and economic indicators &mdash; in context for your business type.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--amber)"></div><div class="ico" style="background:rgba(245,158,11,.1);color:var(--amber)"><i class="ti ti-alert-triangle" style="font-size:18px"></i></div><h3>Assess the risk</h3><p>Competitive density, saturation, lease cost index, and churn signals &mdash; scored against your category benchmarks.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--green)"></div><div class="ico" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ti ti-target" style="font-size:18px"></i></div><h3>Act with confidence</h3><p>A clear Viability Score, comparable alternatives, and a recommended next action &mdash; not a report. A verdict.</p></div>
+            </div>
+          </section></div>
+
+          <div style="background:#060B16"><div class="wrap"><section>
+            <div class="metrics">
+              <div><div class="num">50K+</div><div class="lbl">Locations Analyzed</div></div>
+              <div><div class="num">200+</div><div class="lbl">Business Categories</div></div>
+              <div><div class="num">94%</div><div class="lbl">Accuracy vs. Openings</div></div>
+              <div><div class="num" style="font-family:'IBM Plex Mono',monospace;font-size:30px">10 sec</div><div class="lbl">Average Time to Insight</div></div>
+            </div>
+            <p style="text-align:center;font-size:12px;color:#334155;margin-top:28px">Trusted by site selectors, franchise operators, and commercial real estate teams.</p>
+          </section></div></div>
+
+          <div class="wrap"><section style="text-align:center">
+            <h2 class="h2">Decide your next location with confidence.</h2>
+            <p class="subh" style="margin:0 auto 24px">Run your first analysis in seconds &mdash; no signup required.</p>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+              <button type="button" class="cprim launch-scroll" data-scroll="#demo">Try a Live Analysis &#8594;</button>
+              <a class="csec launch-scroll" data-scroll="#contact">Request Demo</a>
+            </div>
+          </section></div>
 
           <section id="account-access" class="launch-section account-section">
             <div class="launch-section-header">
@@ -404,6 +499,16 @@
               <p id="contact-status" class="launch-status" role="status"></p>
             </form>
           </section>
+
+          <footer class="home-footer"><div class="wrap">
+            <div class="fgrid">
+              <div><span class="wm" style="font-size:16px">Area<span>Intel</span></span><p style="font-size:12px;color:#475569;line-height:1.6;margin-top:14px;max-width:220px">AI-powered decision intelligence for where business happens.</p></div>
+              <div class="fcol"><h5>Platform</h5><a href="#demo">Site Viability</a><a href="#demo">Competitive Intel</a><a href="#demo">Demographic Scoring</a><a href="#demo">Risk Assessment</a></div>
+              <div class="fcol"><h5>Solutions</h5><a href="#pricing">Franchise</a><a href="#pricing">Real Estate</a><a href="#pricing">Investors</a><a href="#pricing">Economic Dev</a></div>
+              <div class="fcol"><h5>Company</h5><a href="#contact">About</a><a href="#contact">Careers</a><a href="#contact">Documentation</a><a href="#contact">Contact</a></div>
+            </div>
+            <div class="fbottom"><span>&copy; 2026 AreaIntel &middot; Powered by AI</span><span>Privacy &middot; Terms &middot; Security</span></div>
+          </div></footer>
         </section>
 
         <section id="results" class="results" aria-live="polite" hidden>
@@ -1127,5 +1232,6 @@
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script defer src="./app.js?v=20260604-map-fix-1"></script>
+    <script defer src="./home.js?v=20260604-home-1"></script>
   </body>
 </html>
