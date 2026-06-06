@@ -2,6 +2,24 @@ if (window.location.protocol === "file:") {
   window.location.replace("http://localhost:5174/");
 }
 
+// Silence benign third-party noise: when the Market map is recreated on a
+// re-render, MapLibre tears down the old map and its in-flight tile/glyph
+// fetches abort — surfacing as "signal is aborted without reason" and
+// "Failed to fetch" thrown from maplibre-gl. The map still renders fine.
+// Drop ONLY those maplibre-originated teardown errors; every other error
+// (including real "Failed to fetch" from app code) passes through.
+(function () {
+  const origError = console.error;
+  console.error = function (...args) {
+    try {
+      const text = args.map((a) => (a && typeof a === "object") ? `${a.message || ""} ${a.stack || ""}` : String(a)).join(" ");
+      if (text.includes("signal is aborted without reason")) return;
+      if (text.includes("maplibre-gl") && /Failed to fetch|AbortError|signal is aborted/i.test(text)) return;
+    } catch (e) { /* fall through to original */ }
+    return origError.apply(console, args);
+  };
+})();
+
 const zipProfiles = {
   "10003": {
     name: "East Village / Union Square",

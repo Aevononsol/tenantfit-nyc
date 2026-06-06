@@ -276,6 +276,39 @@ function sendJson(response, statusCode, data, extraHeaders = {}) {
   response.end(JSON.stringify(data, null, 2));
 }
 
+// Helmet-equivalent security headers. Set via setHeader at the very start of
+// the request, before any writeHead, so every response (JSON, static, errors)
+// carries them. CSP allow-lists exactly the third-party origins the app uses
+// (Google Fonts, jsDelivr/Tabler icons, cdnjs/MapLibre, unpkg/Leaflet,
+// OpenFreeMap tiles); inline scripts/eval are NOT allowed.
+const CSP_DIRECTIVES = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com",
+  "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://tiles.openfreemap.org https://*.openfreemap.org",
+  "worker-src 'self' blob:",
+  ...(isHostedProduction ? ["upgrade-insecure-requests"] : [])
+].join("; ");
+
+function applySecurityHeaders(response) {
+  response.setHeader("Content-Security-Policy", CSP_DIRECTIVES);
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("X-Frame-Options", "DENY");
+  response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), browsing-topics=()");
+  response.setHeader("X-DNS-Prefetch-Control", "off");
+  if (isHostedProduction) {
+    response.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+  }
+}
+
 function clientIp(request) {
   const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
   return forwarded || request.socket?.remoteAddress || "unknown";
@@ -2235,6 +2268,7 @@ startAgentAutopilot();
 
 createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
+  applySecurityHeaders(response);
 
   try {
     if (url.pathname === "/api/key-status") {
@@ -2312,8 +2346,14 @@ createServer(async (request, response) => {
         return;
       }
       const accounts = await readJsonStore("accounts", []);
+      // Non-enumerating: never reveal whether an email is already registered.
+      // Existing emails get the same generic response as a new signup (no
+      // duplicate is created, no session is issued). Rate limiting above
+      // throttles abuse; we deliberately do not email on signup to avoid
+      // turning this into an email-bomb vector.
+      const signupMessage = "If that email can be registered, your account is ready — check your inbox to verify and unlock full access.";
       if (accounts.some((account) => account.email === email)) {
-        sendJson(response, 409, { error: "An account already exists for this email." });
+        sendJson(response, 200, { ok: true, emailVerificationRequired: true, message: signupMessage });
         return;
       }
       const emailToken = verificationToken();
@@ -2344,7 +2384,7 @@ createServer(async (request, response) => {
           account: publicAccount(account),
           emailVerificationRequired: true,
           devVerificationUrl,
-          message: "Account created. Verify your email to unlock full account access."
+          message: signupMessage
         },
         { "Set-Cookie": sessionCookie(token) }
       );
