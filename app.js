@@ -680,7 +680,7 @@ const savedMax = 12;
 
 function logIntegrationError(source, error, context = {}) {
   const detail = error?.name === "AbortError" ? "request timed out" : error?.message || String(error);
-  console.warn(`[AreaIntel] ${source} failed: ${detail}`, context);
+  console.warn(`[SpotVest] ${source} failed: ${detail}`, context);
 }
 
 function safeUiUpdate(source, callback) {
@@ -824,6 +824,14 @@ const elements = {
   dataConfidenceCopy: document.querySelector("#data-confidence-copy"),
   nextMove: document.querySelector("#next-move"),
   nextMoveCopy: document.querySelector("#next-move-copy"),
+  fullScopePill: document.querySelector("#full-scope-pill"),
+  fullScoreBadge: document.querySelector("#full-score-badge"),
+  fullVerdictLabel: document.querySelector("#full-verdict-label"),
+  fullScoreValue: document.querySelector("#full-score-value"),
+  fullConfidenceLabel: document.querySelector("#full-confidence-label"),
+  fullWhyCopy: document.querySelector("#full-why-copy"),
+  fullRiskCopy: document.querySelector("#full-risk-copy"),
+  fullActionCopy: document.querySelector("#full-action-copy"),
   memoDecisionTitle: document.querySelector("#memo-decision-title"),
   memoDecisionCopy: document.querySelector("#memo-decision-copy"),
   memoSuccessScore: document.querySelector("#memo-success-score"),
@@ -1183,7 +1191,7 @@ function addDensityCircle(lat, lng, score, popupHtml) {
 function renderMarketMap() {
   if (!window.L || !elements.map) {
     setStatusPill(elements.mapStatus, "Map loading", "Refreshing");
-    renderStaticMapFallback("Interactive map library is still loading. AreaIntel will retry automatically.");
+    renderStaticMapFallback("Interactive map library is still loading. SpotVest will retry automatically.");
     if (state.mapRetryCount < 4) {
       state.mapRetryCount += 1;
       window.setTimeout(renderMarketMap, 650);
@@ -1346,14 +1354,14 @@ function profileForZip(zip) {
     ...base,
     name: `${borough} ZIP ${zip}`,
     verdict:
-      `AreaIntel can analyze this ${borough} ZIP. The first pass uses market profile assumptions plus live local activity signals; verify the exact block before making a final business decision.`,
+      `SpotVest can analyze this ${borough} ZIP. The first pass uses market profile assumptions plus live local activity signals; verify the exact block before making a final business decision.`,
     talkingPoints: [
       "Use competitive intensity as the first screen for category saturation.",
       "Validate the exact avenue, corner visibility, frontage, and nearby anchors.",
       "Treat broad customer profile signals as directional until stronger area evidence is connected."
     ],
     evidence: [
-      "ZIP is recognized as an NYC ZIP code in AreaIntel.",
+      "ZIP is recognized as an NYC ZIP code in SpotVest.",
       "Business checker can query local market activity and competitive signals.",
       "Customer profile is directional until market demographics are connected."
     ]
@@ -1647,12 +1655,16 @@ function titleCase(value) {
 }
 
 function reportAreaTitle(zip, profile) {
-  if (!state.location) return `ZIP ${zip} · ${profile.name}`;
+  const profileName = String(profile?.name || "").trim();
+  const fallbackName = profileName && !profileName.includes(zip)
+    ? `ZIP ${zip} · ${profileName}`
+    : profileName || `ZIP ${zip}`;
+  if (!state.location) return fallbackName;
   const cleanAddress = String(state.location.address || "")
     .replace(/,\s*USA$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  return cleanAddress || `ZIP ${zip} · ${profile.name}`;
+  return cleanAddress || fallbackName;
 }
 
 function modeledBusinessConfig(business) {
@@ -1969,7 +1981,7 @@ function renderFootTrafficIntelligence(profile) {
     : `Transit proximity: ${pulseLabel(profile.transit, ["limited", "useful", "strong", "excellent"])} area access.`;
 
   elements.footTrafficScore.textContent = formatScore(score);
-  elements.footTrafficActivity.textContent = `Estimated Activity: ${activity}. Based on AreaIntel's location intelligence model.`;
+  elements.footTrafficActivity.textContent = `Estimated Activity: ${activity}. Based on SpotVest's location intelligence model.`;
   elements.footTrafficVisitors.textContent = `${modeledVisitorRange(score, profile)} daily`;
   elements.footTrafficPeaks.textContent = peakHoursFor(profile);
   elements.footTrafficWeekSplit.textContent = weekdayWeekendSplit(profile);
@@ -1981,7 +1993,7 @@ function renderFootTrafficIntelligence(profile) {
     "Modeled"
   );
   elements.footTrafficWhy.textContent =
-    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. Estimated using mobility, transit, density, and commercial activity signals — AreaIntel's Foot Traffic Model, not a direct pedestrian counter.`;
+    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. Estimated using mobility, transit, density, and commercial activity signals — SpotVest's Foot Traffic Model, not a direct pedestrian counter.`;
 }
 
 function revenueCategoryDefaults(category) {
@@ -2171,9 +2183,9 @@ async function renderCivicCheck() {
     logIntegrationError("risk and development fallback", error, { zip: state.zip });
     renderCivicSignals(fallbackCivicSignals());
     elements.complaintLevel.textContent = "Estimated local risk";
-    elements.complaintCopy.textContent = "Risk signal did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.complaintCopy.textContent = "Risk signal did not return in time. SpotVest is using a neutral fallback until retry.";
     elements.permitLevel.textContent = "Estimated permit activity";
-    elements.permitCopy.textContent = "Development signal did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.permitCopy.textContent = "Development signal did not return in time. SpotVest is using a neutral fallback until retry.";
   }
 }
 
@@ -2260,7 +2272,7 @@ function renderConceptFit(data) {
     elements.conceptFitList.innerHTML = `
       <article class="empty-places concept-fallback">
         <strong>Concept-specific market data is limited.</strong>
-        <p>AreaIntel used broader market and competition signals instead.</p>
+        <p>SpotVest used broader market and competition signals instead.</p>
       </article>
     `;
     return;
@@ -2363,7 +2375,7 @@ async function renderRestaurantConceptFit() {
     elements.conceptFitList.innerHTML = `
       <article class="empty-places concept-fallback">
         <strong>Concept-specific market data is limited.</strong>
-        <p>AreaIntel used broader market and competition signals instead.</p>
+        <p>SpotVest used broader market and competition signals instead.</p>
       </article>
     `;
   }
@@ -2680,7 +2692,7 @@ async function findAvailableSpaces() {
   elements.listingResults.innerHTML = `
     <article class="empty-places">
       <strong>Searching public listing sources</strong>
-      <p>AreaIntel is checking public web results and will show source links here.</p>
+      <p>SpotVest is checking public web results and will show source links here.</p>
     </article>
   `;
 
@@ -2881,15 +2893,15 @@ async function renderSiteIntelCheck() {
     logIntegrationError("mobility and commercial fallback", error, { zip: state.zip });
     renderSiteIntelligence(fallbackSiteIntelligence());
     elements.sidewalkLevel.textContent = "Estimated outdoor activity";
-    elements.sidewalkCopy.textContent = "Outdoor activity did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.sidewalkCopy.textContent = "Outdoor activity did not return in time. SpotVest is using a neutral fallback until retry.";
     elements.liquorLevel.textContent = "Estimated license activity";
-    elements.liquorCopy.textContent = "License activity did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.liquorCopy.textContent = "License activity did not return in time. SpotVest is using a neutral fallback until retry.";
     elements.mtaLevel.textContent = state.location ? "Estimated mobility signal" : "Needs address";
     elements.mtaCopy.textContent = state.location
-      ? "Mobility signal did not return in time. AreaIntel is using a neutral fallback until retry."
+      ? "Mobility signal did not return in time. SpotVest is using a neutral fallback until retry."
       : "Enter an exact address to calculate nearby mobility signal.";
     elements.plutoLevel.textContent = "Estimated commercial mix";
-    elements.plutoCopy.textContent = "Commercial mix did not return in time. AreaIntel is using a neutral fallback until retry.";
+    elements.plutoCopy.textContent = "Commercial mix did not return in time. SpotVest is using a neutral fallback until retry.";
   }
 }
 
@@ -2946,7 +2958,7 @@ function decisionCopyFor(decision, successProbability, confidenceScore, riskScor
     return "Strong customer fit and healthy demand support opening, subject to normal site diligence.";
   }
   if (decision === "NEEDS MORE DATA") {
-    return "AreaIntel needs stronger location and market evidence before making a reliable recommendation.";
+    return "SpotVest needs stronger location and market evidence before making a reliable recommendation.";
   }
   if (decision === "DO NOT OPEN") {
     return riskScore < 35
@@ -3002,7 +3014,7 @@ function decisionFor(profile, recommendations, businessResult) {
 
   return {
     answer: "NEEDS MORE DATA",
-    copy: "AreaIntel needs stronger market evidence before making a recommendation.",
+    copy: "SpotVest needs stronger market evidence before making a recommendation.",
     next: "Load more evidence",
     nextCopy: "Use an exact address, check the business category, and verify location economics before advising a client."
   };
@@ -3670,7 +3682,7 @@ function renderEvidenceCoverage(analysis) {
         ? businessFallback
           ? "Modeled local activity is active until live matches return."
           : "Verified local activity matches inform category pressure."
-        : "AreaIntel is using modeled activity until verified matches return."
+        : "SpotVest is using modeled activity until verified matches return."
     },
     {
       title: "Mobility and site signals",
@@ -3698,7 +3710,7 @@ function renderEvidenceCoverage(analysis) {
       tone: hasConceptSignals ? "good" : "partial",
       copy: hasConceptSignals
         ? "Sub-category fit is visible for this business type where enough signal exists."
-        : "AreaIntel is using broader business-category signals for this search."
+        : "SpotVest is using broader business-category signals for this search."
     }
   ];
 
@@ -3784,7 +3796,7 @@ function renderInvestmentMemo(analysis, decision) {
         <p>${escapeText(scoreSignalCopy(score))}</p>
       </div>
     `).join("")
-    : `<div class="empty-places">AreaIntel needs stronger evidence before naming the investment thesis.</div>`;
+    : `<div class="empty-places">SpotVest needs stronger evidence before naming the investment thesis.</div>`;
 
   elements.memoRiskList.innerHTML = analysis.topRisks.slice(0, 4)
     .map((risk, index) => `
@@ -3816,6 +3828,7 @@ function renderDecisionStrip(profile, recommendations) {
   const decision = decisionFor(profile, recommendations, businessResult);
   const confidence = confidenceFor(state.zip, businessResult);
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  renderFullDecisionPanel(profile, decision, confidence, analysis);
 
   elements.agentAnswer.textContent = decision.answer;
   elements.agentAnswer.className = `decision-badge decision-${decision.answer.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -3826,6 +3839,58 @@ function renderDecisionStrip(profile, recommendations) {
   elements.nextMove.textContent = decision.next;
   elements.nextMoveCopy.textContent = decision.nextCopy;
   renderInvestmentMemo(analysis, decision);
+}
+
+function frontVerdictForDecision(decision, score) {
+  const s = clampScore(safeNumber(score, 0));
+  const slug = analysisDecisionSlug(decision.answer);
+  if (slug === "open") {
+    return { label: "VIABLE", color: "#10B981", slug: "viable" };
+  }
+  if (slug === "do-not-open" || s < 55) {
+    return { label: "HIGH RISK", color: "#EF4444", slug: "high-risk" };
+  }
+  if (slug === "needs-more-data") {
+    return { label: "REVIEW", color: "#64748B", slug: "review" };
+  }
+  return { label: "MODERATE", color: "#F59E0B", slug: "moderate" };
+}
+
+function analysisDecisionSlug(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function renderFullDecisionPanel(profile, decision, confidence, analysis) {
+  if (!elements.fullScoreBadge) return;
+  const score = clampScore(analysis.successProbability);
+  const verdict = frontVerdictForDecision(decision, score);
+  const business = titleCase(state.business || analysis.topRecommendation?.name || "Business");
+  const locationScope = state.location
+    ? `BLOCK · ${state.location.radiusMiles || "0.5"} MI`
+    : `AREA · ZIP ${state.zip || ""}`;
+  const risks = analysis.topRisks?.filter(Boolean) || [];
+  const strongSignals = analysis.scores
+    .filter((item) => safeNumber(item.value, 0) >= 65)
+    .slice(0, 2)
+    .map((item) => item.name.toLowerCase());
+  const why = strongSignals.length
+    ? `${business} has support from ${strongSignals.join(" and ")}. ${decision.copy}`
+    : decision.copy;
+  const risk = risks.length
+    ? risks.slice(0, 2).join(" ")
+    : "Verify rent, visibility, competition, and operator economics before making a final commitment.";
+  const action = `${decision.next}. ${decision.nextCopy}`;
+
+  elements.fullScopePill.innerHTML = `<i class="ti ${state.location ? "ti-map-pin" : "ti-map-2"}"></i>${escapeText(locationScope)}`;
+  elements.fullVerdictLabel.textContent = verdict.label;
+  animateScoreText(elements.fullScoreValue, String(score));
+  elements.fullConfidenceLabel.textContent = `${String(confidence.label || "Checking").toUpperCase()} CONFIDENCE`;
+  elements.fullWhyCopy.textContent = why;
+  elements.fullRiskCopy.textContent = risk;
+  elements.fullActionCopy.textContent = action;
+
+  elements.fullScoreBadge.style.setProperty("--front-verdict-color", verdict.color);
+  elements.fullScoreBadge.dataset.verdict = verdict.slug;
 }
 
 function businessVerdictFor(score, profile, config, hasCompetitors = false) {
@@ -3889,7 +3954,7 @@ function applyBusinessResult({ count, business, sourceNote, isLive, result, load
     elements.businessMix.textContent = mix;
   }
   elements.businessMixCopy.textContent = loading
-    ? "AreaIntel is checking market signals before scoring the business."
+    ? "SpotVest is checking market signals before scoring the business."
     : mix === "Mostly local"
       ? "Independent operators can compete here if they understand the neighborhood and price correctly."
       : mix === "Chain-friendly"
@@ -4026,7 +4091,7 @@ async function renderBusinessCheck() {
       displayBusiness: businessLabel,
       isLive: false,
       result: state.lastBusinessResult,
-      sourceNote: "Live lookup failed, so AreaIntel is clearly marking this as a modeled estimate."
+      sourceNote: "Live lookup failed, so SpotVest is clearly marking this as a modeled estimate."
     });
     const updatedRecommendations = buildRecommendations(profile);
     renderDecisionStrip(profile, updatedRecommendations);
@@ -4131,7 +4196,7 @@ function render(zip, options = {}) {
   const profile = profileForZip(zip);
   if (!profile) {
     elements.message.textContent = /^\d{5}$/.test(zip)
-      ? "🗽 AreaIntel currently covers New York City only. Try a NYC ZIP like 10003, 11201, or 10458."
+      ? "🗽 SpotVest currently covers New York City only. Try a NYC ZIP like 10003, 11201, or 10458."
       : "Enter a 5-digit NYC ZIP code (for example 10003).";
     elements.message.classList.add("form-message-warn");
     elements.analyzeButton.disabled = false;
@@ -4265,7 +4330,7 @@ function exportSummary() {
         "Competitive pressure: live check not completed yet"
       ];
   const lines = [
-    `AreaIntel report for ZIP ${state.zip} - ${profile.name}`,
+    `SpotVest report for ZIP ${state.zip} - ${profile.name}`,
     "",
     "Executive Decision:",
     `${decision.answer}. ${decision.copy}`,
@@ -4339,7 +4404,7 @@ function exportSummary() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `areaintel-${state.zip}.txt`;
+  anchor.download = `spotvest-${state.zip}.txt`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -4440,7 +4505,7 @@ function renderExecSummary() {
     </section>
     <div class="exec-legend" aria-hidden="true">
       <span class="status status--verified"><i class="status__dot"></i>Verified · live data</span>
-      <span class="status status--modeled"><i class="status__dot"></i>Modeled · AreaIntel model</span>
+      <span class="status status--modeled"><i class="status__dot"></i>Modeled · SpotVest model</span>
       <span class="status status--estimated"><i class="status__dot"></i>Estimated · proxy</span>
       <span class="status status--risk"><i class="status__dot"></i>Risk</span>
     </div>
@@ -4793,7 +4858,7 @@ async function copyShareLink() {
   // Native share sheet on mobile.
   try {
     if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
-      await navigator.share({ title: "AreaIntel report", url });
+      await navigator.share({ title: "SpotVest report", url });
       return;
     }
   } catch {
@@ -4990,7 +5055,7 @@ elements.addressForm.addEventListener("submit", async (event) => {
       retries: 1
     });
     if (!/^\d{5}$/.test(result.zip) || !boroughForZip(result.zip)) {
-      elements.addressMessage.textContent = "🗽 That address isn't in a supported New York City area yet. AreaIntel currently covers NYC only — try a NYC address or ZIP.";
+      elements.addressMessage.textContent = "🗽 That address isn't in a supported New York City area yet. SpotVest currently covers NYC only — try a NYC address or ZIP.";
       return;
     }
 
@@ -5241,13 +5306,24 @@ updateActionGuards();
 updateSaveButton();
 
 // --- Launch revenue / admin workflows -----------------------------------
-// These forms do not affect the report engine. They turn AreaIntel into a
+// These forms do not affect the report engine. They turn SpotVest into a
 // customer-ready site: report requests, consultation requests, and contact capture.
 const launchEls = {
   signupForm: document.querySelector("#signup-form"),
   signupStatus: document.querySelector("#signup-status"),
   loginForm: document.querySelector("#login-form"),
   loginStatus: document.querySelector("#login-status"),
+  passwordResetRequestForm: document.querySelector("#password-reset-request-form"),
+  passwordResetRequestStatus: document.querySelector("#password-reset-request-status"),
+  passwordResetCompleteForm: document.querySelector("#password-reset-complete-form"),
+  passwordResetCompleteStatus: document.querySelector("#password-reset-complete-status"),
+  accountStatus: document.querySelector("#account-status"),
+  resendVerificationButton: document.querySelector("#resend-verification"),
+  logoutButton: document.querySelector("#logout-button"),
+  accountProfileForm: document.querySelector("#account-profile-form"),
+  accountProfileStatus: document.querySelector("#account-profile-status"),
+  changePasswordForm: document.querySelector("#change-password-form"),
+  changePasswordStatus: document.querySelector("#change-password-status"),
   paidReportForm: document.querySelector("#paid-report-form"),
   paidReportStatus: document.querySelector("#paid-report-status"),
   advisorForm: document.querySelector("#advisor-form"),
@@ -5257,12 +5333,55 @@ const launchEls = {
 };
 
 function saveAccountSession(result) {
-  if (!result?.token || !result?.account) return;
+  if (!result?.account) return;
   try {
     localStorage.setItem("areaIntelAccount", JSON.stringify(result.account));
-    localStorage.setItem("areaIntelSession", result.token);
+    localStorage.removeItem("areaIntelSession");
   } catch {
     // Account access still works server-side if browser storage is unavailable.
+  }
+}
+
+function storedAccount() {
+  try {
+    return JSON.parse(localStorage.getItem("areaIntelAccount") || "null");
+  } catch {
+    return null;
+  }
+}
+
+function renderAccountStatus(account) {
+  if (!launchEls.accountStatus) return;
+  if (!account) {
+    launchEls.accountStatus.className = "launch-status";
+    launchEls.accountStatus.textContent = "Sign in to manage account security.";
+    return;
+  }
+  launchEls.accountStatus.className = `launch-status ${account.emailVerified ? "launch-status-ok" : "launch-status-error"}`;
+  launchEls.accountStatus.textContent = account.emailVerified
+    ? `Signed in as ${account.email}. Email verified.`
+    : `Signed in as ${account.email}. Email verification is still required.`;
+  if (launchEls.accountProfileForm) {
+    launchEls.accountProfileForm.elements.name.value = account.name || "";
+    launchEls.accountProfileForm.elements.company.value = account.company || "";
+    launchEls.accountProfileForm.elements.role.value = account.role || "restaurant-owner";
+  }
+}
+
+async function refreshAccountStatus() {
+  renderAccountStatus(storedAccount());
+  try {
+    const response = await fetch("/api/me", { credentials: "same-origin" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      renderAccountStatus(null);
+      return null;
+    }
+    saveAccountSession(result);
+    renderAccountStatus(result.account);
+    return result.account;
+  } catch {
+    return storedAccount();
   }
 }
 
@@ -5280,6 +5399,7 @@ async function postAccountForm(endpoint, form, statusEl, successCopy) {
   try {
     const response = await fetch(endpoint, {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formPayload(form))
     });
@@ -5287,11 +5407,44 @@ async function postAccountForm(endpoint, form, statusEl, successCopy) {
     if (!response.ok) throw new Error(result.error || "Account request failed");
     saveAccountSession(result);
     statusEl.classList.add("launch-status-ok");
-    statusEl.textContent = `${successCopy} ${result.account?.email || ""}`.trim();
+    statusEl.textContent = result.message || `${successCopy} ${result.account?.email || ""}`.trim();
+    if (result.devVerificationUrl) {
+      statusEl.innerHTML = `${escapeText(statusEl.textContent)} <a href="${escapeText(result.devVerificationUrl)}" target="_blank" rel="noopener">Open verification link</a>.`;
+    }
+    renderAccountStatus(result.account);
     form.reset();
   } catch (error) {
     statusEl.classList.add("launch-status-error");
     statusEl.textContent = error.message || "Could not complete account request.";
+  }
+}
+
+async function postSecurityForm(endpoint, form, statusEl, successCopy) {
+  if (!form || !statusEl) return;
+  statusEl.textContent = "Saving...";
+  statusEl.className = "launch-status";
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formPayload(form))
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Request failed");
+    if (result.account) {
+      saveAccountSession(result);
+      renderAccountStatus(result.account);
+    }
+    statusEl.classList.add("launch-status-ok");
+    statusEl.textContent = result.message || successCopy;
+    if (result.devVerificationUrl) {
+      statusEl.innerHTML = `${escapeText(statusEl.textContent)} <a href="${escapeText(result.devVerificationUrl)}" target="_blank" rel="noopener">Open verification link</a>.`;
+    }
+    form.reset();
+  } catch (error) {
+    statusEl.classList.add("launch-status-error");
+    statusEl.textContent = error.message || "Request failed.";
   }
 }
 
@@ -5375,6 +5528,74 @@ launchEls.loginForm?.addEventListener("submit", (event) => {
   postAccountForm("/api/login", launchEls.loginForm, launchEls.loginStatus, "Signed in as");
 });
 
+launchEls.passwordResetRequestForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postSecurityForm(
+    "/api/password-reset/request",
+    launchEls.passwordResetRequestForm,
+    launchEls.passwordResetRequestStatus,
+    "If that email exists, a reset link has been queued."
+  );
+});
+
+launchEls.passwordResetCompleteForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postSecurityForm(
+    "/api/password-reset/complete",
+    launchEls.passwordResetCompleteForm,
+    launchEls.passwordResetCompleteStatus,
+    "Password reset complete. You can sign in now."
+  );
+});
+
+launchEls.accountProfileForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postSecurityForm("/api/account", launchEls.accountProfileForm, launchEls.accountProfileStatus, "Account updated.");
+});
+
+launchEls.changePasswordForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  postSecurityForm(
+    "/api/change-password",
+    launchEls.changePasswordForm,
+    launchEls.changePasswordStatus,
+    "Password updated."
+  );
+});
+
+launchEls.resendVerificationButton?.addEventListener("click", async () => {
+  const status = launchEls.accountStatus;
+  if (!status) return;
+  status.className = "launch-status";
+  status.textContent = "Sending verification...";
+  try {
+    const response = await fetch("/api/resend-verification", { method: "POST", credentials: "same-origin" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Could not send verification.");
+    if (result.account) {
+      saveAccountSession(result);
+      renderAccountStatus(result.account);
+    }
+    if (result.devVerificationUrl) {
+      status.className = "launch-status launch-status-ok";
+      status.innerHTML = `${escapeText(result.message || "Verification email queued.")} <a href="${escapeText(result.devVerificationUrl)}" target="_blank" rel="noopener">Open verification link</a>.`;
+    }
+  } catch (error) {
+    status.className = "launch-status launch-status-error";
+    status.textContent = error.message || "Could not send verification.";
+  }
+});
+
+launchEls.logoutButton?.addEventListener("click", async () => {
+  try {
+    await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+  } finally {
+    localStorage.removeItem("areaIntelAccount");
+    localStorage.removeItem("areaIntelSession");
+    renderAccountStatus(null);
+  }
+});
+
 launchEls.advisorForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   postLaunchForm("/api/advisor-request", launchEls.advisorForm, launchEls.advisorStatus, "Consultation request saved.");
@@ -5382,7 +5603,7 @@ launchEls.advisorForm?.addEventListener("submit", (event) => {
 
 launchEls.contactForm?.addEventListener("submit", (event) => {
   event.preventDefault();
-  postLaunchForm("/api/contact", launchEls.contactForm, launchEls.contactStatus, "Message saved. AreaIntel will follow up.");
+  postLaunchForm("/api/contact", launchEls.contactForm, launchEls.contactStatus, "Message saved. SpotVest will follow up.");
 });
 
 if (!applyUrlState()) {
@@ -5392,7 +5613,40 @@ if (!applyUrlState()) {
   elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
 }
 
-// --- Phase 6: AreaIntel Assistant ---------------------------------------
+const accountUrl = new URL(window.location.href);
+const resetToken = accountUrl.searchParams.get("token");
+if (accountUrl.pathname.endsWith("/reset-password") && resetToken && launchEls.passwordResetCompleteForm) {
+  document.body.classList.add("landing-mode");
+  launchEls.passwordResetCompleteForm.hidden = false;
+  launchEls.passwordResetCompleteForm.elements.token.value = resetToken;
+  document.querySelector("#account-access")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+if (accountUrl.pathname.endsWith("/verify-email") && resetToken) {
+  fetch(`/api/verify-email?token=${encodeURIComponent(resetToken)}`, { credentials: "same-origin" })
+    .then((response) => response.json().then((result) => ({ response, result })))
+    .then(({ response, result }) => {
+      if (!response.ok) throw new Error(result.error || "Verification failed.");
+      saveAccountSession(result);
+      renderAccountStatus(result.account);
+      if (launchEls.accountStatus) {
+        launchEls.accountStatus.className = "launch-status launch-status-ok";
+        launchEls.accountStatus.textContent = result.message || "Email verified.";
+      }
+    })
+    .catch((error) => {
+      if (launchEls.accountStatus) {
+        launchEls.accountStatus.className = "launch-status launch-status-error";
+        launchEls.accountStatus.textContent = error.message || "Verification failed.";
+      }
+    });
+  document.body.classList.add("landing-mode");
+  document.querySelector("#account-access")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+refreshAccountStatus();
+
+// --- Phase 6: SpotVest Assistant ---------------------------------------
 // A floating chat that explains the current report. It only sends a compact,
 // already-computed context to our own /api/assistant backend (the OpenAI key
 // stays server-side); it never changes scoring or the data lifecycle.
@@ -5469,7 +5723,7 @@ function buildAssistantContext() {
     footTraffic: {
       score: elements.footTrafficScore?.textContent?.trim() || "needs data",
       modeledDailyVisitors: elements.footTrafficVisitors?.textContent?.trim() || "needs analysis",
-      note: "AreaIntel Foot Traffic Model — estimated from mobility, transit, density, and commercial activity"
+      note: "SpotVest Foot Traffic Model — estimated from mobility, transit, density, and commercial activity"
     },
     competition: {
       saturation: elements.businessSaturation?.textContent?.trim() || "checking",
@@ -5588,7 +5842,7 @@ function handleAssistantCta(type) {
     assistantAppend("bot", `Added ${businessDisplayName(state.business)} to your compare shortlist. Run another ZIP or address and I'll rank them side by side.`);
   } else if (type === "advisor") {
     const where = state.zip ? ` for ${businessDisplayName(state.business)} in ${reportAreaTitle(state.zip, profileForZip(state.zip))}` : "";
-    assistantAppend("bot", `Consultation request noted${where}. AreaIntel can capture this request for follow-up when consultation support is available. This is not brokerage, legal, or financial service.`);
+    assistantAppend("bot", `Consultation request noted${where}. SpotVest can capture this request for follow-up when consultation support is available. This is not brokerage, legal, or financial service.`);
   }
 }
 

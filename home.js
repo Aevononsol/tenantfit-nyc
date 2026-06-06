@@ -1,5 +1,5 @@
 /* ================================================================
-   AreaIntel — Public homepage interactive layer (home.js)
+   SpotVest — Public homepage interactive layer (home.js)
    ----------------------------------------------------------------
    MAP: lifted verbatim from the approved prototype
    (areaintel_production_homepage.html) — initMap / setPin /
@@ -12,7 +12,7 @@
        instead of a placeholder API base; simPoint stays as the
        built-in fallback exactly as in the prototype.
 
-   DEMO PANEL: reuses the real in-page AreaIntel engine (profileForZip
+   DEMO PANEL: reuses the real in-page SpotVest engine (profileForZip
    / enrichProfileWithCensus / buildRecommendations / decisionFor /
    confidenceFor) fed by /api/area-report, /api/business-count and
    /api/geocode — no duplicated scoring, no sample numbers.
@@ -171,7 +171,7 @@
   });
 
   /* ================================================================
-     DEMO PANEL  (real in-page AreaIntel engine)
+     DEMO PANEL  (real in-page SpotVest engine)
      ================================================================ */
   let selBiz = "coffee", mode = "area", selZip = "10001";
 
@@ -226,6 +226,51 @@
     return { label: "HIGH RISK", color: "#EF4444" };
   }
 
+  function submitForm(form) {
+    if (!form) return;
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+      return;
+    }
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  }
+
+  function openFullReport(r) {
+    const businessInput = document.getElementById("business-input");
+    const zipInput = document.getElementById("zip-input");
+    const zipForm = document.getElementById("zip-form");
+    const addressInput = document.getElementById("address-input");
+    const addressForm = document.getElementById("address-form");
+    const radiusInput = document.getElementById("radius-input");
+
+    if (businessInput) {
+      businessInput.value = r.business || "";
+      businessInput.dispatchEvent(new Event("input", { bubbles: true }));
+      businessInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const businessSuggestions = document.getElementById("business-suggestions");
+    if (businessSuggestions) businessSuggestions.hidden = true;
+    businessInput?.setAttribute("aria-expanded", "false");
+
+    document.body.classList.remove("landing-mode");
+    document.body.classList.remove("business-picker-open");
+
+    if (r.address && addressInput && addressForm) {
+      addressInput.value = r.address;
+      if (radiusInput) radiusInput.value = r.radius || "0.5";
+      addressInput.dispatchEvent(new Event("input", { bubbles: true }));
+      submitForm(addressForm);
+    } else if (zipInput && zipForm) {
+      zipInput.value = r.zip || "";
+      zipInput.dispatchEvent(new Event("input", { bubbles: true }));
+      submitForm(zipForm);
+    }
+
+    window.requestAnimationFrame(() => {
+      document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function renderResult(r) {
     const v = r.verdict;
     document.getElementById("resultPanel").innerHTML = `
@@ -242,7 +287,11 @@
         <div class="rev icard" style="border-top:2px solid #F59E0B;animation-delay:.18s"><h4 style="color:#F59E0B">Risk factors</h4><p>${r.risk}</p></div>
         <div class="rev icard" style="border-top:2px solid #06B6D4;animation-delay:.26s"><h4 style="color:#06B6D4">Next action</h4><p>${r.action}</p></div>
       </div>
-      <p class="rev" style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#1E3A5F;margin-top:10px;animation-delay:.34s">Powered by the live AreaIntel decision engine</p>`;
+      <div class="rev" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;animation-delay:.34s">
+        <p style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#1E3A5F;margin:0">Powered by the live SpotVest decision engine</p>
+        <button type="button" id="homeFullReportBtn" style="border:0;border-radius:999px;background:#0E7490;color:#fff;font-weight:800;padding:10px 14px;box-shadow:0 10px 24px rgba(14,116,144,.22);cursor:pointer">View full report</button>
+      </div>`;
+    document.getElementById("homeFullReportBtn")?.addEventListener("click", () => openFullReport(r));
   }
   function renderError(msg) {
     document.getElementById("resultPanel").innerHTML = `
@@ -308,7 +357,20 @@
       const risk = `${compCount} competing ${biz.noun}${compCount === 1 ? "" : "s"} ${scopeWord}. Competitive pressure: ${saturation}. Rent pressure: ${rentLabel(profile)}.${demandSentence ? ` Demand momentum: ${demandSentence}.` : ""}`;
       const action = `${decision.next}. ${decision.nextCopy}`;
 
-      renderResult({ score, verdict, confidence: `${String(confidence.label || "").toUpperCase()} CONFIDENCE`.trim(), scope: loc.scope, isArea: loc.isArea, why, risk, action });
+      renderResult({
+        score,
+        verdict,
+        confidence: `${String(confidence.label || "").toUpperCase()} CONFIDENCE`.trim(),
+        scope: loc.scope,
+        isArea: loc.isArea,
+        why,
+        risk,
+        action,
+        business: biz.search,
+        zip: loc.zip,
+        address: mode === "block" ? value : "",
+        radius: "0.5"
+      });
     } catch (err) {
       console.error("[home] analysis failed", err);
       renderError("The analysis engine hit an error. Please try again.");

@@ -3708,7 +3708,8 @@ body.assistant-open .assistant-toggle { display: none; }
 .advisor-grid article,
 .agent-card,
 .admin-grid article,
-.account-grid form {
+.account-grid form,
+.account-management-card {
   border: 1px solid rgba(14, 42, 64, 0.12);
   border-radius: 18px;
   background: linear-gradient(180deg, #ffffff, #f7fbfc);
@@ -3748,11 +3749,23 @@ body.assistant-open .assistant-toggle { display: none; }
 .advisor-grid strong,
 .agent-card strong,
 .admin-grid h4,
-.account-grid strong {
+.account-grid strong,
+.account-management-card strong {
   display: block;
   margin: 0 0 8px;
   color: #101923;
   font-size: 1.05rem;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.account-actions button {
+  flex: 1 1 150px;
 }
 
 .pricing-card p,
@@ -5533,7 +5546,7 @@ body {
 
 
 /* ============================================================
-   Public homepage — approved AreaIntel production design (dark / cyan)
+   Public homepage — approved SpotVest production design (dark / cyan)
    Scoped under body.landing-mode so the app shell, Leaflet report,
    and PDF export remain exactly as before. When landing-mode is
    removed (after Analyze), all of this falls away.
@@ -5593,6 +5606,30 @@ body.landing-mode .h1 .hl{color:var(--cyan);}
 body.landing-mode .lead{font-size:18px;color:var(--muted);line-height:1.6;margin-bottom:28px;max-width:520px;}
 body.landing-mode .herostat{font-size:12px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:18px;}
 body.landing-mode .verdictcard{background:#0D1424;border:1px solid var(--line);border-radius:14px;padding:18px;}
+
+/* WHAT IS SPOTVEST */
+body.landing-mode .what-spotvest{
+  display:grid;
+  grid-template-columns:.8fr 1.2fr;
+  gap:42px;
+  align-items:start;
+  padding:56px 0;
+  border-top:1px solid rgba(255,255,255,.06);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+body.landing-mode .what-spotvest-copy{
+  display:grid;
+  gap:18px;
+  background:linear-gradient(135deg,rgba(6,182,212,.10),rgba(30,41,59,.45));
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  padding:28px;
+}
+body.landing-mode .what-spotvest-copy p{
+  color:#CBD5E1;
+  font-size:18px;
+  line-height:1.65;
+}
 
 /* SECTIONS (prototype sections live directly inside .wrap) */
 body.landing-mode .wrap > section{padding:64px 0;}
@@ -5710,6 +5747,9 @@ body.landing-mode .advisor-grid p{color:#64748B;font-size:13px;}
 /* ---- Responsive (prototype breakpoint) ---- */
 @media(max-width:860px){
   body.landing-mode .hero{grid-template-columns:1fr;}
+  body.landing-mode .what-spotvest{grid-template-columns:1fr;gap:20px;}
+  body.landing-mode .what-spotvest-copy{padding:22px;}
+  body.landing-mode .what-spotvest-copy p{font-size:16px;}
   body.landing-mode .aib{grid-template-columns:1fr;}
   body.landing-mode .ail{border-right:none;border-bottom:1px solid var(--line);}
   body.landing-mode .cards3{grid-template-columns:1fr;}
@@ -5730,4 +5770,1570 @@ body.landing-mode .advisor-grid p{color:#64748B;font-size:13px;}
   body.landing-mode .pricing-grid{grid-template-columns:1fr;}
   body.landing-mode .navL{gap:10px;}
   body.landing-mode .nl{font-size:12px;}
+}
+
+/* ============================================================
+   Unified AreaIntel app experience
+   Keeps all analysis/report logic intact; aligns the logged-in
+   product with the approved premium public homepage direction.
+   ============================================================ */
+body:not(.landing-mode) {
+  --app-navy: #080e1c;
+  --app-navy-2: #0d1424;
+  --app-panel: #ffffff;
+  --app-panel-soft: #f6f9fc;
+  --app-ink: #101827;
+  --app-muted: #617184;
+  --app-cyan: #06b6d4;
+  --app-teal: #0e7490;
+  --app-green: #16a66a;
+  --app-amber: #c8891d;
+  --app-red: #c24132;
+  --app-line: rgba(15, 23, 42, 0.12);
+  --app-line-dark: rgba(255, 255, 255, 0.11);
+  --app-shadow: 0 24px 70px rgba(8, 14, 28, 0.16);
+  --app-shadow-soft: 0 12px 34px rgba(8, 14, 28, 0.08);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(6, 182, 212, 0.18), transparent 28%),
+    linear-gradient(180deg, #080e1c 0, #0d1424 280px, #eef4f7 281px);
+  color: var(--app-ink);
+}
+
+body:not(.landing-mode) .app-shell {
+  padding: 14px;
+  background: transparent;
+}
+
+body:not(.landing-mode) .workspace {
+  background: #eef4f7;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.28);
+}
+
+body:not(.landing-mode) .sidebar {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 14, 28, 0.98), rgba(13, 20, 36, 0.99));
+  background-size: 28px 28px, 28px 28px, auto;
+  border-right: 1px solid var(--app-line-dark);
+  color: #f1f5f9;
+}
+
+body:not(.landing-mode) .sidebar::before {
+  background: radial-gradient(circle at 20% 0%, rgba(6, 182, 212, 0.22), transparent 38%);
+  opacity: 1;
+}
+
+body:not(.landing-mode) .brand {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--app-line-dark);
+}
+
+body:not(.landing-mode) .mark {
+  background: linear-gradient(145deg, rgba(6, 182, 212, 0.86), rgba(16, 185, 129, 0.5));
+  color: #ffffff;
+  box-shadow: 0 18px 42px rgba(6, 182, 212, 0.18);
+}
+
+body:not(.landing-mode) .liberty-mark path {
+  stroke: #ffffff;
+}
+
+body:not(.landing-mode) .brand-title {
+  color: #ffffff;
+  letter-spacing: -0.04em;
+}
+
+body:not(.landing-mode) .brand-tagline,
+body:not(.landing-mode) .nyc-notice p,
+body:not(.landing-mode) .positioning-card p {
+  color: #aebed0;
+}
+
+body:not(.landing-mode) .eyebrow,
+body:not(.landing-mode) .step-label,
+body:not(.landing-mode) .section-label {
+  color: var(--app-cyan);
+  letter-spacing: 0.13em;
+}
+
+body:not(.landing-mode) .nyc-notice,
+body:not(.landing-mode) .positioning-card,
+body:not(.landing-mode) .intake-card,
+body:not(.landing-mode) .search-panel,
+body:not(.landing-mode) .address-panel,
+body:not(.landing-mode) .saved-reports-panel {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--app-line-dark);
+  border-radius: 14px;
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
+body:not(.landing-mode) .sidebar label,
+body:not(.landing-mode) .nyc-notice strong,
+body:not(.landing-mode) .positioning-card strong {
+  color: #ffffff;
+}
+
+body:not(.landing-mode) .sidebar input,
+body:not(.landing-mode) .sidebar select,
+body:not(.landing-mode) .sidebar textarea {
+  min-height: 48px;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 12px;
+  font-size: 0.98rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body:not(.landing-mode) .sidebar input:focus,
+body:not(.landing-mode) .sidebar select:focus,
+body:not(.landing-mode) .sidebar textarea:focus {
+  border-color: var(--app-cyan);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.26);
+}
+
+body:not(.landing-mode) .sidebar button,
+body:not(.landing-mode) .primary-button,
+body:not(.landing-mode) .ghost-button,
+body:not(.landing-mode) .subtle-button,
+body:not(.landing-mode) .export-button,
+body:not(.landing-mode) .memo-button {
+  min-height: 44px;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #06b6d4, #0e7490);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 14px 32px rgba(6, 182, 212, 0.2);
+}
+
+body:not(.landing-mode) .ghost-button,
+body:not(.landing-mode) .subtle-button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #dce8f7;
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .results {
+  padding: 18px;
+  gap: 16px;
+  background:
+    linear-gradient(rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.035) 1px, transparent 1px),
+    #eef4f7;
+  background-size: 34px 34px;
+}
+
+body:not(.landing-mode) .hero-report {
+  position: relative;
+  overflow: hidden;
+  align-items: end;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, rgba(8, 14, 28, 0.94), rgba(13, 20, 36, 0.88)),
+    url("https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1600&q=80") center/cover;
+  box-shadow: var(--app-shadow);
+}
+
+body:not(.landing-mode) .hero-report::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(8, 14, 28, 0.88), rgba(8, 14, 28, 0.42)),
+    radial-gradient(circle at 92% 8%, rgba(6, 182, 212, 0.22), transparent 36%);
+}
+
+body:not(.landing-mode) .hero-report > * {
+  position: relative;
+  z-index: 1;
+}
+
+body:not(.landing-mode) .hero-report .section-label {
+  color: #67e8f9;
+}
+
+body:not(.landing-mode) .hero-report h2 {
+  max-width: 20ch;
+  color: #ffffff;
+  font-size: clamp(2.1rem, 4vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+body:not(.landing-mode) .hero-report p {
+  max-width: 68ch;
+  color: #dbeafe;
+}
+
+body:not(.landing-mode) .hero-tags span,
+body:not(.landing-mode) .pill,
+body:not(.landing-mode) .signal-chip,
+body:not(.landing-mode) .status,
+body:not(.landing-mode) .mini-status,
+body:not(.landing-mode) .source-map-status {
+  border-radius: 999px;
+}
+
+body:not(.landing-mode) .hero-tags span {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f8fafc;
+}
+
+body:not(.landing-mode) .hero-actions button {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .hero-actions #export-pdf-button,
+body:not(.landing-mode) .hero-actions #copy-link-button {
+  background: #ffffff;
+  color: #0e7490;
+}
+
+body:not(.landing-mode) .analyst-tabs {
+  padding: 10px;
+  border: 1px solid var(--app-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: var(--app-shadow-soft);
+  backdrop-filter: blur(12px);
+}
+
+body:not(.landing-mode) .analyst-tabs a {
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+body:not(.landing-mode) .decision-strip {
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .decision-strip article,
+body:not(.landing-mode) .investment-memo,
+body:not(.landing-mode) .panel,
+body:not(.landing-mode) .signal-card,
+body:not(.landing-mode) .verdict-panel,
+body:not(.landing-mode) .business-results article,
+body:not(.landing-mode) .institutional-grid article,
+body:not(.landing-mode) .analysis-columns article,
+body:not(.landing-mode) .score-drivers-card,
+body:not(.landing-mode) .unknown-factors,
+body:not(.landing-mode) .foot-traffic-grid article,
+body:not(.landing-mode) .revenue-output-grid article,
+body:not(.landing-mode) .revenue-input-grid label,
+body:not(.landing-mode) .market-panel,
+body:not(.landing-mode) .diligence-panel,
+body:not(.landing-mode) .data-connected-strip,
+body:not(.landing-mode) .evidence-signal-card,
+body:not(.landing-mode) .memo-card,
+body:not(.landing-mode) .memo-hero-copy {
+  border: 1px solid var(--app-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--app-shadow-soft);
+}
+
+body:not(.landing-mode) .decision-strip article::before,
+body:not(.landing-mode) .signal-card::before {
+  height: 4px;
+}
+
+body:not(.landing-mode) .decision-strip .decision-main-card {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(6, 182, 212, 0.24), transparent 36%),
+    linear-gradient(145deg, #080e1c, #0d2f45 58%, #0e7490);
+  border-color: rgba(103, 232, 249, 0.22);
+  color: #ffffff;
+}
+
+body:not(.landing-mode) .decision-strip .decision-main-card .section-label,
+body:not(.landing-mode) .decision-strip .decision-main-card .signal-label,
+body:not(.landing-mode) .decision-strip .decision-main-card p {
+  color: #c7e8f1;
+}
+
+body:not(.landing-mode) .decision-badge {
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  text-align: center;
+}
+
+body:not(.landing-mode) .decision-open {
+  color: #0d7449;
+  background: #dcfce7;
+}
+
+body:not(.landing-mode) .decision-conditional {
+  color: #0e7490;
+  background: #cffafe;
+}
+
+body:not(.landing-mode) .decision-do-not-open {
+  color: #b42318;
+  background: #fee2dd;
+}
+
+body:not(.landing-mode) .decision-needs-more-data {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+body:not(.landing-mode) .memo-score-stack article {
+  background: #0d1424;
+  color: #ffffff;
+  border-radius: 14px;
+}
+
+body:not(.landing-mode) .memo-score-stack article:nth-child(2) {
+  background: #0f3b4a;
+}
+
+body:not(.landing-mode) .panel-header {
+  margin: -1px -1px 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--app-line);
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(180deg, #f8fbff, #eef8fb);
+}
+
+body:not(.landing-mode) .map-panel {
+  overflow: hidden;
+  background: #ffffff;
+}
+
+body:not(.landing-mode) .map-panel .panel-header {
+  background:
+    linear-gradient(135deg, rgba(8, 14, 28, 0.98), rgba(13, 20, 36, 0.95));
+  color: #ffffff;
+}
+
+body:not(.landing-mode) .map-panel .panel-header h3 {
+  color: #ffffff;
+}
+
+body:not(.landing-mode) .map-panel .panel-header p,
+body:not(.landing-mode) .map-panel .panel-header .section-label {
+  color: #a6c3cf;
+}
+
+body:not(.landing-mode) .market-map {
+  border: 0;
+  border-radius: 0;
+  background: #dbe7ef;
+}
+
+body:not(.landing-mode) .business-count,
+body:not(.landing-mode) .business-count * {
+  overflow-wrap: anywhere;
+}
+
+body:not(.landing-mode) .business-count #business-count {
+  font-size: clamp(2.4rem, 7vw, 4.5rem);
+  line-height: 0.95;
+}
+
+body:not(.landing-mode) .business-results {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body:not(.landing-mode) .summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body:not(.landing-mode) .signal-card,
+body:not(.landing-mode) .business-results article {
+  min-height: 150px;
+}
+
+body:not(.landing-mode) .business-suggestions {
+  z-index: 1000;
+  max-height: min(360px, 55vh);
+  overflow-y: auto;
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  background: #0b1220;
+  box-shadow: 0 24px 70px rgba(8, 14, 28, 0.42);
+}
+
+body:not(.landing-mode) .business-suggestions button {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  text-align: left;
+}
+
+body:not(.landing-mode) .business-suggestions button:hover,
+body:not(.landing-mode) .business-suggestions button:focus-visible {
+  background: rgba(6, 182, 212, 0.16);
+}
+
+body:not(.landing-mode) .launch-section,
+body:not(.landing-mode) .pricing-card,
+body:not(.landing-mode) .advisor-grid article,
+body:not(.landing-mode) .launch-form {
+  border-radius: 16px;
+  border: 1px solid var(--app-line);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--app-shadow-soft);
+}
+
+body:not(.landing-mode) .pricing-card-featured {
+  border-color: rgba(6, 182, 212, 0.45);
+  box-shadow: 0 20px 54px rgba(6, 182, 212, 0.14);
+}
+
+@media (min-width: 1100px) {
+  body:not(.landing-mode) .workspace {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  body:not(.landing-mode) .sidebar {
+    padding: 22px;
+  }
+
+  body:not(.landing-mode) .results {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  body:not(.landing-mode) .results > * {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    position: static !important;
+  }
+
+  body:not(.landing-mode) .executive-decision-strip {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.25fr) repeat(3, minmax(180px, 0.75fr));
+  }
+
+  body:not(.landing-mode) .decision-strip .decision-main-card {
+    min-height: 176px;
+  }
+
+  body:not(.landing-mode) .map-panel {
+    order: 4;
+  }
+
+  body:not(.landing-mode) .market-map {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 860px) {
+  body:not(.landing-mode) .app-shell {
+    padding: 0;
+  }
+
+  body:not(.landing-mode) .workspace {
+    border-radius: 0;
+  }
+
+  body:not(.landing-mode) .sidebar {
+    padding: 20px;
+  }
+
+  body:not(.landing-mode) .results {
+    padding: 12px;
+    background:
+      linear-gradient(rgba(6, 182, 212, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6, 182, 212, 0.035) 1px, transparent 1px),
+      #eef4f7;
+    background-size: 28px 28px;
+  }
+
+  body:not(.landing-mode) .hero-report {
+    min-height: 420px;
+    padding: 22px;
+    border-radius: 18px;
+  }
+
+  body:not(.landing-mode) .hero-report h2 {
+    max-width: 12ch;
+    font-size: clamp(2.15rem, 13vw, 3.25rem);
+    line-height: 0.98;
+  }
+
+  body:not(.landing-mode) .hero-report p {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  body:not(.landing-mode) .hero-tags {
+    gap: 8px;
+  }
+
+  body:not(.landing-mode) .hero-tags span {
+    max-width: 100%;
+    font-size: 0.72rem;
+    white-space: normal;
+  }
+
+  body:not(.landing-mode) .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  body:not(.landing-mode) .hero-actions button {
+    min-height: 42px;
+    padding: 9px 10px;
+    font-size: 0.82rem;
+  }
+
+  body:not(.landing-mode) .executive-decision-strip,
+  body:not(.landing-mode) .summary-grid,
+  body:not(.landing-mode) .business-results,
+  body:not(.landing-mode) .memo-grid,
+  body:not(.landing-mode) .analysis-columns,
+  body:not(.landing-mode) .institutional-grid,
+  body:not(.landing-mode) .foot-traffic-grid,
+  body:not(.landing-mode) .revenue-output-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body:not(.landing-mode) .decision-strip .decision-main-card {
+    min-height: 0;
+  }
+
+  body:not(.landing-mode) .panel-header {
+    padding: 16px;
+  }
+
+  body:not(.landing-mode) .market-map {
+    min-height: 360px;
+  }
+
+  body:not(.landing-mode).business-picker-open {
+    overflow: hidden;
+  }
+
+  body:not(.landing-mode).business-picker-open .business-suggestions {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-height: min(62vh, 520px);
+    padding: 12px;
+    border-radius: 18px;
+    z-index: 9999;
+  }
+}
+
+/* App intake state: when the homepage CTA opens the product shell, keep the
+   approved homepage hidden and show a clean product prompt instead. */
+body:not(.landing-mode) .start-screen:not([hidden]) {
+  min-height:100vh;
+  display:grid !important;
+  place-items:center;
+  padding:clamp(28px, 5vw, 72px);
+  color:#EAFBFF;
+  background:
+    linear-gradient(135deg, rgba(2, 8, 23, .86), rgba(8, 47, 73, .72)),
+    url("https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1800&q=80") center/cover;
+  border-radius:0 26px 26px 0;
+  overflow:hidden;
+}
+
+body:not(.landing-mode) .start-screen:not([hidden]) > * {
+  display:none !important;
+}
+
+body:not(.landing-mode) .start-screen:not([hidden])::before {
+  content:"Business Decision Intelligence";
+  display:block;
+  width:min(720px, 92%);
+  padding:clamp(28px, 5vw, 52px);
+  border:1px solid rgba(148, 241, 255, .2);
+  border-radius:24px;
+  background:linear-gradient(135deg, rgba(7, 18, 35, .82), rgba(8, 63, 85, .58));
+  box-shadow:0 34px 90px rgba(2, 8, 23, .42), inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter:blur(18px);
+  font-size:clamp(36px, 6vw, 78px);
+  line-height:.96;
+  letter-spacing:-.055em;
+  font-weight:900;
+}
+
+body:not(.landing-mode) .start-screen:not([hidden])::after {
+  content:"Use the left panel to choose a business type, enter a ZIP code or exact address, and generate the executive decision report.";
+  position:absolute;
+  left:50%;
+  top:calc(50% + min(150px, 18vw));
+  transform:translateX(-50%);
+  width:min(640px, 78%);
+  color:#BAEFFF;
+  font-size:clamp(15px, 1.5vw, 20px);
+  line-height:1.55;
+  text-align:center;
+}
+
+body:not(.landing-mode) .sidebar input::placeholder {
+  color:#6B7C8D;
+}
+
+body:not(.landing-mode) .sidebar .nyc-notice p,
+body:not(.landing-mode) .sidebar .positioning-card p {
+  color:#B8CAD6;
+}
+
+body:not(.landing-mode) .sidebar .intake-card p,
+body:not(.landing-mode) .sidebar .form-message,
+body:not(.landing-mode) .sidebar .help-text {
+  color:#A7BAC8;
+}
+
+body:not(.landing-mode) .compare-panel .panel-header {
+  background:
+    linear-gradient(135deg, rgba(7, 18, 35, .94), rgba(8, 63, 85, .78)),
+    url("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80") center/cover;
+  color:#F2FDFF;
+  border-bottom:1px solid rgba(148, 241, 255, .18);
+}
+
+body:not(.landing-mode) .compare-panel .panel-header .section-label,
+body:not(.landing-mode) .compare-panel .panel-header h3,
+body:not(.landing-mode) .compare-panel .panel-header p {
+  color:#F2FDFF;
+}
+
+body:not(.landing-mode) .compare-panel .panel-header .subtle-button {
+  background:rgba(255,255,255,.12);
+  color:#F2FDFF;
+  border-color:rgba(255,255,255,.22);
+}
+
+/* ============================================================
+   Final app unification pass
+   The homepage is the visual source of truth; this keeps the
+   inside product from falling back into the older light dashboard.
+   ============================================================ */
+body:not(.landing-mode) {
+  --app-panel: rgba(10, 18, 32, 0.86);
+  --app-panel-soft: rgba(13, 24, 42, 0.74);
+  --app-ink: #f4fbff;
+  --app-muted: #b8c7d7;
+  --app-soft: #88a2b3;
+  --app-line: rgba(148, 241, 255, 0.14);
+  --app-glass: linear-gradient(145deg, rgba(11, 23, 41, 0.9), rgba(10, 45, 59, 0.66));
+  color: var(--app-ink);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(6, 182, 212, 0.22), transparent 28%),
+    radial-gradient(circle at 92% 10%, rgba(22, 166, 106, 0.12), transparent 34%),
+    #070d18;
+}
+
+body:not(.landing-mode) .workspace,
+body:not(.landing-mode) .results {
+  background:
+    linear-gradient(rgba(148, 241, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 241, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 82% 0%, rgba(6, 182, 212, 0.13), transparent 34%),
+    #07111f;
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+body:not(.landing-mode) .results {
+  color: var(--app-ink);
+}
+
+body:not(.landing-mode) .hero-report {
+  border-color: rgba(148, 241, 255, 0.2);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.36);
+}
+
+body:not(.landing-mode) .hero-report h2 {
+  overflow-wrap: anywhere;
+}
+
+body:not(.landing-mode) .analyst-tabs,
+body:not(.landing-mode) .decision-strip article,
+body:not(.landing-mode) .investment-memo,
+body:not(.landing-mode) .panel,
+body:not(.landing-mode) .signal-card,
+body:not(.landing-mode) .verdict-panel,
+body:not(.landing-mode) .business-results article,
+body:not(.landing-mode) .institutional-grid article,
+body:not(.landing-mode) .analysis-columns article,
+body:not(.landing-mode) .score-drivers-card,
+body:not(.landing-mode) .unknown-factors,
+body:not(.landing-mode) .foot-traffic-grid article,
+body:not(.landing-mode) .revenue-output-grid article,
+body:not(.landing-mode) .revenue-input-grid label,
+body:not(.landing-mode) .market-panel,
+body:not(.landing-mode) .diligence-panel,
+body:not(.landing-mode) .data-connected-strip,
+body:not(.landing-mode) .evidence-signal-card,
+body:not(.landing-mode) .memo-card,
+body:not(.landing-mode) .memo-hero-copy,
+body:not(.landing-mode) .launch-section,
+body:not(.landing-mode) .pricing-card,
+body:not(.landing-mode) .advisor-grid article,
+body:not(.landing-mode) .launch-form,
+body:not(.landing-mode) .source-map-card,
+body:not(.landing-mode) .source-map-list article,
+body:not(.landing-mode) .methodology-panel,
+body:not(.landing-mode) details,
+body:not(.landing-mode) .compare-panel,
+body:not(.landing-mode) .compare-card,
+body:not(.landing-mode) .saved-report-card {
+  background: var(--app-glass);
+  border-color: var(--app-line);
+  color: var(--app-ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+body:not(.landing-mode) .panel-header,
+body:not(.landing-mode) .investment-memo-header,
+body:not(.landing-mode) .business-checker-header,
+body:not(.landing-mode) .compare-panel .panel-header {
+  background: linear-gradient(135deg, rgba(13, 20, 36, 0.92), rgba(8, 63, 85, 0.72));
+  border-color: rgba(148, 241, 255, 0.14);
+  color: var(--app-ink);
+}
+
+body:not(.landing-mode) .panel-header h3,
+body:not(.landing-mode) .panel-header h4,
+body:not(.landing-mode) .panel-header p,
+body:not(.landing-mode) .investment-memo-header h3,
+body:not(.landing-mode) .investment-memo-header p,
+body:not(.landing-mode) .business-checker-header h3,
+body:not(.landing-mode) .business-checker-header p,
+body:not(.landing-mode) .compare-panel .panel-header h3,
+body:not(.landing-mode) .compare-panel .panel-header p {
+  color: var(--app-ink);
+}
+
+body:not(.landing-mode) h1,
+body:not(.landing-mode) h2,
+body:not(.landing-mode) h3,
+body:not(.landing-mode) h4,
+body:not(.landing-mode) strong,
+body:not(.landing-mode) .signal-title,
+body:not(.landing-mode) .metric-value,
+body:not(.landing-mode) .score-value,
+body:not(.landing-mode) .summary-value,
+body:not(.landing-mode) .recommendation,
+body:not(.landing-mode) .decision-strip strong {
+  color: var(--app-ink);
+}
+
+body:not(.landing-mode) p,
+body:not(.landing-mode) li,
+body:not(.landing-mode) dd,
+body:not(.landing-mode) .muted,
+body:not(.landing-mode) .help-text,
+body:not(.landing-mode) .signal-description,
+body:not(.landing-mode) .memo-card p,
+body:not(.landing-mode) .panel p,
+body:not(.landing-mode) .business-results article p,
+body:not(.landing-mode) .analysis-columns article p,
+body:not(.landing-mode) .institutional-grid article p,
+body:not(.landing-mode) .unknown-factors li,
+body:not(.landing-mode) .source-map-list article p {
+  color: var(--app-muted);
+}
+
+body:not(.landing-mode) .section-label,
+body:not(.landing-mode) .eyebrow,
+body:not(.landing-mode) .signal-label,
+body:not(.landing-mode) .source-map-label {
+  color: #7ddcff;
+}
+
+body:not(.landing-mode) .analyst-tabs a,
+body:not(.landing-mode) .pill,
+body:not(.landing-mode) .status,
+body:not(.landing-mode) .mini-status,
+body:not(.landing-mode) .source-map-status,
+body:not(.landing-mode) .hero-tags span,
+body:not(.landing-mode) .signal-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(148, 241, 255, 0.18);
+  color: #e7f8ff;
+}
+
+body:not(.landing-mode) .decision-strip .decision-main-card {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(6, 182, 212, 0.32), transparent 38%),
+    linear-gradient(145deg, rgba(5, 15, 30, 0.98), rgba(7, 66, 86, 0.86));
+}
+
+body:not(.landing-mode) .decision-badge {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+body:not(.landing-mode) input,
+body:not(.landing-mode) select,
+body:not(.landing-mode) textarea {
+  background: rgba(248, 250, 252, 0.96);
+  color: #0f172a;
+}
+
+body:not(.landing-mode) .results button,
+body:not(.landing-mode) .results .primary-button,
+body:not(.landing-mode) .results .export-button {
+  border-color: rgba(103, 232, 249, 0.24);
+}
+
+body:not(.landing-mode) table,
+body:not(.landing-mode) .compare-table {
+  color: var(--app-ink);
+  border-color: rgba(148, 241, 255, 0.14);
+}
+
+body:not(.landing-mode) th,
+body:not(.landing-mode) td {
+  border-color: rgba(148, 241, 255, 0.1);
+}
+
+body:not(.landing-mode) th {
+  background: rgba(255, 255, 255, 0.08);
+  color: #dff8ff;
+}
+
+body:not(.landing-mode) .market-map,
+body:not(.landing-mode) .map-panel {
+  background: rgba(8, 14, 28, 0.88);
+  border-color: rgba(148, 241, 255, 0.16);
+}
+
+body:not(.landing-mode) .map-panel .panel-header {
+  background: linear-gradient(135deg, rgba(5, 15, 30, 0.96), rgba(7, 66, 86, 0.72));
+}
+
+body:not(.landing-mode) .leaflet-control,
+body:not(.landing-mode) .leaflet-popup-content-wrapper {
+  color: #0f172a;
+}
+
+body:not(.landing-mode) .start-screen:not([hidden]) {
+  border-left: 1px solid rgba(148, 241, 255, 0.1);
+}
+
+@media (max-width: 860px) {
+  body:not(.landing-mode) .results {
+    background:
+      linear-gradient(rgba(148, 241, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 241, 255, 0.03) 1px, transparent 1px),
+      #07111f;
+    background-size: 28px 28px;
+  }
+
+  body:not(.landing-mode) .hero-report {
+    min-height: 360px;
+  }
+
+  body:not(.landing-mode) .hero-report h2 {
+    max-width: 14ch;
+    font-size: clamp(1.85rem, 10vw, 2.8rem);
+    line-height: 1.02;
+  }
+
+  body:not(.landing-mode) .results > .hero-report {
+    order: -12 !important;
+  }
+
+  body:not(.landing-mode) .results > .executive-decision-strip {
+    order: -11 !important;
+  }
+
+  body:not(.landing-mode) .results > .data-connected-strip {
+    order: -10 !important;
+  }
+
+  body:not(.landing-mode) .results > .investment-memo {
+    order: -9 !important;
+  }
+
+  body:not(.landing-mode) .results > .summary-grid {
+    order: -8 !important;
+  }
+
+  body:not(.landing-mode) .results > .map-panel {
+    order: -7 !important;
+  }
+}
+
+/* ============================================================
+   Inside app visual alignment — match approved homepage style
+   Visual-only override. Keeps scoring, APIs, report logic intact.
+   ============================================================ */
+body:not(.landing-mode) {
+  --ai-navy: #080e1c;
+  --ai-navy-2: #0a0f1e;
+  --ai-slate: #111827;
+  --ai-glass: #1e293b;
+  --ai-cyan: #06b6d4;
+  --ai-green: #10b981;
+  --ai-amber: #f59e0b;
+  --ai-red: #ef4444;
+  --ai-white: #f1f5f9;
+  --ai-muted: #94a3b8;
+  --ai-dim: #64748b;
+  --ai-line: rgba(255, 255, 255, 0.11);
+  --ai-panel: rgba(10, 15, 30, 0.9);
+  --ai-panel-2: rgba(13, 20, 36, 0.92);
+  --ai-depth: 0 28px 90px rgba(0, 0, 0, 0.36);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(6, 182, 212, 0.2), transparent 28%),
+    radial-gradient(circle at 92% 12%, rgba(16, 185, 129, 0.12), transparent 34%),
+    var(--ai-navy);
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) .workspace {
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px),
+    var(--ai-navy);
+  background-size: 28px 28px;
+  border-color: rgba(255,255,255,.08);
+}
+
+body:not(.landing-mode) .results,
+body:not(.landing-mode) .start-screen:not([hidden]) {
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px),
+    radial-gradient(circle at 80% 0%, rgba(6, 182, 212, 0.14), transparent 34%),
+    var(--ai-navy);
+  background-size: 28px 28px, 28px 28px, auto, auto;
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) .sidebar {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(6, 182, 212, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(8,14,28,.98), rgba(10,15,30,.99));
+}
+
+body:not(.landing-mode) .nyc-notice,
+body:not(.landing-mode) .positioning-card,
+body:not(.landing-mode) .intake-card,
+body:not(.landing-mode) .search-panel,
+body:not(.landing-mode) .address-panel,
+body:not(.landing-mode) .saved-reports-panel {
+  background: rgba(17, 24, 39, 0.72);
+  border: 1px solid var(--ai-line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .results > section,
+body:not(.landing-mode) .results > div,
+body:not(.landing-mode) .analyst-tabs,
+body:not(.landing-mode) .decision-strip article,
+body:not(.landing-mode) .investment-memo,
+body:not(.landing-mode) .panel,
+body:not(.landing-mode) .signal-card,
+body:not(.landing-mode) .verdict-panel,
+body:not(.landing-mode) .business-results article,
+body:not(.landing-mode) .institutional-grid article,
+body:not(.landing-mode) .analysis-columns article,
+body:not(.landing-mode) .score-drivers-card,
+body:not(.landing-mode) .unknown-factors,
+body:not(.landing-mode) .foot-traffic-grid article,
+body:not(.landing-mode) .revenue-output-grid article,
+body:not(.landing-mode) .revenue-input-grid label,
+body:not(.landing-mode) .market-panel,
+body:not(.landing-mode) .diligence-panel,
+body:not(.landing-mode) .data-connected-strip,
+body:not(.landing-mode) .evidence-signal-card,
+body:not(.landing-mode) .memo-card,
+body:not(.landing-mode) .memo-hero-copy,
+body:not(.landing-mode) .source-map-card,
+body:not(.landing-mode) .source-map-list article,
+body:not(.landing-mode) .methodology-panel,
+body:not(.landing-mode) details,
+body:not(.landing-mode) .compare-panel,
+body:not(.landing-mode) .compare-card,
+body:not(.landing-mode) .places-card,
+body:not(.landing-mode) .listing-card,
+body:not(.landing-mode) .concept-fit-card,
+body:not(.landing-mode) .launch-section,
+body:not(.landing-mode) .pricing-card,
+body:not(.landing-mode) .advisor-grid article,
+body:not(.landing-mode) .launch-form {
+  background: var(--ai-panel);
+  border: 1px solid var(--ai-line);
+  color: var(--ai-white);
+  box-shadow: var(--ai-depth), inset 0 1px 0 rgba(255,255,255,.055);
+  backdrop-filter: blur(14px);
+}
+
+body:not(.landing-mode) .results > .hero-report,
+body:not(.landing-mode) .results > .map-panel,
+body:not(.landing-mode) .results > .executive-decision-strip {
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .hero-report {
+  background:
+    linear-gradient(90deg, rgba(8, 14, 28, 0.9), rgba(8, 14, 28, 0.45)),
+    radial-gradient(circle at 90% 8%, rgba(6, 182, 212, 0.2), transparent 35%),
+    url("https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1600&q=80") center/cover;
+  border-radius: 18px;
+  border: 1px solid var(--ai-line);
+}
+
+body:not(.landing-mode) .hero-report h2 {
+  color: var(--ai-white);
+  font-size: clamp(2.7rem, 5.2vw, 5.25rem);
+  letter-spacing: -0.055em;
+  line-height: 0.96;
+  max-width: 17ch;
+}
+
+body:not(.landing-mode) .hero-report p {
+  color: var(--ai-muted);
+  font-size: 1rem;
+}
+
+body:not(.landing-mode) .hero-tags span,
+body:not(.landing-mode) .pill,
+body:not(.landing-mode) .status,
+body:not(.landing-mode) .mini-status,
+body:not(.landing-mode) .source-map-status,
+body:not(.landing-mode) .signal-chip,
+body:not(.landing-mode) .map-legend span {
+  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(255,255,255,.13);
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) .hero-actions button,
+body:not(.landing-mode) .results button,
+body:not(.landing-mode) .primary-button,
+body:not(.landing-mode) .export-button,
+body:not(.landing-mode) .memo-button {
+  background: var(--ai-cyan);
+  color: var(--ai-navy);
+  border-color: transparent;
+  box-shadow: 0 14px 34px rgba(6, 182, 212, 0.2);
+}
+
+body:not(.landing-mode) .hero-actions .ghost-button,
+body:not(.landing-mode) .ghost-button,
+body:not(.landing-mode) .subtle-button {
+  background: rgba(30, 41, 59, 0.72);
+  color: var(--ai-white);
+  border-color: rgba(255,255,255,.13);
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .panel-header,
+body:not(.landing-mode) .investment-memo-header,
+body:not(.landing-mode) .business-checker-header,
+body:not(.landing-mode) .compare-panel .panel-header {
+  background: rgba(17, 24, 39, 0.84);
+  border-color: var(--ai-line);
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) h1,
+body:not(.landing-mode) h2,
+body:not(.landing-mode) h3,
+body:not(.landing-mode) h4,
+body:not(.landing-mode) strong,
+body:not(.landing-mode) .signal-title,
+body:not(.landing-mode) .metric-value,
+body:not(.landing-mode) .score-value,
+body:not(.landing-mode) .summary-value,
+body:not(.landing-mode) .recommendation,
+body:not(.landing-mode) .decision-strip strong,
+body:not(.landing-mode) .panel-header h3,
+body:not(.landing-mode) .panel-header h4,
+body:not(.landing-mode) .investment-memo-header h3,
+body:not(.landing-mode) .business-checker-header h3 {
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) p,
+body:not(.landing-mode) li,
+body:not(.landing-mode) dd,
+body:not(.landing-mode) .muted,
+body:not(.landing-mode) .help-text,
+body:not(.landing-mode) .signal-description,
+body:not(.landing-mode) .memo-card p,
+body:not(.landing-mode) .panel p,
+body:not(.landing-mode) .business-results article p,
+body:not(.landing-mode) .analysis-columns article p,
+body:not(.landing-mode) .institutional-grid article p,
+body:not(.landing-mode) .unknown-factors li,
+body:not(.landing-mode) .source-map-list article p,
+body:not(.landing-mode) .panel-header p,
+body:not(.landing-mode) .investment-memo-header p,
+body:not(.landing-mode) .business-checker-header p {
+  color: var(--ai-muted);
+}
+
+body:not(.landing-mode) .section-label,
+body:not(.landing-mode) .eyebrow,
+body:not(.landing-mode) .signal-label,
+body:not(.landing-mode) .source-map-label,
+body:not(.landing-mode) .step-label {
+  color: var(--ai-cyan);
+}
+
+body:not(.landing-mode) .decision-strip .decision-main-card,
+body:not(.landing-mode) .memo-score-stack article,
+body:not(.landing-mode) .business-count {
+  background:
+    radial-gradient(circle at 94% 0%, rgba(6,182,212,.26), transparent 35%),
+    linear-gradient(145deg, rgba(8,14,28,.98), rgba(8,72,92,.82));
+  border-color: rgba(6,182,212,.28);
+}
+
+body:not(.landing-mode) .decision-badge {
+  background: rgba(241, 245, 249, 0.96);
+  color: #0e7490;
+  border: 0;
+}
+
+body:not(.landing-mode) .decision-open { color: #047857; }
+body:not(.landing-mode) .decision-conditional { color: #0e7490; }
+body:not(.landing-mode) .decision-do-not-open { color: #b42318; }
+body:not(.landing-mode) .decision-needs-more-data { color: #334155; }
+
+body:not(.landing-mode) .business-results .business-count,
+body:not(.landing-mode) .business-results .business-count * {
+  color: var(--ai-white);
+}
+
+body:not(.landing-mode) .business-results .business-count #business-count,
+body:not(.landing-mode) .business-count #business-count {
+  font-size: clamp(2.6rem, 6vw, 4.35rem);
+  overflow-wrap: anywhere;
+}
+
+body:not(.landing-mode) .concept-fit-card,
+body:not(.landing-mode) .source-map-list article,
+body:not(.landing-mode) .listing-card,
+body:not(.landing-mode) .places-card {
+  background: rgba(17, 24, 39, 0.82);
+}
+
+body:not(.landing-mode) .concept-fit-card *,
+body:not(.landing-mode) .source-map-list article *,
+body:not(.landing-mode) .listing-card *,
+body:not(.landing-mode) .places-card * {
+  color: inherit;
+}
+
+body:not(.landing-mode) input,
+body:not(.landing-mode) select,
+body:not(.landing-mode) textarea {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(255,255,255,.18);
+}
+
+body:not(.landing-mode) .business-suggestions {
+  position: absolute;
+  z-index: 9999;
+  max-height: min(420px, 58vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #0a0f1e;
+  border: 1px solid rgba(6,182,212,.35);
+  border-radius: 14px;
+  box-shadow: 0 28px 90px rgba(0,0,0,.48);
+}
+
+body:not(.landing-mode) .business-suggestions button {
+  color: var(--ai-white);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+body:not(.landing-mode) .business-suggestions button:hover,
+body:not(.landing-mode) .business-suggestions button:focus-visible {
+  background: rgba(6, 182, 212, 0.16);
+}
+
+body:not(.landing-mode) .map-panel .panel-header,
+body:not(.landing-mode) .market-map {
+  background: var(--ai-panel-2);
+}
+
+body:not(.landing-mode) .leaflet-control,
+body:not(.landing-mode) .leaflet-popup-content-wrapper,
+body:not(.landing-mode) .leaflet-popup-tip {
+  color: #0f172a;
+}
+
+@media (min-width: 1100px) {
+  body:not(.landing-mode) .workspace {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  body:not(.landing-mode) .results {
+    max-width: 1180px;
+    padding: 24px;
+    gap: 18px;
+  }
+
+  body:not(.landing-mode) .executive-decision-strip {
+    display: grid;
+    grid-template-columns: 1.35fr .72fr .72fr .72fr;
+  }
+}
+
+@media (max-width: 860px) {
+  body:not(.landing-mode) .results {
+    padding: 12px;
+  }
+
+  body:not(.landing-mode) .results > .hero-report {
+    order: -12 !important;
+  }
+
+  body:not(.landing-mode) .results > .executive-decision-strip {
+    order: -11 !important;
+  }
+
+  body:not(.landing-mode) .hero-report {
+    min-height: auto;
+    padding: 22px;
+  }
+
+  body:not(.landing-mode) .hero-report h2 {
+    max-width: 13ch;
+    font-size: clamp(2rem, 11vw, 3rem);
+    line-height: 0.98;
+  }
+
+  body:not(.landing-mode) .hero-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  body:not(.landing-mode) .hero-report h2 {
+    font-size: clamp(1.85rem, 10vw, 2.65rem);
+  }
+
+  body:not(.landing-mode) .hero-tags span {
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  body:not(.landing-mode) .business-suggestions {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+}
+/* ================================================================
+   Inside report: homepage-style AreaIntel output
+   Keeps the engine intact, replaces the first visible report decision
+   with the same compact output pattern as the approved front-page demo.
+   ================================================================ */
+body:not(.landing-mode) .full-decision-panel {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(6, 182, 212, .16), transparent 32%),
+    linear-gradient(145deg, rgba(10, 15, 30, .96), rgba(13, 20, 36, .98));
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 18px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .28);
+  color: var(--white);
+  padding: 22px;
+  overflow: hidden;
+  position: relative;
+}
+
+body:not(.landing-mode) .full-decision-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: .28;
+  pointer-events: none;
+}
+
+body:not(.landing-mode) .full-decision-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+body:not(.landing-mode) .full-decision-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .42fr);
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+body:not(.landing-mode) .full-decision-head h3 {
+  margin: 8px 0 0;
+  color: #f8fafc;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  letter-spacing: -.045em;
+  line-height: .98;
+}
+
+body:not(.landing-mode) .full-decision-panel .section-label {
+  color: #67e8f9;
+}
+
+body:not(.landing-mode) .full-decision-panel .scopepill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  background: rgba(8, 14, 28, .78);
+  border: 1px solid rgba(6, 182, 212, .34);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  padding: 7px 11px;
+  text-transform: uppercase;
+}
+
+body:not(.landing-mode) .full-decision-panel .scopepill i {
+  color: #22d3ee;
+}
+
+body:not(.landing-mode) .full-decision-panel .scorebadge {
+  --front-verdict-color: #f59e0b;
+  align-items: center;
+  background: rgba(8, 14, 28, .84);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  display: flex;
+  gap: 9px;
+  min-height: 82px;
+  padding: 16px 18px;
+  font-family: "IBM Plex Mono", monospace;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+
+body:not(.landing-mode) .full-decision-panel .scorebadge[data-verdict="viable"] {
+  background: rgba(16, 185, 129, .08);
+  border-color: rgba(16, 185, 129, .35);
+}
+
+body:not(.landing-mode) .full-decision-panel .scorebadge[data-verdict="moderate"] {
+  background: rgba(245, 158, 11, .08);
+  border-color: rgba(245, 158, 11, .35);
+}
+
+body:not(.landing-mode) .full-decision-panel .scorebadge[data-verdict="high-risk"] {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(239, 68, 68, .35);
+}
+
+body:not(.landing-mode) .full-decision-panel .scorebadge[data-verdict="review"] {
+  background: rgba(100, 116, 139, .12);
+  border-color: rgba(148, 163, 184, .35);
+}
+
+body:not(.landing-mode) .full-decision-panel .score-dot {
+  background: var(--front-verdict-color);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(6, 182, 212, .12);
+  height: 9px;
+  width: 9px;
+  flex: 0 0 auto;
+}
+
+body:not(.landing-mode) .full-decision-panel .score-label {
+  color: var(--front-verdict-color);
+  font-size: .8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+body:not(.landing-mode) .full-decision-panel .score-value {
+  color: var(--front-verdict-color);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 900;
+  line-height: .9;
+  letter-spacing: -.06em;
+}
+
+body:not(.landing-mode) .full-decision-panel .score-total {
+  color: #94a3b8;
+  font-size: .9rem;
+  margin-left: -4px;
+}
+
+body:not(.landing-mode) .full-decision-panel .score-confidence {
+  color: #94a3b8;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  margin-left: auto;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+body:not(.landing-mode) .full-decision-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body:not(.landing-mode) .full-decision-card {
+  background: rgba(17, 24, 39, .78);
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 12px;
+  min-height: 150px;
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+
+body:not(.landing-mode) .full-decision-card h4 {
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  margin: 0 0 9px;
+  text-transform: uppercase;
+}
+
+body:not(.landing-mode) .full-decision-card p {
+  color: #94a3b8;
+  font-size: .92rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+body:not(.landing-mode) .full-decision-card-good {
+  border-top: 2px solid #10b981;
+}
+body:not(.landing-mode) .full-decision-card-good h4 {
+  color: #34d399;
+}
+body:not(.landing-mode) .full-decision-card-risk {
+  border-top: 2px solid #f59e0b;
+}
+body:not(.landing-mode) .full-decision-card-risk h4 {
+  color: #fbbf24;
+}
+body:not(.landing-mode) .full-decision-card-action {
+  border-top: 2px solid #06b6d4;
+}
+body:not(.landing-mode) .full-decision-card-action h4 {
+  color: #22d3ee;
+}
+
+body:not(.landing-mode) .full-decision-footnote {
+  color: #1e3a5f;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  margin: 12px 0 0;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+body:not(.landing-mode) .full-decision-actions {
+  border-top: 1px solid rgba(148, 163, 184, .16);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+body:not(.landing-mode) .full-decision-actions .primary-button,
+body:not(.landing-mode) .full-decision-actions .ghost-button {
+  border-radius: 8px;
+  min-height: 40px;
+}
+
+body:not(.landing-mode) .full-decision-actions .primary-button {
+  background: #06b6d4;
+  border-color: #06b6d4;
+  color: #080e1c;
+}
+
+body:not(.landing-mode) .full-decision-actions .ghost-button {
+  background: rgba(15, 23, 42, .74);
+  border-color: rgba(148, 163, 184, .24);
+  color: #cbd5e1;
+}
+
+body:not(.landing-mode) .hero-report {
+  display: none !important;
+}
+
+body:not(.landing-mode) .executive-decision-strip {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  body:not(.landing-mode) .full-decision-head,
+  body:not(.landing-mode) .full-decision-cards {
+    grid-template-columns: 1fr;
+  }
+
+  body:not(.landing-mode) .full-decision-panel .scorebadge {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  body:not(.landing-mode) .full-decision-panel {
+    border-radius: 15px;
+    padding: 16px;
+  }
+
+  body:not(.landing-mode) .full-decision-head h3 {
+    font-size: 2rem;
+    line-height: 1.02;
+  }
+
+  body:not(.landing-mode) .full-decision-panel .scorebadge {
+    flex-wrap: wrap;
+  }
+
+  body:not(.landing-mode) .full-decision-panel .score-confidence {
+    flex-basis: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  body:not(.landing-mode) .full-decision-card {
+    min-height: auto;
+  }
+
+  body:not(.landing-mode) .full-decision-actions .primary-button,
+  body:not(.landing-mode) .full-decision-actions .ghost-button {
+    flex: 1 1 100%;
+  }
 }

@@ -267,10 +267,11 @@ function keyStatus() {
   };
 }
 
-function sendJson(response, statusCode, data) {
+function sendJson(response, statusCode, data, extraHeaders = {}) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    ...extraHeaders
   });
   response.end(JSON.stringify(data, null, 2));
 }
@@ -695,7 +696,9 @@ function publicAccount(account) {
     company: account.company,
     role: account.role,
     plan: account.plan,
-    createdAt: account.createdAt
+    emailVerified: Boolean(account.emailVerifiedAt),
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt
   };
 }
 
@@ -719,6 +722,181 @@ function verifyPassword(password, stored) {
 
 function sessionToken() {
   return randomBytes(24).toString("hex");
+}
+
+function hashToken(token) {
+  return scryptSync(String(token), "areaintel-token-v1", 64).toString("hex");
+}
+
+function verificationToken() {
+  return randomBytes(24).toString("hex");
+}
+
+function passwordMeetsPolicy(password) {
+  const value = String(password || "");
+  return value.length >= 10 && /[A-Za-z]/.test(value) && /\d/.test(value);
+}
+
+function cookieHeader(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`, "Path=/", "HttpOnly", "SameSite=Lax"];
+  if (isHostedProduction) parts.push("Secure");
+  if (typeof options.maxAge === "number") parts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`);
+  return parts.join("; ");
+}
+
+function sessionCookie(token) {
+  return cookieHeader("areaintel_session", token, { maxAge: 7 * 24 * 60 * 60 });
+}
+
+function expiredSessionCookie() {
+  return cookieHeader("areaintel_session", "", { maxAge: 0 });
+}
+
+function parseCookies(request) {
+  return Object.fromEntries(
+    String(request.headers.cookie || "")
+      .split(";")
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const splitAt = pair.indexOf("=");
+        if (splitAt === -1) return [pair, ""];
+        return [pair.slice(0, splitAt), decodeURIComponent(pair.slice(splitAt + 1))];
+      })
+  );
+}
+
+function bearerToken(request) {
+  const header = String(request.headers.authorization || "");
+  return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+}
+
+function authTokenFromRequest(request) {
+  return parseCookies(request).areaintel_session || bearerToken(request);
+}
+
+async function createSession(accountIdValue, request) {
+  const token = sessionToken();
+  const sessions = await readJsonStore("sessions", []);
+  const now = Date.now();
+  const expiresAt = new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const active = sessions.filter((session) => {
+    const expires = Date.parse(session.expiresAt || session.createdAt || 0);
+    return Number.isFinite(expires) ? expires > now : true;
+  });
+  active.unshift({
+    tokenHash: hashToken(token),
+    accountId: accountIdValue,
+    createdAt: new Date(now).toISOString(),
+    expiresAt,
+    ip: "",
+    userAgent: safeText(request.headers["user-agent"], 260)
+  });
+  await writeJsonStore("sessions", active.slice(0, 5000));
+  return token;
+}
+
+async function authAccount(request) {
+  const token = authTokenFromRequest(request);
+  if (!token) return null;
+  const sessions = await readJsonStore("sessions", []);
+  const tokenHash = hashToken(token);
+  const now = Date.now();
+  const session = sessions.find((candidate) => {
+    if (candidate.tokenHash && candidate.tokenHash === tokenHash) return true;
+    return candidate.token && candidate.token === token;
+  });
+  if (!session) return null;
+  const expires = Date.parse(session.expiresAt || "");
+  if (Number.isFinite(expires) && expires <= now) return null;
+  const accounts = await readJsonStore("accounts", []);
+  return accounts.find((account) => account.id === session.accountId) || null;
+}
+
+async function removeSession(request) {
+  const token = authTokenFromRequest(request);
+  if (!token) return;
+  const tokenHash = hashToken(token);
+  const sessions = await readJsonStore("sessions", []);
+  await writeJsonStore(
+    "sessions",
+    sessions.filter((session) => session.tokenHash !== tokenHash && session.token !== token)
+  );
+}
+
+async function updateAccountRecord(accountIdValue, updater) {
+  const accounts = await readJsonStore("accounts", []);
+  const index = accounts.findIndex((account) => account.id === accountIdValue);
+  if (index === -1) return null;
+  const next = { ...accounts[index], ...updater(accounts[index]), updatedAt: new Date().toISOString() };
+  accounts[index] = next;
+  await writeJsonStore("accounts", accounts);
+  return next;
+}
+
+function authEmailBaseUrl(request) {
+  return process.env.AREAINTEL_PUBLIC_URL || `${isHostedProduction ? "https" : "http"}://${request.headers.host}`;
+}
+
+async function queueAuthEmail(type, account, token, request) {
+  const outbox = await readJsonStore("email-outbox", []);
+  const baseUrl = authEmailBaseUrl(request);
+  const path = type === "password-reset" ? "reset-password" : "verify-email";
+  const url = `${baseUrl}/${path}?token=${encodeURIComponent(token)}`;
+  const intro = type === "password-reset"
+    ? "Use this secure link to reset your SpotVest password. The link expires in 1 hour."
+    : "Use this secure link to verify your SpotVest email address. The link expires in 24 hours.";
+  const email = {
+    id: leadId("email"),
+    type,
+    to: account.email,
+    subject: type === "password-reset" ? "Reset your SpotVest password" : "Verify your SpotVest email",
+    url,
+    text: `${intro}\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
+    status: process.env.RESEND_API_KEY
+      ? "queued-resend"
+      : process.env.AREAINTEL_EMAIL_WEBHOOK_URL
+        ? "queued-webhook"
+        : "queued-local",
+    createdAt: new Date().toISOString()
+  };
+  outbox.unshift(email);
+  await writeJsonStore("email-outbox", outbox.slice(0, 1000));
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: process.env.AREAINTEL_EMAIL_FROM || "SpotVest <onboarding@resend.dev>",
+          to: [account.email],
+          subject: email.subject,
+          text: email.text
+        })
+      });
+      if (!resendResponse.ok) {
+        const errorText = await resendResponse.text();
+        throw new Error(`Resend returned ${resendResponse.status}: ${errorText.slice(0, 160)}`);
+      }
+    } catch (error) {
+      console.error(`[AreaIntel] Resend auth email failed: ${error.message}`);
+    }
+  } else if (process.env.AREAINTEL_EMAIL_WEBHOOK_URL) {
+    try {
+      await fetch(process.env.AREAINTEL_EMAIL_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(email)
+      });
+    } catch (error) {
+      console.error(`[AreaIntel] auth email webhook failed: ${error.message}`);
+    }
+  }
+  return isHostedProduction ? null : url;
 }
 
 // Basic in-memory rate limiter (per-IP sliding window). Good enough for a
@@ -1782,7 +1960,7 @@ async function clientMemo({ zip, business, profile, businessResult }) {
   }
 
   const prompt = [
-    "You are AreaIntel, an enterprise-grade location intelligence, market research, site selection, and business fit decision engine.",
+    "You are SpotVest, an enterprise-grade business decision intelligence, market research, site selection, and business fit decision engine.",
     "Your job is to determine the probability that a business succeeds in a specific geographic area using evidence-based analysis.",
     "Never generate random business ideas. Never optimize for popularity. Optimize for probability of long-term business success.",
     "Separate Verified Signals, Model Insights, and Estimated Factors. Do not fabricate numbers. Do not present estimates as facts.",
@@ -1857,7 +2035,7 @@ async function assistantReply({ question, context }) {
   }
 
   const instructions = [
-    "You are the AreaIntel Assistant, a concise in-app guide for a single location/business screening report.",
+    "You are the SpotVest Assistant, a concise in-app guide for a single location/business screening report.",
     "Help the user understand THIS report and decide next steps. Keep answers short: 2-5 plain-English sentences, no fluff, no markdown headers.",
     "You can explain: the recommendation/decision, success probability, data confidence (which means how much of the report is backed by live data, NOT the odds of success), foot traffic, competition, risks, better alternatives, the revenue estimate, and suggested next steps (export, compare another location, request consultation).",
     "Always be explicit about what is modeled or estimated versus verified. Never invent exact foot-traffic counts, visitor numbers, revenue, or rent — only describe the modeled ranges already present in the report context.",
@@ -1929,7 +2107,7 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
     return {
       listings: [],
       source: "fallback",
-      note: "Search service is not connected, so AreaIntel cannot search public listing pages inside the app yet."
+      note: "Search service is not connected, so SpotVest cannot search public listing pages inside the app yet."
     };
   }
 
@@ -2009,7 +2187,11 @@ async function listingFinder({ zip, address, radiusMiles, business }) {
 }
 
 async function sendFile(response, pathname) {
-  const requested = pathname === "/" ? "index.html" : pathname === "/admin" ? "admin.html" : pathname.slice(1);
+  const requested = pathname === "/" || pathname === "/verify-email" || pathname === "/reset-password"
+    ? "index.html"
+    : pathname === "/admin"
+      ? "admin.html"
+      : pathname.slice(1);
   const normalized = normalize(requested);
 
   if (normalized.startsWith("..") || normalized.includes("/.env")) {
@@ -2046,7 +2228,7 @@ createServer(async (request, response) => {
     if (url.pathname === "/api/health") {
       sendJson(response, 200, {
         ok: true,
-        app: "AreaIntel",
+        app: "SpotVest",
         startedAt: startedAt.toISOString(),
         uptimeSeconds: Math.round((Date.now() - startedAt.getTime()) / 1000),
         cacheEntries: responseCache.size,
@@ -2104,8 +2286,8 @@ createServer(async (request, response) => {
         sendJson(response, 400, { error: "Use a valid email address." });
         return;
       }
-      if (password.length < 8) {
-        sendJson(response, 400, { error: "Use at least 8 characters for the password." });
+      if (!passwordMeetsPolicy(password)) {
+        sendJson(response, 400, { error: "Use at least 10 characters with letters and numbers." });
         return;
       }
       const accounts = await readJsonStore("accounts", []);
@@ -2113,6 +2295,8 @@ createServer(async (request, response) => {
         sendJson(response, 409, { error: "An account already exists for this email." });
         return;
       }
+      const emailToken = verificationToken();
+      const now = Date.now();
       const account = {
         id: accountId(),
         name: safeText(body.name, 160),
@@ -2121,16 +2305,28 @@ createServer(async (request, response) => {
         role: safeText(body.role, 120),
         plan: "free",
         passwordHash: hashPassword(password),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        emailVerifiedAt: null,
+        emailVerificationTokenHash: hashToken(emailToken),
+        emailVerificationExpiresAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date(now).toISOString(),
+        updatedAt: new Date(now).toISOString()
       };
       accounts.unshift(account);
       await writeJsonStore("accounts", accounts.slice(0, 5000));
-      const sessions = await readJsonStore("sessions", []);
-      const token = sessionToken();
-      sessions.unshift({ token, accountId: account.id, createdAt: new Date().toISOString() });
-      await writeJsonStore("sessions", sessions.slice(0, 5000));
-      sendJson(response, 200, { ok: true, account: publicAccount(account), token });
+      const token = await createSession(account.id, request);
+      const devVerificationUrl = await queueAuthEmail("email-verification", account, emailToken, request);
+      sendJson(
+        response,
+        200,
+        {
+          ok: true,
+          account: publicAccount(account),
+          emailVerificationRequired: true,
+          devVerificationUrl,
+          message: "Account created. Verify your email to unlock full account access."
+        },
+        { "Set-Cookie": sessionCookie(token) }
+      );
       return;
     }
 
@@ -2144,18 +2340,184 @@ createServer(async (request, response) => {
         sendJson(response, 401, { error: "Email or password is incorrect." });
         return;
       }
-      const sessions = await readJsonStore("sessions", []);
-      const token = sessionToken();
-      sessions.unshift({ token, accountId: account.id, createdAt: new Date().toISOString() });
-      await writeJsonStore("sessions", sessions.slice(0, 5000));
-      sendJson(response, 200, { ok: true, account: publicAccount(account), token });
+      const token = await createSession(account.id, request);
+      sendJson(
+        response,
+        200,
+        {
+          ok: true,
+          account: publicAccount(account),
+          emailVerificationRequired: !account.emailVerifiedAt,
+          message: account.emailVerifiedAt
+            ? "Signed in."
+            : "Signed in. Please verify your email to unlock full account access."
+        },
+        { "Set-Cookie": sessionCookie(token) }
+      );
+      return;
+    }
+
+    if (url.pathname === "/api/me") {
+      const account = await authAccount(request);
+      if (!account) {
+        sendJson(response, 401, { error: "Not signed in." });
+        return;
+      }
+      sendJson(response, 200, { ok: true, account: publicAccount(account) });
+      return;
+    }
+
+    if (url.pathname === "/api/logout" && request.method === "POST") {
+      await removeSession(request);
+      sendJson(response, 200, { ok: true, message: "Signed out." }, { "Set-Cookie": expiredSessionCookie() });
+      return;
+    }
+
+    if (url.pathname === "/api/account" && request.method === "POST") {
+      const account = await authAccount(request);
+      if (!account) {
+        sendJson(response, 401, { error: "Sign in before updating the account." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const next = await updateAccountRecord(account.id, () => ({
+        name: safeText(body.name, 160),
+        company: safeText(body.company, 160),
+        role: safeText(body.role, 120)
+      }));
+      sendJson(response, 200, { ok: true, account: publicAccount(next), message: "Account updated." });
+      return;
+    }
+
+    if (url.pathname === "/api/change-password" && request.method === "POST") {
+      const account = await authAccount(request);
+      if (!account) {
+        sendJson(response, 401, { error: "Sign in before changing the password." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const currentPassword = String(body.currentPassword || "");
+      const nextPassword = String(body.newPassword || "");
+      if (!verifyPassword(currentPassword, account.passwordHash)) {
+        sendJson(response, 401, { error: "Current password is incorrect." });
+        return;
+      }
+      if (!passwordMeetsPolicy(nextPassword)) {
+        sendJson(response, 400, { error: "Use at least 10 characters with letters and numbers." });
+        return;
+      }
+      const updated = await updateAccountRecord(account.id, () => ({ passwordHash: hashPassword(nextPassword) }));
+      sendJson(response, 200, { ok: true, account: publicAccount(updated), message: "Password updated." });
+      return;
+    }
+
+    if (url.pathname === "/api/resend-verification" && request.method === "POST") {
+      const account = await authAccount(request);
+      if (!account) {
+        sendJson(response, 401, { error: "Sign in before requesting verification." });
+        return;
+      }
+      if (account.emailVerifiedAt) {
+        sendJson(response, 200, { ok: true, account: publicAccount(account), message: "Email is already verified." });
+        return;
+      }
+      const emailToken = verificationToken();
+      const updated = await updateAccountRecord(account.id, () => ({
+        emailVerificationTokenHash: hashToken(emailToken),
+        emailVerificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      }));
+      const devVerificationUrl = await queueAuthEmail("email-verification", updated, emailToken, request);
+      sendJson(response, 200, {
+        ok: true,
+        account: publicAccount(updated),
+        devVerificationUrl,
+        message: "Verification email queued."
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/verify-email") {
+      const token = safeText(url.searchParams.get("token"), 200);
+      const accounts = await readJsonStore("accounts", []);
+      const tokenHash = hashToken(token);
+      const index = accounts.findIndex((candidate) => candidate.emailVerificationTokenHash === tokenHash);
+      if (!token || index === -1) {
+        sendJson(response, 400, { error: "Verification link is invalid." });
+        return;
+      }
+      const expires = Date.parse(accounts[index].emailVerificationExpiresAt || "");
+      if (Number.isFinite(expires) && expires < Date.now()) {
+        sendJson(response, 400, { error: "Verification link expired. Request a new one." });
+        return;
+      }
+      accounts[index] = {
+        ...accounts[index],
+        emailVerifiedAt: new Date().toISOString(),
+        emailVerificationTokenHash: "",
+        emailVerificationExpiresAt: "",
+        updatedAt: new Date().toISOString()
+      };
+      await writeJsonStore("accounts", accounts);
+      sendJson(response, 200, { ok: true, account: publicAccount(accounts[index]), message: "Email verified." });
+      return;
+    }
+
+    if (url.pathname === "/api/password-reset/request" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      const email = normalizeEmail(body.email);
+      const accounts = await readJsonStore("accounts", []);
+      const account = accounts.find((candidate) => candidate.email === email);
+      if (account) {
+        const resetToken = verificationToken();
+        const updated = await updateAccountRecord(account.id, () => ({
+          passwordResetTokenHash: hashToken(resetToken),
+          passwordResetExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        }));
+        await queueAuthEmail("password-reset", updated, resetToken, request);
+      }
+      sendJson(response, 200, {
+        ok: true,
+        message: "If that email exists, a reset link has been queued."
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/password-reset/complete" && request.method === "POST") {
+      const body = await readRequestJson(request);
+      const token = safeText(body.token, 200);
+      const password = String(body.password || "");
+      if (!passwordMeetsPolicy(password)) {
+        sendJson(response, 400, { error: "Use at least 10 characters with letters and numbers." });
+        return;
+      }
+      const accounts = await readJsonStore("accounts", []);
+      const tokenHash = hashToken(token);
+      const index = accounts.findIndex((candidate) => candidate.passwordResetTokenHash === tokenHash);
+      if (!token || index === -1) {
+        sendJson(response, 400, { error: "Reset link is invalid." });
+        return;
+      }
+      const expires = Date.parse(accounts[index].passwordResetExpiresAt || "");
+      if (Number.isFinite(expires) && expires < Date.now()) {
+        sendJson(response, 400, { error: "Reset link expired. Request a new one." });
+        return;
+      }
+      accounts[index] = {
+        ...accounts[index],
+        passwordHash: hashPassword(password),
+        passwordResetTokenHash: "",
+        passwordResetExpiresAt: "",
+        updatedAt: new Date().toISOString()
+      };
+      await writeJsonStore("accounts", accounts);
+      sendJson(response, 200, { ok: true, message: "Password reset complete. You can sign in now." });
       return;
     }
 
     if (url.pathname === "/api/contact" && request.method === "POST") {
       const body = await readRequestJson(request);
       if (!safeText(body.email, 180) && !safeText(body.phone, 80)) {
-        sendJson(response, 400, { error: "Provide an email or phone so AreaIntel can follow up." });
+        sendJson(response, 400, { error: "Provide an email or phone so SpotVest can follow up." });
         return;
       }
       const lead = await appendLead("contact", body, request);
@@ -2192,14 +2554,14 @@ createServer(async (request, response) => {
     if (url.pathname === "/api/advisor-request" && request.method === "POST") {
       const body = await readRequestJson(request);
       if (!safeText(body.email, 180)) {
-        sendJson(response, 400, { error: "Provide an email so AreaIntel can follow up." });
+        sendJson(response, 400, { error: "Provide an email so SpotVest can follow up." });
         return;
       }
       const lead = await appendLead("advisor", body, request);
       sendJson(response, 200, {
         ok: true,
         lead: publicLead(lead),
-        message: "Consultation request saved. AreaIntel will use the current report context and follow up when consultation support is available."
+        message: "Consultation request saved. SpotVest will use the current report context and follow up when consultation support is available."
       });
       return;
     }
@@ -2501,7 +2863,7 @@ createServer(async (request, response) => {
       } catch (error) {
         sendJson(response, 502, {
           listings: [],
-          note: "AreaIntel could not run the AI listing search right now. Use the manual platform fallback, then save the best listing into the calculator.",
+          note: "SpotVest could not run the AI listing search right now. Use the manual platform fallback, then save the best listing into the calculator.",
           error: error.message
         });
       }
