@@ -5350,8 +5350,34 @@ function storedAccount() {
   }
 }
 
+function closePublicActionPanels(exceptPanel = null) {
+  document.querySelectorAll(".public-action-section").forEach((panel) => {
+    if (panel === exceptPanel) return;
+    panel.hidden = true;
+    panel.classList.remove("is-public-open");
+  });
+}
+
+function openPublicActionPanel(selector, options = {}) {
+  const panel = document.querySelector(selector);
+  if (!panel) return;
+  closePublicActionPanels(panel);
+  panel.hidden = false;
+  panel.classList.add("is-public-open");
+  document.body.classList.add("landing-mode");
+
+  if (selector === "#paid-report" && options.package && launchEls.paidReportForm?.elements.package) {
+    launchEls.paidReportForm.elements.package.value = options.package;
+  }
+
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  const focusTarget = panel.querySelector("input, select, textarea, button");
+  window.setTimeout(() => focusTarget?.focus({ preventScroll: true }), 260);
+}
+
 function renderAccountStatus(account) {
   if (!launchEls.accountStatus) return;
+  document.body.classList.toggle("account-signed-in", Boolean(account));
   if (!account) {
     launchEls.accountStatus.className = "launch-status";
     launchEls.accountStatus.textContent = "Sign in to manage account security.";
@@ -5500,12 +5526,24 @@ async function postLaunchForm(endpoint, form, statusEl, successCopy) {
 
 document.querySelectorAll(".launch-scroll").forEach((button) => {
   button.addEventListener("click", () => {
-    document.querySelector(button.dataset.scroll)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const target = button.dataset.scroll;
+    if (!target) return;
+    closePublicActionPanels();
+    document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+document.querySelectorAll("[data-open-panel]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openPublicActionPanel(button.dataset.openPanel, {
+      package: button.dataset.package
+    });
   });
 });
 
 document.querySelectorAll("[data-start-analysis]").forEach((button) => {
   button.addEventListener("click", () => {
+    closePublicActionPanels();
     document.body.classList.remove("landing-mode");
     elements.businessInput?.focus({ preventScroll: true });
     elements.businessForm?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -5619,7 +5657,7 @@ if (accountUrl.pathname.endsWith("/reset-password") && resetToken && launchEls.p
   document.body.classList.add("landing-mode");
   launchEls.passwordResetCompleteForm.hidden = false;
   launchEls.passwordResetCompleteForm.elements.token.value = resetToken;
-  document.querySelector("#account-access")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  openPublicActionPanel("#account-access");
 }
 
 if (accountUrl.pathname.endsWith("/verify-email") && resetToken) {
@@ -5641,7 +5679,7 @@ if (accountUrl.pathname.endsWith("/verify-email") && resetToken) {
       }
     });
   document.body.classList.add("landing-mode");
-  document.querySelector("#account-access")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  openPublicActionPanel("#account-access");
 }
 
 refreshAccountStatus();

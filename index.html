@@ -187,8 +187,8 @@
               <span class="nl">Platform &#9662;</span>
               <span class="nl">Solutions &#9662;</span>
               <span class="nl">Resources &#9662;</span>
-              <a class="nl" href="#pricing">Pricing</a>
-              <a class="nl" href="#account-access">Login</a>
+              <button class="nl nav-button launch-scroll" type="button" data-scroll="#pricing">Pricing</button>
+              <button class="nl nav-button" type="button" data-open-panel="#account-access">Login</button>
               <button type="button" class="ncta" data-start-analysis>Start Free Analysis</button>
             </div>
           </div></nav>
@@ -320,7 +320,7 @@
             </div>
           </section></div>
 
-          <section id="account-access" class="launch-section account-section">
+          <section id="account-access" class="launch-section account-section public-action-section" hidden>
             <div class="launch-section-header">
               <p class="section-label">Account access</p>
               <h3>Create a SpotVest account</h3>
@@ -369,7 +369,7 @@
                 <button type="submit">Update password</button>
                 <p id="password-reset-complete-status" class="launch-status" role="status"></p>
               </form>
-              <article class="launch-form account-management-card">
+              <article class="launch-form account-management-card account-private">
                 <strong>Account status</strong>
                 <p id="account-status" class="launch-status">Sign in to manage account security.</p>
                 <div class="account-actions">
@@ -377,7 +377,7 @@
                   <button id="logout-button" type="button">Sign out</button>
                 </div>
               </article>
-              <form id="account-profile-form" class="launch-form">
+              <form id="account-profile-form" class="launch-form account-private">
                 <strong>Profile</strong>
                 <input name="name" placeholder="Your name" autocomplete="name" />
                 <input name="company" placeholder="Company optional" autocomplete="organization" />
@@ -391,7 +391,7 @@
                 <button type="submit">Update profile</button>
                 <p id="account-profile-status" class="launch-status" role="status"></p>
               </form>
-              <form id="change-password-form" class="launch-form">
+              <form id="change-password-form" class="launch-form account-private">
                 <strong>Change password</strong>
                 <input name="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" required />
                 <input name="newPassword" type="password" placeholder="New password" autocomplete="new-password" required minlength="10" />
@@ -413,21 +413,21 @@
                 <strong>Free</strong>
                 <h4>Free Demo</h4>
                 <p>Decision, score, and short summary so first-time users can see the value before paying.</p>
-                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request demo</button>
+                <button class="launch-scroll" type="button" data-scroll="#demo">Try free demo</button>
               </article>
               <article class="pricing-card pricing-card-featured">
                 <span>Most useful</span>
                 <strong>$9</strong>
                 <h4>Full Report</h4>
                 <p>Full report, PDF export, risks, conditions, and better alternatives for one location.</p>
-                <button class="launch-scroll" type="button" data-scroll="#paid-report">Request full report</button>
+                <button class="launch-scroll" type="button" data-open-panel="#paid-report" data-package="full-report">Request full report</button>
               </article>
               <article class="pricing-card">
                 <span>Compare</span>
                 <strong>$29</strong>
                 <h4>Compare 3 Locations</h4>
                 <p>Compare three candidate ZIPs, storefronts, or business ideas before choosing a direction.</p>
-                <button class="launch-scroll" type="button" data-scroll="#paid-report">Compare locations</button>
+                <button class="launch-scroll" type="button" data-open-panel="#paid-report" data-package="three-location-compare">Compare locations</button>
               </article>
               <article class="pricing-card">
                 <span>Teams</span>
@@ -439,7 +439,7 @@
             </div>
           </section>
 
-          <section id="paid-report" class="launch-section">
+          <section id="paid-report" class="launch-section public-action-section" hidden>
             <div class="launch-section-header">
               <p class="section-label">Paid report request</p>
               <h3>Get a location report prepared for a real decision</h3>
@@ -483,7 +483,7 @@
             </form>
           </section>
 
-          <section id="advisor-marketplace" class="launch-section marketplace-section">
+          <section id="advisor-marketplace" class="launch-section marketplace-section public-action-section" hidden>
             <div class="launch-section-header">
               <p class="section-label">Request consultation</p>
               <h3>Join the consultation waitlist</h3>

@@ -5709,8 +5709,13 @@ body.landing-mode .fcol a:hover{color:var(--muted);}
 body.landing-mode .fbottom{border-top:1px solid var(--line);padding-top:18px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:#334155;font-family:'IBM Plex Mono',monospace;}
 
 /* ---- KEPT backend-wired sections, restyled to the dark theme ---- */
+body.landing-mode .nav-button{border:0;background:transparent;padding:0;font:inherit;cursor:pointer;}
+body.landing-mode .nav-button:hover{color:var(--white);}
 body.landing-mode .start-screen .launch-section{max-width:1180px;margin:0 auto;padding:56px 32px;background:transparent;border:none;border-radius:0;box-shadow:none;}
 body.landing-mode .start-screen .sec-alt .launch-section{max-width:none;padding-left:0;padding-right:0;}
+body.landing-mode .public-action-section,
+body.landing-mode .public-action-section[hidden]{display:none !important;}
+body.landing-mode .public-action-section.is-public-open{display:block !important;scroll-margin-top:82px;margin-bottom:88px;}
 body.landing-mode .launch-section-header .section-label,
 body.landing-mode .section-label{color:var(--cyan);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;}
 body.landing-mode .launch-section-header h3,
@@ -5731,6 +5736,8 @@ body.landing-mode .launch-form textarea:focus{outline:none;border-color:var(--cy
 body.landing-mode .launch-form textarea{min-height:96px;resize:vertical;}
 body.landing-mode .launch-form button[type="submit"]{background:var(--cyan);color:var(--navy);font-weight:700;border:none;border-radius:8px;padding:12px;cursor:pointer;}
 body.landing-mode .launch-status{color:var(--muted);font-size:12px;}
+body.landing-mode .account-private{display:none !important;}
+body.landing-mode.account-signed-in .account-section.is-public-open .account-private{display:flex !important;}
 body.landing-mode .pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
 body.landing-mode .pricing-card{background:var(--glass);border:1px solid #2D3F55;border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:8px;color:var(--muted);}
 body.landing-mode .pricing-card span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);}
@@ -5746,6 +5753,7 @@ body.landing-mode .advisor-grid p{color:#64748B;font-size:13px;}
 
 /* ---- Responsive (prototype breakpoint) ---- */
 @media(max-width:860px){
+  body.landing-mode .start-screen{padding-bottom:calc(120px + env(safe-area-inset-bottom, 0px));}
   body.landing-mode .hero{grid-template-columns:1fr;}
   body.landing-mode .what-spotvest{grid-template-columns:1fr;gap:20px;}
   body.landing-mode .what-spotvest-copy{padding:22px;}
@@ -5761,6 +5769,9 @@ body.landing-mode .advisor-grid p{color:#64748B;font-size:13px;}
   body.landing-mode .account-grid,
   body.landing-mode .pricing-grid,
   body.landing-mode .advisor-grid{grid-template-columns:1fr;}
+  body.landing-mode .public-action-section.is-public-open{margin-bottom:120px;}
+  body.landing-mode .launch-form{padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px));}
+  body.landing-mode .assistant-toggle{bottom:calc(18px + env(safe-area-inset-bottom, 0px));}
 }
 @media(max-width:700px){
   body.landing-mode span.nl{display:none;}
