@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=20260604-spotvest-home-dark" />
+    <link rel="stylesheet" href="./styles.css?v=20260606-sv3-replacement" />
   </head>
   <body class="landing-mode">
     <main class="app-shell">
@@ -581,6 +581,230 @@
             <span id="print-meta" class="print-meta"></span>
           </div>
           <div id="exec-summary" class="exec-summary" aria-hidden="true"></div>
+          <section id="sv3-app" class="sv3-app" aria-label="SpotVest decision app">
+            <div class="sv3-phone">
+              <div class="sv3-topbar">
+                <button class="sv3-circ" type="button" data-sv3-nav="search" aria-label="New search">×</button>
+                <div class="sv3-url"><span class="sv3-dot"></span>spotvest.ai</div>
+                <button class="sv3-circ" type="button" id="sv3-assistant-button" aria-label="Ask SpotVest">▤</button>
+              </div>
+
+              <nav class="sv3-tabs" aria-label="SpotVest report tabs">
+                <button type="button" class="active" data-sv3-tab="overview">Overview</button>
+                <button type="button" data-sv3-tab="market">Market</button>
+                <button type="button" data-sv3-tab="risk">Risk</button>
+                <button type="button" data-sv3-tab="money">Money</button>
+                <button type="button" data-sv3-tab="method">Method</button>
+              </nav>
+
+              <div class="sv3-main-screen" data-sv3-main="search">
+                <div class="sv3-brand-block">
+                  <div class="sv3-logo">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 6.8H21l-5.3 4 2 6.8L12 15.6 6.3 19.6l2-6.8L3 8.8h6.6L12 2z"/></svg>
+                  </div>
+                  <div>
+                    <div class="sv3-eyebrow">Business Decision Intelligence</div>
+                    <h1>SpotVest</h1>
+                    <p>Know before you open.</p>
+                  </div>
+                </div>
+                <div class="sv3-note"><b>NYC Edition</b> — SpotVest currently supports New York City locations. Additional cities coming soon.</div>
+                <div class="sv3-card sv3-accent">
+                  <p><b>Answer first:</b> should this business open here? SpotVest returns the decision, then the evidence behind it.</p>
+                </div>
+
+                <div class="sv3-section-label"><span>1</span> Business type</div>
+                <div class="sv3-field">
+                  <label for="sv3-search-business">What business is the client opening?</label>
+                  <input id="sv3-search-business" class="sv3-input" list="sv3-business-options" placeholder="Italian restaurant, gym, daycare..." autocomplete="off" />
+                  <datalist id="sv3-business-options">
+                    <option value="Italian restaurant"></option>
+                    <option value="Mexican restaurant"></option>
+                    <option value="Chinese restaurant"></option>
+                    <option value="Japanese sushi"></option>
+                    <option value="Thai restaurant"></option>
+                    <option value="Indian restaurant"></option>
+                    <option value="Korean restaurant"></option>
+                    <option value="Mediterranean restaurant"></option>
+                    <option value="Pizza"></option>
+                    <option value="Burgers"></option>
+                    <option value="Chicken wings"></option>
+                    <option value="Deli sandwich shop"></option>
+                    <option value="Specialty coffee"></option>
+                    <option value="Cafe bakery"></option>
+                    <option value="Juice smoothie bar"></option>
+                    <option value="Bubble tea"></option>
+                    <option value="Cocktail bar"></option>
+                    <option value="Boutique clothing"></option>
+                    <option value="Convenience bodega"></option>
+                    <option value="Grocery market"></option>
+                    <option value="Liquor store"></option>
+                    <option value="Pet supplies"></option>
+                    <option value="Boutique fitness studio"></option>
+                    <option value="Gym health club"></option>
+                    <option value="Yoga pilates"></option>
+                    <option value="Hair salon"></option>
+                    <option value="Barbershop"></option>
+                    <option value="Nail salon"></option>
+                    <option value="Med spa aesthetics"></option>
+                    <option value="Dry cleaning laundry"></option>
+                    <option value="Phone device repair"></option>
+                    <option value="Daycare childcare"></option>
+                    <option value="Tutoring enrichment"></option>
+                    <option value="Veterinary clinic"></option>
+                    <option value="Medical dental office"></option>
+                    <option value="Pharmacy"></option>
+                  </datalist>
+                </div>
+
+                <div class="sv3-section-label"><span>2</span> Location</div>
+                <div class="sv3-field">
+                  <label for="sv3-search-zip">NYC ZIP code</label>
+                  <input id="sv3-search-zip" class="sv3-input" inputmode="numeric" placeholder="10009" />
+                </div>
+                <button class="sv3-btn" type="button" id="sv3-run-area">Analyze area →</button>
+
+                <div class="sv3-section-label"><span>3</span> Exact address</div>
+                <div class="sv3-field">
+                  <label for="sv3-search-address">Address for block-level analysis</label>
+                  <input id="sv3-search-address" class="sv3-input" placeholder="156 1st Ave, New York, NY 10009" />
+                </div>
+                <div class="sv3-row2">
+                  <input id="sv3-search-budget" class="sv3-input" inputmode="numeric" placeholder="Budget ($) optional" />
+                  <select id="sv3-search-radius" class="sv3-input">
+                    <option value="0.5">0.5 mi</option>
+                    <option value="1">1 mi</option>
+                    <option value="2">2 mi</option>
+                  </select>
+                </div>
+                <button class="sv3-btn" type="button" id="sv3-run-address">Analyze address →</button>
+                <button class="sv3-btn sv3-ghost" type="button" id="sv3-use-area">Use area only</button>
+                <p class="sv3-stepnote" id="sv3-search-note">Powered by the live SpotVest decision engine.</p>
+              </div>
+
+              <div class="sv3-main-screen active" data-sv3-main="report">
+                <div class="sv3-screen active" data-sv3-screen="overview">
+                  <section class="sv3-banner sv3-cond" id="sv3-verdict-card">
+                    <div class="sv3-ring"><span id="sv3-score-ring">--</span><small>/100</small></div>
+                    <div>
+                      <span id="sv3-decision" class="sv3-verdict-word">CONDITIONAL</span>
+                      <h2 id="sv3-title">Run an analysis</h2>
+                      <p id="sv3-decision-copy">Opportunity exists, but the location needs evidence before a final yes.</p>
+                    </div>
+                  </section>
+
+                  <section class="sv3-card">
+                    <div class="sv3-gauge-wrap">
+                      <div class="sv3-gauge-arc" style="--score:57">
+                        <strong id="sv3-score">--</strong>
+                        <span id="sv3-decision-small">Conditional</span>
+                      </div>
+                      <div class="sv3-gauge-ticks"><span>0 · Avoid</span><span>50</span><span>100 · Go</span></div>
+                    </div>
+                  </section>
+
+                  <section class="sv3-bottomline">
+                    <span>Bottom line for the owner</span>
+                    <p id="sv3-bottom-copy">SpotVest will summarize the business decision after the live signals load.</p>
+                  </section>
+
+                  <div class="sv3-duo">
+                    <article class="sv3-metric"><span>Success probability</span><strong id="sv3-probability">--</strong></article>
+                    <article class="sv3-metric sv3-good"><span>Evidence confidence</span><strong id="sv3-confidence">--</strong></article>
+                  </div>
+
+                  <div class="sv3-section-label">Signals in this report</div>
+                  <div id="sv3-signal-pills" class="sv3-signals"></div>
+
+                  <div class="sv3-section-label"><span>01</span> Investment thesis</div>
+                  <section class="sv3-card" id="sv3-thesis-list"></section>
+
+                  <div class="sv3-section-label"><span>02</span> Why this works</div>
+                  <section class="sv3-card sv3-accent">
+                    <span class="sv3-sub">Decision insight · live signals, model scored</span>
+                    <h3 id="sv3-bottom-title">What should the operator do?</h3>
+                    <p id="sv3-subtitle">Enter a business type and location. SpotVest will answer whether this business should open here.</p>
+                  </section>
+
+                  <div class="sv3-section-label"><span>03</span> Move from screen to decision</div>
+                  <section class="sv3-card" id="sv3-conditions-steps"></section>
+                </div>
+
+                <div class="sv3-screen" data-sv3-screen="market">
+                  <div class="sv3-section-label"><span>04</span> Area read</div>
+                  <section class="sv3-card" id="sv3-market-bars"></section>
+                  <div class="sv3-section-label"><span>05</span> Market map</div>
+                  <section class="sv3-map-card">
+                    <div class="sv3-mini-map" aria-hidden="true">
+                      <span class="pin p1"></span><span class="pin p2"></span><span class="pin p3"></span><span class="pin p4"></span>
+                      <span class="route r1"></span><span class="route r2"></span>
+                      <div class="sv3-map-legend">
+                        <span><i class="blue"></i>Address</span><span><i class="red"></i>Competitors</span><span><i class="amber"></i>Local activity</span><span><i class="green"></i>Saved options</span>
+                      </div>
+                    </div>
+                    <p id="sv3-map-caption" class="sv3-src">Area signal view</p>
+                  </section>
+                  <div class="sv3-section-label"><span>06</span> Business fit in this area</div>
+                  <section class="sv3-card sv3-accent">
+                    <span class="sv3-sub">Market pressure</span>
+                    <h3 id="sv3-fit-title">Category fit</h3>
+                    <p id="sv3-fit-copy">Business-specific fit will appear here after analysis.</p>
+                  </section>
+                  <div class="sv3-section-label"><span>07</span> Concept intelligence</div>
+                  <div id="sv3-concepts"></div>
+                </div>
+
+                <div class="sv3-screen" data-sv3-screen="risk">
+                  <div class="sv3-section-label"><span>08</span> Risks</div>
+                  <div id="sv3-risk-cards"></div>
+                  <div class="sv3-section-label"><span>09</span> Conditions for success</div>
+                  <section class="sv3-card"><ul id="sv3-conditions-list" class="sv3-bullets"></ul></section>
+                  <div class="sv3-section-label"><span>10</span> Better alternatives</div>
+                  <section class="sv3-card"><ul id="sv3-alternatives-list" class="sv3-bullets"></ul></section>
+                </div>
+
+                <div class="sv3-screen" data-sv3-screen="money">
+                  <div class="sv3-section-label"><span>11</span> Money screen</div>
+                  <div class="sv3-duo">
+                    <article class="sv3-metric"><span>Projected monthly revenue</span><strong id="sv3-revenue">Needs inputs</strong></article>
+                    <article class="sv3-metric"><span>Break-even estimate</span><strong id="sv3-breakeven">Needs inputs</strong></article>
+                  </div>
+                  <section class="sv3-card">
+                    <label class="sv3-slider-label">Monthly rent <strong id="sv3-rent-readout">$18k</strong></label>
+                    <input id="sv3-rent-slider" type="range" min="5000" max="50000" step="1000" value="18000" />
+                    <p id="sv3-money-note">Use this as a quick screen. Exact financials still need operator proof.</p>
+                  </section>
+                </div>
+
+                <div class="sv3-screen" data-sv3-screen="method">
+                  <div class="sv3-section-label"><span>12</span> Method</div>
+                  <section class="sv3-card">
+                    <p>SpotVest turns demand, customer fit, competition, location quality, financial viability, and risk into a decision-first business screen.</p>
+                  </section>
+                  <div id="sv3-method-list" class="sv3-method-list"></div>
+                </div>
+              </div>
+
+              <div class="sv3-main-screen" data-sv3-main="compare">
+                <div class="sv3-brand-block compact">
+                  <div class="sv3-logo">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 6.8H21l-5.3 4 2 6.8L12 15.6 6.3 19.6l2-6.8L3 8.8h6.6L12 2z"/></svg>
+                  </div>
+                  <div><div class="sv3-eyebrow">Location comparison</div><h1>Compare</h1><p>Save this report, then compare locations side by side.</p></div>
+                </div>
+                <section class="sv3-card">
+                  <button class="sv3-btn" type="button" id="sv3-compare-button">Add current report to compare</button>
+                  <p class="sv3-stepnote">Comparison uses the same saved reports system already built into SpotVest.</p>
+                </section>
+              </div>
+
+              <nav class="sv3-bottom-nav" aria-label="SpotVest app navigation">
+                <button type="button" class="active" data-sv3-nav="search">Search</button>
+                <button type="button" data-sv3-nav="report">Report</button>
+                <button type="button" data-sv3-nav="compare">Compare</button>
+              </nav>
+            </div>
+          </section>
           <section class="full-decision-panel" aria-label="SpotVest decision summary">
             <div class="full-decision-head">
               <div>
@@ -1325,7 +1549,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260604-map-fix-1"></script>
+    <script defer src="./app.js?v=20260606-sv3-replacement"></script>
     <script defer src="./home.js?v=20260604-home-1"></script>
   </body>
 </html>

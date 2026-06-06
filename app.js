@@ -2076,6 +2076,7 @@ function renderRevenueEstimator(profile) {
   elements.revenueNote.textContent = usingBaseline
     ? `Neighborhood baseline: ≈1,200 sq ft at a modeled local rent of ${formatCurrency(effectiveRent)}/mo. Enter your own rent and size above to tailor this. Modeled ranges, Due Diligence Required on operator financials.`
     : `Modeled target sales to support this rent: ${moneyRange(targetRevenueLow, targetRevenueHigh)}/mo. Category, demand, rent pressure, and area income are included; verify margins and operator costs.`;
+  refreshSpotVestV3Money();
 }
 
 // Baseline monthly rent from the area's cost-pressure score (~$4–13 /sq ft/mo).
@@ -3506,7 +3507,382 @@ function renderInstitutionalAnalysis(profile, recommendations) {
     ...analysis.alternatives.map((item) => `Alternative: ${item}`)
   ].map((item) => `<li>${escapeText(item)}</li>`).join("");
   updatePanelTimestamp(".institutional-panel");
+  renderSpotVestV3(profile, recommendations, analysis);
 }
+
+function sv3Refs() {
+  return {
+    app: document.querySelector("#sv3-app"),
+    searchBusiness: document.querySelector("#sv3-search-business"),
+    searchZip: document.querySelector("#sv3-search-zip"),
+    searchAddress: document.querySelector("#sv3-search-address"),
+    searchBudget: document.querySelector("#sv3-search-budget"),
+    searchRadius: document.querySelector("#sv3-search-radius"),
+    searchNote: document.querySelector("#sv3-search-note"),
+    status: document.querySelector("#sv3-status-pill"),
+    title: document.querySelector("#sv3-title"),
+    subtitle: document.querySelector("#sv3-subtitle"),
+    businessPill: document.querySelector("#sv3-business-pill"),
+    scopePill: document.querySelector("#sv3-scope-pill"),
+    pressurePill: document.querySelector("#sv3-pressure-pill"),
+    verdictCard: document.querySelector("#sv3-verdict-card"),
+    decision: document.querySelector("#sv3-decision"),
+    decisionSmall: document.querySelector("#sv3-decision-small"),
+    decisionCopy: document.querySelector("#sv3-decision-copy"),
+    score: document.querySelector("#sv3-score"),
+    scoreRing: document.querySelector("#sv3-score-ring"),
+    probability: document.querySelector("#sv3-probability"),
+    confidence: document.querySelector("#sv3-confidence"),
+    bottomTitle: document.querySelector("#sv3-bottom-title"),
+    bottomCopy: document.querySelector("#sv3-bottom-copy"),
+    signalPills: document.querySelector("#sv3-signal-pills"),
+    thesisList: document.querySelector("#sv3-thesis-list"),
+    conditionsSteps: document.querySelector("#sv3-conditions-steps"),
+    whyList: document.querySelector("#sv3-why-list"),
+    watchList: document.querySelector("#sv3-watch-list"),
+    marketBars: document.querySelector("#sv3-market-bars"),
+    mapCaption: document.querySelector("#sv3-map-caption"),
+    fitTitle: document.querySelector("#sv3-fit-title"),
+    fitCopy: document.querySelector("#sv3-fit-copy"),
+    concepts: document.querySelector("#sv3-concepts"),
+    riskCards: document.querySelector("#sv3-risk-cards"),
+    riskList: document.querySelector("#sv3-risk-list"),
+    conditionsList: document.querySelector("#sv3-conditions-list"),
+    alternativesList: document.querySelector("#sv3-alternatives-list"),
+    revenue: document.querySelector("#sv3-revenue"),
+    breakeven: document.querySelector("#sv3-breakeven"),
+    rentSlider: document.querySelector("#sv3-rent-slider"),
+    rentReadout: document.querySelector("#sv3-rent-readout"),
+    moneyNote: document.querySelector("#sv3-money-note"),
+    methodList: document.querySelector("#sv3-method-list")
+  };
+}
+
+function sv3List(items, fallback = "Needs more evidence.") {
+  const clean = (items || []).filter(Boolean).slice(0, 5);
+  return (clean.length ? clean : [fallback])
+    .map((item) => `<li>${escapeText(item)}</li>`)
+    .join("");
+}
+
+function sv3DecisionClass(decision) {
+  const slug = analysisDecisionSlug(decision);
+  if (slug === "open") return "sv3-open";
+  if (slug === "do-not-open") return "sv3-risk";
+  if (slug === "needs-more-data") return "sv3-review";
+  return "sv3-cond";
+}
+
+function sv3MarketBar(name, value, copy) {
+  const score = clampScore(safeNumber(value, 50));
+  return `
+    <article class="sv3-bar">
+      <div class="sv3-bar-head">
+        <strong>${escapeText(name)}</strong>
+        <span>${formatScore(score)}</span>
+      </div>
+      <div class="sv3-bar-track"><i style="--sv3-value:${score}%"></i></div>
+      <p>${escapeText(copy)}</p>
+    </article>
+  `;
+}
+
+function sv3SignalStatus(label, connected, partial = false) {
+  const stateLabel = connected ? "Ready" : partial ? "Partial" : "Estimated";
+  return `
+    <article class="sv3-method-row">
+      <div>
+        <strong>${escapeText(label)}</strong>
+        <span>${connected ? "Live signal included in this decision." : partial ? "Some signal coverage is included." : "Directional model used until more proof is available."}</span>
+      </div>
+      <em>${escapeText(stateLabel)}</em>
+    </article>
+  `;
+}
+
+function sv3Mini(item) {
+  return `
+    <div class="sv3-mini">
+      <div class="sv3-mini-badge">${formatBadgeScore(item.value)}</div>
+      <div>
+        <strong>${escapeText(item.name)}</strong>
+        <span>${escapeText(scoreSignalCopy(item))}</span>
+      </div>
+    </div>
+  `;
+}
+
+function sv3Step(index, title, copy) {
+  return `
+    <div class="sv3-step">
+      <span>${index}</span>
+      <div>
+        <strong>${escapeText(title)}</strong>
+        <p>${escapeText(copy)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function sv3Pill(label, status = "Verified") {
+  const isModeled = /modeled|light|estimated|partial/i.test(status);
+  return `<span class="sv3-pill ${isModeled ? "warn" : ""}"><i></i>${escapeText(label)} <em>${escapeText(status)}</em></span>`;
+}
+
+function sv3RiskCard(item, index) {
+  return `
+    <article class="sv3-risk">
+      <span><i></i>Risk ${index + 1}</span>
+      <strong>${escapeText(item)}</strong>
+      <p>Verify this before signing or investing.</p>
+    </article>
+  `;
+}
+
+function renderSpotVestV3(profile, recommendations, analysis) {
+  const refs = sv3Refs();
+  if (!refs.app || !profile || !analysis) return;
+  refs.app.querySelectorAll("[data-sv3-main]").forEach((screen) => {
+    screen.classList.toggle("active", screen.dataset.sv3Main === "report");
+  });
+  refs.app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.sv3Nav === "report");
+  });
+  refs.app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.sv3Tab === "overview");
+  });
+  refs.app.querySelectorAll("[data-sv3-screen]").forEach((screen) => {
+    screen.classList.toggle("active", screen.dataset.sv3Screen === "overview");
+  });
+
+  const businessResult = currentBusinessResult();
+  const civicResult = currentCivicResult();
+  const siteIntelResult = currentSiteIntelResult();
+  const conceptFitResult = currentConceptFitResult();
+  const decision = decisionFor(profile, recommendations, businessResult);
+  const business = businessDisplayName(state.business || analysis.topRecommendation?.name || "business");
+  const scope = state.location
+    ? `${state.location.address || "Selected address"}`
+    : `${profile.name} · ZIP ${state.zip}`;
+  const radius = state.location ? `${state.location.radiusMiles || "0.5"} mi radius` : "Area screen";
+  const competitionCount = competitiveSetSize(businessResult);
+  const competitionPressure = competitionCount > 0
+    ? saturationFromCount(competitionCount, profile)
+    : profile.competition;
+  const pressureLabel = saturationLabel(competitionPressure);
+  const scoreMap = Object.fromEntries(analysis.scores.map((item) => [item.name, item]));
+  const strongScores = analysis.scores
+    .filter((item) => safeNumber(item.value, 0) >= 62)
+    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
+    .slice(0, 4);
+  const why = strongScores.length
+    ? strongScores.map((item) => `${item.name}: ${scoreSignalCopy(item)}`)
+    : ["No strong positive signal is proven yet; use this as a first screen."];
+
+  if (refs.status) refs.status.textContent = analysis.confidenceScore >= 70 ? "Live decision" : "Needs proof";
+  if (refs.searchBusiness) refs.searchBusiness.value = business;
+  if (refs.searchZip) refs.searchZip.value = state.zip || "";
+  if (refs.searchAddress) refs.searchAddress.value = state.location?.address || "";
+  if (refs.searchBudget) refs.searchBudget.value = state.budget || "";
+  if (refs.searchRadius) refs.searchRadius.value = state.location?.radiusMiles || "0.5";
+  if (refs.searchNote) {
+    refs.searchNote.textContent = state.location
+      ? `Using ${state.location.address || "selected address"} within ${state.location.radiusMiles || "0.5"} mile.`
+      : `Using ZIP ${state.zip || "selected area"} for an area-level screen.`;
+  }
+  refs.title.textContent = state.location ? state.location.address : `${profile.name}`;
+  refs.subtitle.textContent = `Should ${business.toLowerCase()} open here? SpotVest turns demand, competition, customer fit, cost pressure, and risk into one business decision.`;
+  if (refs.businessPill) refs.businessPill.textContent = `${business} demand`;
+  if (refs.scopePill) refs.scopePill.textContent = radius;
+  if (refs.pressurePill) refs.pressurePill.textContent = `${pressureLabel} competition`;
+  refs.verdictCard.className = `sv3-banner ${sv3DecisionClass(analysis.decision)}`;
+  refs.decision.textContent = analysis.decision;
+  if (refs.decisionSmall) refs.decisionSmall.textContent = titleCase(analysisDecisionSlug(analysis.decision).replace(/-/g, " "));
+  refs.decisionCopy.textContent = decision.copy;
+  refs.score.textContent = formatScore(analysis.successProbability);
+  if (refs.scoreRing) refs.scoreRing.textContent = formatBadgeScore(analysis.successProbability);
+  if (refs.probability) refs.probability.textContent = formatScore(analysis.successProbability);
+  refs.confidence.textContent = `${formatBadgeScore(analysis.confidenceScore)}%`;
+  refs.bottomTitle.textContent = decision.next;
+  refs.bottomCopy.textContent = decision.nextCopy;
+  if (refs.whyList) refs.whyList.innerHTML = sv3List(why, "Needs more evidence before naming success drivers.");
+  if (refs.watchList) refs.watchList.innerHTML = sv3List(analysis.topRisks, "No severe risk signals detected yet.");
+  if (refs.signalPills) {
+    refs.signalPills.innerHTML = [
+      sv3Pill("Demographics", state.liveProfiles[state.zip] ? "Verified" : "Estimated"),
+      sv3Pill("Competition", businessResult?.googlePlaces || businessResult?.registryExact ? "Verified" : "Estimated"),
+      sv3Pill("Mobility", siteIntelResult && !siteIntelResult.fallback ? "Verified" : "Modeled"),
+      sv3Pill("Foot traffic", "Modeled"),
+      sv3Pill("Risk signals", civicResult && !civicResult.fallback ? "Verified" : "Partial"),
+      sv3Pill("Demand", businessResult?.demandMomentum?.available ? "Light" : "Estimated")
+    ].join("");
+  }
+  if (refs.thesisList) {
+    refs.thesisList.innerHTML = (strongScores.length ? strongScores : analysis.scores.slice(0, 3))
+      .slice(0, 4)
+      .map(sv3Mini)
+      .join("");
+  }
+  if (refs.conditionsSteps) {
+    const conditions = (analysis.conditions || []).slice(0, 4);
+    refs.conditionsSteps.innerHTML = (conditions.length ? conditions : ["Verify site economics before committing."])
+      .map((item, index) => sv3Step(index + 1, index === 0 ? decision.next : `Condition ${index + 1}`, item))
+      .join("");
+  }
+
+  refs.marketBars.innerHTML = [
+    sv3MarketBar("Demand", scoreMap.Demand?.value, "Category demand, visible activity, and local momentum."),
+    sv3MarketBar("Customer fit", scoreMap["Customer fit"]?.value, "Income, age, household profile, and lifestyle compatibility."),
+    sv3MarketBar("Competition", scoreMap.Competition?.value, `${pressureLabel} pressure for this business category.`),
+    sv3MarketBar("Location quality", scoreMap["Location quality"]?.value, "Transit access, density, street activity, and address context."),
+    sv3MarketBar("Financial viability", scoreMap["Financial viability"]?.value, "Cost pressure, likely margins, and budget support."),
+    sv3MarketBar("Risk control", scoreMap.Risk?.value, "Higher score means safer risk-adjusted conditions.")
+  ].join("");
+
+  refs.mapCaption.textContent = state.location ? `${radius} · selected address` : `ZIP ${state.zip} · area screen`;
+  refs.fitTitle.textContent = `${business} market pressure`;
+  refs.fitCopy.textContent = elements.businessReason?.textContent || decision.copy;
+
+  const conceptCards = conceptFitResult?.concepts?.length
+    ? conceptFitResult.concepts.slice(0, 4).map((item) => `
+        <article class="sv3-concept">
+          <div>
+            <strong>${escapeText(item.label || item.name || "Concept")}</strong>
+            <span>${escapeText(item.reason || item.note || "Worth deeper validation.")}</span>
+          </div>
+          <em>${formatBadgeScore(item.score)}</em>
+        </article>
+      `).join("")
+    : `
+      <article class="sv3-concept">
+        <div>
+          <strong>${escapeText(business)}</strong>
+          <span>Concept-specific data is limited. SpotVest used broader market and competition signals instead.</span>
+        </div>
+        <em>${formatBadgeScore(analysis.successProbability)}</em>
+      </article>
+    `;
+  refs.concepts.innerHTML = conceptCards;
+
+  if (refs.riskCards) {
+    const risks = (analysis.topRisks || []).slice(0, 4);
+    refs.riskCards.innerHTML = (risks.length ? risks : ["No severe risk signals detected yet."])
+      .map(sv3RiskCard)
+      .join("");
+  }
+  if (refs.riskList) refs.riskList.innerHTML = sv3List(analysis.topRisks, "No severe risk signals detected yet.");
+  refs.conditionsList.innerHTML = sv3List(analysis.conditions, "Verify site economics before committing.");
+  refs.alternativesList.innerHTML = sv3List(analysis.alternatives, "No stronger alternative has been identified yet.");
+  refreshSpotVestV3Money();
+
+  refs.methodList.innerHTML = [
+    sv3SignalStatus("Market demographics", Boolean(state.liveProfiles[state.zip])),
+    sv3SignalStatus("Competitive signals", Boolean(businessResult?.registryExact && businessResult?.googlePlaces), Boolean(businessResult?.registryExact || businessResult?.googlePlaces)),
+    sv3SignalStatus("Consumer demand", Boolean(businessResult?.demandMomentum?.available)),
+    sv3SignalStatus("Local risk and development", Boolean(civicResult && !civicResult.fallback)),
+    sv3SignalStatus("Mobility and commercial mix", Boolean(siteIntelResult && !siteIntelResult.fallback)),
+    sv3SignalStatus("Exact address context", Boolean(state.location))
+  ].join("");
+}
+
+function refreshSpotVestV3Money() {
+  const refs = sv3Refs();
+  if (!refs.revenue) return;
+  refs.revenue.textContent = elements.revenueProjection?.textContent || "Needs inputs";
+  refs.breakeven.textContent = elements.revenueBreakeven?.textContent || "Needs inputs";
+  if (refs.rentReadout && refs.rentSlider) {
+    refs.rentReadout.textContent = formatCurrency(refs.rentSlider.value);
+  }
+  if (refs.moneyNote) {
+    refs.moneyNote.textContent = elements.revenueNote?.textContent || "Use this as a quick screen. Exact financials still need operator proof.";
+  }
+}
+
+let spotVestV3ControlsReady = false;
+
+function initSpotVestV3Controls() {
+  if (spotVestV3ControlsReady) return;
+  const app = document.querySelector("#sv3-app");
+  if (!app) return;
+  spotVestV3ControlsReady = true;
+
+  const showReportTab = (name) => {
+    app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.sv3Tab === name);
+    });
+    app.querySelectorAll("[data-sv3-screen]").forEach((screen) => {
+      screen.classList.toggle("active", screen.dataset.sv3Screen === name);
+    });
+  };
+  const showMain = (name) => {
+    app.querySelectorAll("[data-sv3-main]").forEach((screen) => {
+      screen.classList.toggle("active", screen.dataset.sv3Main === name);
+    });
+    app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.sv3Nav === name);
+    });
+    if (name === "report") showReportTab("overview");
+  };
+
+  app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      showMain("report");
+      showReportTab(button.dataset.sv3Tab);
+    });
+  });
+
+  app.querySelectorAll("[data-sv3-jump]").forEach((button) => {
+    button.addEventListener("click", () => showReportTab(button.dataset.sv3Jump));
+  });
+
+  app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
+    button.addEventListener("click", () => showMain(button.dataset.sv3Nav));
+  });
+
+  document.querySelector("#sv3-compare-button")?.addEventListener("click", () => {
+    addToCompare();
+    showMain("compare");
+    const button = document.querySelector("#sv3-compare-button");
+    if (!button) return;
+    const original = button.textContent;
+    button.textContent = "Added";
+    window.setTimeout(() => { button.textContent = original; }, 1200);
+  });
+
+  document.querySelector("#sv3-assistant-button")?.addEventListener("click", openAssistant);
+
+  document.querySelector("#sv3-rent-slider")?.addEventListener("input", refreshSpotVestV3Money);
+
+  const runArea = () => {
+    const refs = sv3Refs();
+    if (refs.searchBusiness?.value?.trim() && elements.businessInput) {
+      elements.businessInput.value = refs.searchBusiness.value.trim();
+      syncBusinessInput();
+    }
+    if (refs.searchZip?.value?.trim() && elements.input) elements.input.value = refs.searchZip.value.trim();
+    if (refs.searchBudget?.value && elements.budgetInput) elements.budgetInput.value = refs.searchBudget.value;
+    showMain("report");
+    elements.form?.requestSubmit();
+  };
+  const runAddress = () => {
+    const refs = sv3Refs();
+    if (refs.searchBusiness?.value?.trim() && elements.businessInput) {
+      elements.businessInput.value = refs.searchBusiness.value.trim();
+      syncBusinessInput();
+    }
+    if (refs.searchAddress?.value?.trim() && elements.addressInput) elements.addressInput.value = refs.searchAddress.value.trim();
+    if (refs.searchRadius?.value && elements.radiusInput) elements.radiusInput.value = refs.searchRadius.value;
+    if (refs.searchBudget?.value && elements.budgetInput) elements.budgetInput.value = refs.searchBudget.value;
+    showMain("report");
+    elements.addressForm?.requestSubmit();
+  };
+
+  document.querySelector("#sv3-run-area")?.addEventListener("click", runArea);
+  document.querySelector("#sv3-use-area")?.addEventListener("click", runArea);
+  document.querySelector("#sv3-run-address")?.addEventListener("click", runAddress);
+}
+
+initSpotVestV3Controls();
 
 function sourceStatus(connected, partial = false) {
   if (connected) return { label: "Available", className: "connected" };
