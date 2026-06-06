@@ -1,6 +1,6 @@
-# AreaIntel
+# SpotVest
 
-AreaIntel is a Business Success Intelligence platform for operators, franchise buyers, commercial advisors, and investors.
+SpotVest is a Business Success Intelligence platform for operators, franchise buyers, commercial advisors, and investors.
 
 It answers the core decision question:
 
