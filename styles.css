@@ -6353,54 +6353,6 @@ body:not(.landing-mode) .pricing-card-featured {
   }
 }
 
-/* App intake state: when the homepage CTA opens the product shell, keep the
-   approved homepage hidden and show a clean product prompt instead. */
-body:not(.landing-mode) .start-screen:not([hidden]) {
-  min-height:100vh;
-  display:grid !important;
-  place-items:center;
-  padding:clamp(28px, 5vw, 72px);
-  color:#EAFBFF;
-  background:
-    linear-gradient(135deg, rgba(2, 8, 23, .86), rgba(8, 47, 73, .72)),
-    url("https://images.unsplash.com/photo-1534430480872-3498386e7856?auto=format&fit=crop&w=1800&q=80") center/cover;
-  border-radius:0 26px 26px 0;
-  overflow:hidden;
-}
-
-body:not(.landing-mode) .start-screen:not([hidden]) > * {
-  display:none !important;
-}
-
-body:not(.landing-mode) .start-screen:not([hidden])::before {
-  content:"Business Decision Intelligence";
-  display:block;
-  width:min(720px, 92%);
-  padding:clamp(28px, 5vw, 52px);
-  border:1px solid rgba(148, 241, 255, .2);
-  border-radius:24px;
-  background:linear-gradient(135deg, rgba(7, 18, 35, .82), rgba(8, 63, 85, .58));
-  box-shadow:0 34px 90px rgba(2, 8, 23, .42), inset 0 1px 0 rgba(255,255,255,.12);
-  backdrop-filter:blur(18px);
-  font-size:clamp(36px, 6vw, 78px);
-  line-height:.96;
-  letter-spacing:-.055em;
-  font-weight:900;
-}
-
-body:not(.landing-mode) .start-screen:not([hidden])::after {
-  content:"Use the left panel to choose a business type, enter a ZIP code or exact address, and generate the executive decision report.";
-  position:absolute;
-  left:50%;
-  top:calc(50% + min(150px, 18vw));
-  transform:translateX(-50%);
-  width:min(640px, 78%);
-  color:#BAEFFF;
-  font-size:clamp(15px, 1.5vw, 20px);
-  line-height:1.55;
-  text-align:center;
-}
-
 body:not(.landing-mode) .sidebar input::placeholder {
   color:#6B7C8D;
 }
