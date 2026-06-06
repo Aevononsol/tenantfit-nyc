@@ -3684,6 +3684,124 @@ function sv3OverviewHTML(ctx) {
     </div>`;
 }
 
+/* ---------- inside-app live map (MapLibre, real competitor pins) ---------- */
+let sv3MarketMap = null;
+let sv3MarketMapData = null;
+
+function sv3Circle(center, radiusM) {
+  const pts = 64, coords = [], [lng, lat] = center;
+  const dx = radiusM / (111320 * Math.cos(lat * Math.PI / 180)), dy = radiusM / 110540;
+  for (let i = 0; i <= pts; i++) { const a = i / pts * 2 * Math.PI; coords.push([lng + dx * Math.cos(a), lat + dy * Math.sin(a)]); }
+  return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] } };
+}
+
+function sv3RenderMarketMap() {
+  const el = document.getElementById("sv3-market-map");
+  if (!el) return;
+  const data = sv3MarketMapData || {};
+  if (!window.maplibregl) return; // styled container stays as a graceful fallback
+  try { if (sv3MarketMap) { sv3MarketMap.remove(); sv3MarketMap = null; } } catch (e) { /* ignore */ }
+  const center = data.center || [-73.985, 40.748];
+  const map = new maplibregl.Map({
+    container: el, style: "https://tiles.openfreemap.org/styles/dark",
+    center, zoom: data.isArea ? 12.4 : 14.6, attributionControl: true
+  });
+  sv3MarketMap = map;
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+  map.on("load", () => {
+    const r = data.radiusMeters || 805;
+    map.addSource("sv3r", { type: "geojson", data: sv3Circle(center, r) });
+    map.addLayer({ id: "sv3r-f", type: "fill", source: "sv3r", paint: { "fill-color": "#39C2D6", "fill-opacity": 0.06 } });
+    map.addLayer({ id: "sv3r-l", type: "line", source: "sv3r", paint: { "line-color": "#39C2D6", "line-width": 1, "line-dasharray": [2, 2], "line-opacity": 0.5 } });
+    const feats = (data.competitors || []).map((c) => ({ type: "Feature", geometry: { type: "Point", coordinates: [c.lng, c.lat] }, properties: { inRadius: !!c.inRadius } }));
+    map.addSource("sv3c", { type: "geojson", data: { type: "FeatureCollection", features: feats } });
+    map.addLayer({
+      id: "sv3c-p", type: "circle", source: "sv3c", paint: {
+        "circle-radius": 5,
+        "circle-color": ["case", ["get", "inRadius"], "#FF6B6B", "#64748B"],
+        "circle-opacity": 0.85, "circle-stroke-width": 1,
+        "circle-stroke-color": ["case", ["get", "inRadius"], "#FF6B6B", "#475569"]
+      }
+    });
+    const dot = document.createElement("div");
+    dot.style.cssText = "width:14px;height:14px;border-radius:50%;background:#5B8CFF;border:2px solid #fff;box-shadow:0 0 0 4px rgba(91,140,255,.25)";
+    new maplibregl.Marker({ element: dot }).setLngLat(center).addTo(map);
+    setTimeout(() => { try { map.resize(); } catch (e) { /* ignore */ } }, 60);
+  });
+}
+
+/* ---------- data-driven chart geometry (modeled, varies per location) ---------- */
+function sv3Bucket(raw) {
+  const s = String(raw || "").toLowerCase();
+  if (/coffee|caf|bakery|\btea\b|juice|smoothie|dessert|ice cream/.test(s)) return "cafe";
+  if (/\bbar\b|cocktail|wine|beer|tap|hookah|night|club|lounge/.test(s)) return "bar";
+  if (/gym|fitness|yoga|pilates|cycl|crossfit|boxing|martial|dance|\bspa\b|wellness|salon|barber|nail|tattoo|tanning/.test(s)) return "gym";
+  if (/restaurant|pizza|deli|sandwich|burger|chicken|sushi|ramen|taco|mexican|italian|thai|indian|korean|kitchen|\bfood\b|bbq|steak|grill|diner|brunch|seafood|vegan/.test(s)) return "food";
+  return "retail";
+}
+function sv3Spark(vals, w, h, top, bottom) {
+  const n = vals.length, step = w / (n - 1);
+  const pts = vals.map((v, i) => [Math.round(i * step), Math.round(bottom - (bottom - top) * Math.max(0, Math.min(1, v)))]);
+  const line = "M" + pts.map((p) => p[0] + "," + p[1]).join(" L");
+  const area = line + ` L${w},${h} L0,${h} Z`;
+  return { line, area, pts };
+}
+function sv3FootHourSVG(rawBusiness, score, seed) {
+  const shapes = {
+    cafe: [.35, .85, 1, .8, .6, .55, .6, .55, .5, .5, .42, .32, .22, .14, .08],
+    bar: [.05, .08, .12, .2, .3, .3, .35, .45, .6, .8, 1, .95, .72, .46, .3],
+    gym: [.5, .72, .55, .4, .35, .4, .45, .45, .52, .72, .92, 1, .7, .4, .2],
+    food: [.1, .2, .35, .6, 1, .7, .45, .5, .72, .96, .9, .6, .4, .22, .12],
+    retail: [.1, .3, .5, .66, .76, .82, .86, .9, 1, .94, .8, .6, .4, .25, .12]
+  };
+  const base = shapes[sv3Bucket(rawBusiness)] || shapes.retail;
+  const amp = 0.5 + Math.max(0, Math.min(100, score)) / 200; // taller where score is higher
+  const vals = base.map((v, i) => {
+    const j = (((seed >> (i % 16)) & 7) - 3) / 60; // small deterministic per-location jitter
+    return Math.max(0.05, Math.min(1, v * amp + j));
+  });
+  const { line, area, pts } = sv3Spark(vals, 320, 130, 16, 118);
+  // mark the two tallest points
+  const order = vals.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
+  const dots = [order[0][1], order[1][1]].map((i) => `<circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="3.5" fill="#4FE3D8"/>`).join("");
+  return `<path d="${line}" fill="none" stroke="#3BD6C9" stroke-width="2.5" stroke-linejoin="round"/><path d="${area}" fill="rgba(57,194,214,.12)"/>${dots}`;
+}
+function sv3WeekSVG(weekdayPct) {
+  const wd = Math.max(0, Math.min(100, weekdayPct || 60)), we = 100 - wd;
+  const rel = [wd, wd * 1.06, wd * 1.1, wd * 1.04, wd * 1.2, we * 1.08, we * 0.92];
+  const max = Math.max(...rel);
+  return rel.map((d, i) => {
+    const hgt = Math.round(22 + (d / max) * 76), y = 120 - hgt, x = 6 + i * 45;
+    const fill = i < 5 ? (i === 4 ? "#33A7D8" : "#3BD6C9") : "#5B8CFF";
+    return `<rect x="${x}" y="${y}" width="32" height="${hgt}" rx="5" fill="${fill}"/>`;
+  }).join("");
+}
+function sv3RevCostSVG(beMonth) {
+  const be = Math.max(3, Math.min(24, beMonth || 14));
+  const x = Math.round((be / 24) * 320);
+  const costY = (xx) => 70 + (58 - 70) * (xx / 320);
+  const cy = Math.round(costY(x));
+  const rev = `M0,128 C${Math.round(x * 0.55)},122 ${Math.round(x * 0.9)},${cy + 8} ${x},${cy} C${Math.round(x + (320 - x) * 0.4)},${cy - 26} ${Math.round(x + (320 - x) * 0.78)},30 320,22`;
+  return { x, cy, rev, costLine: "M0,70 L320,58" };
+}
+function sv3SeasonSVG(rawBusiness, score) {
+  const patterns = {
+    cafe: [.62, .56, .66, .72, .76, .72, .66, .66, .76, .82, .78, .84],
+    bar: [.5, .48, .6, .7, .82, .9, .86, .84, .82, .78, .7, .9],
+    gym: [1, .96, .86, .72, .6, .5, .46, .46, .62, .72, .7, .6],
+    food: [.5, .46, .66, .76, .86, .92, .82, .8, .86, .72, .56, .62],
+    retail: [.5, .46, .56, .62, .66, .62, .6, .66, .72, .78, .92, 1]
+  };
+  const base = patterns[sv3Bucket(rawBusiness)] || patterns.retail;
+  const amp = 0.6 + Math.max(0, Math.min(100, score)) / 250;
+  return base.map((v, i) => {
+    const val = Math.max(0.12, Math.min(1, v * amp));
+    const hgt = Math.round(18 + val * 90), y = 110 - hgt, x = 2 + i * 26;
+    const fill = val >= 0.8 ? "#4ADE80" : val >= 0.58 ? "#3BD6C9" : val >= 0.4 ? "#33A7D8" : "#5B8CFF";
+    return `<rect x="${x}" y="${y}" width="20" height="${hgt}" rx="4" fill="${fill}"/>`;
+  }).join("");
+}
+
 function sv3MarketHTML(ctx) {
   const areaBars = [
     sv3BarRow("Population density", ctx.profile.density, sv3Pct(ctx.profile.density) >= 55 ? "g" : "a"),
@@ -3698,18 +3816,10 @@ function sv3MarketHTML(ctx) {
     <div class="section-label" style="margin-top:20px"><span class="n">04</span> Area read</div>
     <div class="card">${areaBars}<div class="src">NYC Open Data · Census ACS · MTA transit feeds</div></div>
     <div class="section-label"><span class="n">05</span> Market map · ${escapeText(ctx.radiusLabel)}</div>
-    <div class="map">
-      <span class="pin" style="background:#5B8CFF;left:48%;top:42%"></span>
-      <span class="pin" style="background:#FF6B6B;left:30%;top:55%"></span>
-      <span class="pin" style="background:#FF6B6B;left:38%;top:64%"></span>
-      <span class="pin" style="background:#F5B544;left:55%;top:35%"></span>
-      <span class="pin" style="background:#F5B544;left:62%;top:48%"></span>
-      <span class="pin" style="background:#FF6B6B;left:52%;top:58%"></span>
-      <span class="pin" style="background:#F5B544;left:44%;top:30%"></span>
-      <span class="pin" style="background:#4ADE80;left:68%;top:62%"></span>
-      <div class="legend"><span class="lg"><span class="d" style="background:#5B8CFF"></span>Address</span><span class="lg"><span class="d" style="background:#FF6B6B"></span>Competitors</span><span class="lg"><span class="d" style="background:#F5B544"></span>Local activity</span><span class="lg"><span class="d" style="background:#4ADE80"></span>Saved options</span></div>
+    <div class="map sv3-livemap"><div id="sv3-market-map" class="sv3-mapcanvas"></div>
+      <div class="legend"><span class="lg"><span class="d" style="background:#5B8CFF"></span>${escapeText(ctx.mapCenterLabel)}</span><span class="lg"><span class="d" style="background:#FF6B6B"></span>Competitors (in radius)</span><span class="lg"><span class="d" style="background:#64748B"></span>Nearby</span><span class="lg"><span class="d" style="background:#39C2D6"></span>Analysis radius</span></div>
     </div>
-    <div class="src" style="margin:-4px 2px 8px">Leaflet · OpenStreetMap · Google Places competitor pins</div>
+    <div class="src" style="margin:-4px 2px 8px">MapLibre · OpenFreeMap · ${ctx.mapCount} live Google Places + NYC competitor pins</div>
     <div class="section-label"><span class="n">06</span> Business fit in this area</div>
     <div class="card accent"><div class="sub">Market pressure</div><div class="big">${ctx.pressureScore}</div><div class="desc">${escapeText(ctx.business)} market pressure — built from local market activity, competitive signals &amp; demand momentum.</div><div class="bar-row" style="margin-top:14px"><div class="bl"><span class="bn">Saturation</span><span class="bv">${escapeText(ctx.pressureLabel)}</span></div><div class="track"><div class="fill a" style="width:${ctx.pressureScore}%"></div></div></div></div>
     <div class="card"><div class="sub">Local vs chain</div><h3>${escapeText(ctx.localChainTitle)}</h3><div class="desc">${escapeText(ctx.localChainCopy)}</div></div>
@@ -3723,8 +3833,8 @@ function sv3MarketHTML(ctx) {
     <div class="card accent"><div class="sub">Modeled estimate · ${escapeText(ctx.ftBacking)}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. Based on SpotVest's location intelligence model.</div></div>
     <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span></div></div></div>
     <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · MTA turnstile + SpotVest mobility model</div></div>
-    <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative"><span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span><svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/><path d="M0,118 L24,112 L48,108 L72,96 L96,70 L120,40 L144,52 L168,74 L192,66 L216,48 L240,28 L264,44 L288,82 L312,104 L320,110" fill="none" stroke="#3BD6C9" stroke-width="2.5" stroke-linejoin="round"/><path d="M0,118 L24,112 L48,108 L72,96 L96,70 L120,40 L144,52 L168,74 L192,66 L216,48 L240,28 L264,44 L288,82 L312,104 L320,110 L320,130 L0,130 Z" fill="rgba(57,194,214,.12)"/><circle cx="120" cy="40" r="3.5" fill="#4FE3D8"/><circle cx="240" cy="28" r="3.5" fill="#4FE3D8"/></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">Modeled · MTA turnstile + mobility model</div></div>
-    <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g><rect x="6" y="40" width="32" height="80" rx="5" fill="#3BD6C9"/><rect x="51" y="34" width="32" height="86" rx="5" fill="#3BD6C9"/><rect x="96" y="30" width="32" height="90" rx="5" fill="#3BD6C9"/><rect x="141" y="36" width="32" height="84" rx="5" fill="#3BD6C9"/><rect x="186" y="22" width="32" height="98" rx="5" fill="#33A7D8"/><rect x="231" y="48" width="32" height="72" rx="5" fill="#5B8CFF"/><rect x="276" y="58" width="32" height="62" rx="5" fill="#5B8CFF"/></g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
+    <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative"><span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span><svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/>${ctx.footHourSVG}</svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">Modeled · MTA turnstile + mobility model</div></div>
+    <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g>${ctx.weekSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
     <div class="card"><div class="sub">Category saturation nearby</div>${cuisine}<div class="src">Google Places density · ${escapeText(ctx.radiusLabel)}</div></div>`;
 }
 
@@ -3760,14 +3870,14 @@ function sv3MoneyHTML(ctx) {
       <div class="cvr-row"><div class="lab"><span class="n">Est. total monthly cost</span><span class="v" style="color:var(--amber)">~${escapeText(cost)}/mo</span></div><div class="tk"><div class="fl cost"></div></div></div>
       <div class="desc" style="margin-top:4px">Modeled comparison of base-case revenue against estimated total monthly cost. Confirm real rent and labor before committing.</div>
     </div>
-    <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="M0,70 L320,58" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="M0,128 C80,120 140,96 180,72 C220,48 280,30 320,22" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="186" y1="18" x2="186" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="186" cy="68" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:50%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled · SpotVest unit-economics engine</div></div>
+    <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="${ctx.revCost.costLine}" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="${ctx.revCost.rev}" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="${ctx.revCost.x}" y1="18" x2="${ctx.revCost.x}" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="${ctx.revCost.x}" cy="${ctx.revCost.cy}" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:${Math.max(8, Math.min(82, Math.round(ctx.revCost.x / 320 * 100)))}%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled · SpotVest unit-economics engine</div></div>
     <div class="card whatif"><div class="sub">What-if · drag to test the deal</div>
       <div style="margin-top:12px"><div class="rng-lab"><span>Monthly rent</span><span class="rv" id="sv3-wf-rent-l">$18,000</span></div><input type="range" class="rng" id="sv3-wf-rent" min="8000" max="35000" step="500" value="18000"></div>
       <div style="margin-top:16px"><div class="rng-lab"><span>Size (sq ft)</span><span class="rv" id="sv3-wf-size-l">1,200</span></div><input type="range" class="rng" id="sv3-wf-size" min="500" max="4000" step="50" value="1200"></div>
       <div class="wf-out"><div class="wf-box"><div class="k">Projected revenue</div><div class="v" id="sv3-wf-rev">$102k–$171k</div></div><div class="wf-box"><div class="k">Break-even</div><div class="v" id="sv3-wf-be">14–28 mo</div></div><div class="wf-box"><div class="k">Rent % of sales</div><div class="v" id="sv3-wf-pct">6%</div></div><div class="wf-box"><div class="k">Verdict</div><div class="v" id="sv3-wf-verd" style="color:var(--amber)">Conditional</div></div></div>
       <div class="src">Live estimate · recalculated locally</div>
     </div>
-    <div class="card"><div class="sub">Seasonality · projected demand by month</div><div class="chart"><svg viewBox="0 0 320 110"><g><rect x="2" y="58" width="20" height="52" rx="4" fill="#33A7D8"/><rect x="28" y="64" width="20" height="46" rx="4" fill="#33A7D8"/><rect x="54" y="44" width="20" height="66" rx="4" fill="#3BD6C9"/><rect x="80" y="36" width="20" height="74" rx="4" fill="#3BD6C9"/><rect x="106" y="26" width="20" height="84" rx="4" fill="#4ADE80"/><rect x="132" y="22" width="20" height="88" rx="4" fill="#4ADE80"/><rect x="158" y="30" width="20" height="80" rx="4" fill="#4ADE80"/><rect x="184" y="34" width="20" height="76" rx="4" fill="#3BD6C9"/><rect x="210" y="42" width="20" height="68" rx="4" fill="#3BD6C9"/><rect x="236" y="50" width="20" height="60" rx="4" fill="#33A7D8"/><rect x="262" y="70" width="20" height="40" rx="4" fill="#5B8CFF"/><rect x="288" y="74" width="20" height="36" rx="4" fill="#5B8CFF"/></g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div></div><div class="desc">Summer &amp; early fall are strongest; <b style="color:var(--txt)">Jan–Feb dip ~35%</b> — keep 2–3 months of runway for the slow season.</div><div class="src">Modeled · category seasonality + local activity</div></div>
+    <div class="card"><div class="sub">Seasonality · projected demand by month</div><div class="chart"><svg viewBox="0 0 320 110"><g>${ctx.seasonSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div></div><div class="desc">Summer &amp; early fall are strongest; <b style="color:var(--txt)">Jan–Feb dip ~35%</b> — keep 2–3 months of runway for the slow season.</div><div class="src">Modeled · category seasonality + local activity</div></div>
     <div class="section-label"><span class="n">16</span> Revenue estimator · estimate only</div>
     <div class="card"><div class="statline"><span class="sl">Projected monthly revenue</span><span class="sv" style="color:var(--teal-bright)">${escapeText(ctx.revenueProjection)}</span></div><div class="statline"><span class="sl">Break-even estimate</span><span class="sv">${escapeText(ctx.revenueBreakeven)}</span></div><div class="statline"><span class="sl">Rent %</span><span class="sv">${escapeText(ctx.revenueRentPercent)}</span></div><div class="desc" style="margin-top:12px">${escapeText(ctx.revenueNote)}</div><div class="src">Modeled · CartoDB rent comps · SpotVest unit-economics model</div></div>
     <div class="section-label"><span class="n">17</span> Customer profile</div>
@@ -3917,6 +4027,38 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const beMatch = revenueBreakeven.match(/(\d+)/);
   const breakevenShort = beMatch ? `mo ${beMatch[1]}` : "mo 14";
 
+  // ---- live market map data (real competitor coordinates) ----
+  const mapPlaces = businessResult?.googlePlaces?.mapPlaces || [];
+  const mapRecs = businessResult?.mapRecords || [];
+  const rawPins = [...mapPlaces, ...mapRecs]
+    .filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
+    .map((p) => ({ lng: Number(p.lng), lat: Number(p.lat) }));
+  let mapCenter;
+  if (state.location && Number.isFinite(Number(state.location.lng)) && Number.isFinite(Number(state.location.lat))) {
+    mapCenter = [Number(state.location.lng), Number(state.location.lat)];
+  } else if (rawPins.length) {
+    mapCenter = [rawPins.reduce((s, p) => s + p.lng, 0) / rawPins.length, rawPins.reduce((s, p) => s + p.lat, 0) / rawPins.length];
+  } else {
+    mapCenter = [-73.985, 40.748];
+  }
+  const mapRadiusM = state.location?.radiusMeters || 805;
+  const mapIsArea = !state.location;
+  const mapComps = rawPins.slice(0, 80).map((p) => {
+    const dx = (p.lng - mapCenter[0]) * 111320 * Math.cos(mapCenter[1] * Math.PI / 180);
+    const dy = (p.lat - mapCenter[1]) * 110540;
+    return { lng: p.lng, lat: p.lat, inRadius: Math.hypot(dx, dy) <= mapRadiusM };
+  });
+  sv3MarketMapData = { center: mapCenter, competitors: mapComps, radiusMeters: mapRadiusM, isArea: mapIsArea };
+
+  // ---- chart inputs (modeled, vary per location/business) ----
+  let seed = 2166136261; const seedStr = `${state.zip}|${state.business}`;
+  for (let i = 0; i < seedStr.length; i++) { seed ^= seedStr.charCodeAt(i); seed = Math.imul(seed, 16777619); }
+  seed = seed >>> 0;
+  const ftScoreNum = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [60])[0]);
+  const weekdayPct = Number((String(elements.footTrafficWeekSplit?.textContent || "").match(/(\d+)\s*%/) || [0, 64])[1]) || 64;
+  const beMonthMatch = String(revenueBreakeven).match(/(\d+)/);
+  const beMonth = beMonthMatch ? Number(beMonthMatch[1]) : 14;
+
   const ctx = {
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
@@ -3943,7 +4085,13 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     revenueProjection, revenueBreakeven, revenueRentPercent, revenueNote, revenueLowK, costK, breakevenShort,
     pulseFoot: sv3Level((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [String(safeNumber(profile.transit, 50))])[0]), pulseSpend: sv3Level(profile.income),
     pulseCost: safeNumber(profile.rent, 50) >= 70 ? "Elevated" : "Manageable",
-    chainFitPct: sv3Pct(safeNumber(profile.chainFit, 50))
+    chainFitPct: sv3Pct(safeNumber(profile.chainFit, 50)),
+    footHourSVG: sv3FootHourSVG(state.business, ftScoreNum, seed),
+    weekSVG: sv3WeekSVG(weekdayPct),
+    revCost: sv3RevCostSVG(beMonth),
+    seasonSVG: sv3SeasonSVG(state.business, ftScoreNum),
+    mapCenterLabel: state.location ? "Address" : "ZIP center",
+    mapCount: mapComps.length
   };
 
   // Preserve the tab the user is currently on across late async re-renders;
@@ -3952,14 +4100,18 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const showingReport = refs.screenReport?.classList.contains("show");
   const showingCompare = refs.screenCompare?.classList.contains("show");
 
-  refs.tabOverview.innerHTML = sv3OverviewHTML(ctx);
-  refs.tabMarket.innerHTML = sv3MarketHTML(ctx);
-  refs.tabRisk.innerHTML = sv3RiskHTML(ctx);
-  refs.tabMoney.innerHTML = sv3MoneyHTML(ctx);
-  refs.tabMethod.innerHTML = sv3MethodHTML(ctx);
+  // Only rewrite a tab when its content actually changed — this avoids
+  // tearing down the live map / charts on every late async re-render.
+  const setIf = (el, html) => { if (!el || el.__sv3html === html) return false; el.__sv3html = html; el.innerHTML = html; return true; };
+  setIf(refs.tabOverview, sv3OverviewHTML(ctx));
+  const marketChanged = setIf(refs.tabMarket, sv3MarketHTML(ctx));
+  setIf(refs.tabRisk, sv3RiskHTML(ctx));
+  setIf(refs.tabMoney, sv3MoneyHTML(ctx));
+  setIf(refs.tabMethod, sv3MethodHTML(ctx));
 
   sv3BindActions();
   sv3InitWhatIf();
+  if (marketChanged || !sv3MarketMap) sv3RenderMarketMap();
   if (!showingReport && !showingCompare) {
     sv3ShowMain("report");
     sv3ShowTab("overview");
@@ -3985,6 +4137,8 @@ function sv3InitWhatIf() {
   const rent = document.getElementById("sv3-wf-rent");
   const size = document.getElementById("sv3-wf-size");
   if (!rent || !size) return;
+  if (rent.__wf) return; // already wired (tab not rebuilt)
+  rent.__wf = 1;
   const recalc = () => {
     const r = Number(rent.value), s = Number(size.value);
     document.getElementById("sv3-wf-rent-l").textContent = "$" + r.toLocaleString();
@@ -4078,6 +4232,7 @@ function sv3ShowTab(name) {
     if (el) el.classList.toggle("hide", t !== name);
   });
   refs.app.querySelectorAll("[data-sv3-tab]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Tab === name));
+  if (name === "market" && sv3MarketMap) { setTimeout(() => { try { sv3MarketMap.resize(); } catch (e) { /* ignore */ } }, 70); }
   try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
 }
 

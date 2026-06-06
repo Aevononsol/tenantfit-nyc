@@ -349,3 +349,10 @@
   .sv3-app .nav { max-width: 1280px; margin: 0 auto; padding-left: 0; padding-right: 0; }
   .sv3-app .nav button { max-width: 240px; }
 }
+
+/* ---- live market map (MapLibre) inside the report ---- */
+.sv3-app .map.sv3-livemap { background: #0f1626; }
+.sv3-app .map.sv3-livemap .sv3-mapcanvas { position: absolute; inset: 0; }
+.sv3-app .map .legend { z-index: 3; }
+.sv3-app .maplibregl-ctrl-attrib { font-size: 9px !important; }
+.sv3-app .maplibregl-ctrl-bottom-right { z-index: 2; }
