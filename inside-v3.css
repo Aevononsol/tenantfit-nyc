@@ -275,3 +275,57 @@
 .sv3-app .screen.show > *{animation:sv3rise .45s cubic-bezier(.2,.7,.2,1) backwards}
 .sv3-app .screen.show > *:nth-child(1){animation-delay:.02s}.sv3-app .screen.show > *:nth-child(2){animation-delay:.06s}.sv3-app .screen.show > *:nth-child(3){animation-delay:.10s}.sv3-app .screen.show > *:nth-child(n+4){animation-delay:.14s}
 @keyframes sv3rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ================================================================
+   DESKTOP / WIDE-SCREEN DASHBOARD LAYOUT
+   Mobile (below 900px) keeps the original single-column phone layout
+   untouched. On wider screens the 440px cap is lifted and the report
+   tabs flow into a balanced multi-column dashboard. Colors, fonts and
+   components are unchanged — only width and layout.
+   ================================================================ */
+@media (min-width: 900px) {
+  .sv3-app .phone {
+    max-width: 1240px;
+    min-height: auto;
+  }
+  .sv3-app .topbar { padding-left: 28px; padding-right: 28px; }
+  .sv3-app .tabs { top: 0; padding-left: 28px; padding-right: 28px; }
+  .sv3-app .screen { padding: 0 28px 96px; }
+
+  /* Search/input stays a comfortable centered column. */
+  .sv3-app #sv3-screen-input { max-width: 640px; margin: 0 auto; }
+
+  /* Report tabs become a balanced multi-column dashboard. Each card
+     stays whole; section labels keep with the block that follows. */
+  .sv3-app .tabview {
+    column-count: 2;
+    column-gap: 24px;
+  }
+  .sv3-app .tabview > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .sv3-app .tabview > .section-label {
+    break-after: avoid-column;
+    -webkit-column-break-after: avoid;
+    margin-top: 16px;
+  }
+  .sv3-app .tabview > .section-label:first-child { margin-top: 6px; }
+  /* The opening verdict banner reads best contained at the top. */
+  .sv3-app #sv3-tab-overview > .banner { margin-top: 6px; }
+
+  /* Compare uses the extra width; its grid is already two columns. */
+  .sv3-app #sv3-screen-compare { max-width: 1000px; margin: 0 auto; }
+
+  /* Bottom nav is centered to a sane width instead of full-bleed. */
+  .sv3-app .nav { padding-left: 0; padding-right: 0; }
+  .sv3-app .nav button { max-width: 200px; }
+}
+
+/* Slightly roomier reading columns on very wide screens (still 2-up so
+   charts, the map and competitor cards stay wide — never narrower than
+   the mobile width). */
+@media (min-width: 1500px) {
+  .sv3-app .phone { max-width: 1320px; }
+}
