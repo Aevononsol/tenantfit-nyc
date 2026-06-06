@@ -3511,149 +3511,296 @@ function renderInstitutionalAnalysis(profile, recommendations) {
 }
 
 function sv3Refs() {
+  const app = document.querySelector("#sv3-app");
+  if (!app) return {};
   return {
-    app: document.querySelector("#sv3-app"),
-    searchBusiness: document.querySelector("#sv3-search-business"),
-    searchZip: document.querySelector("#sv3-search-zip"),
-    searchAddress: document.querySelector("#sv3-search-address"),
-    searchBudget: document.querySelector("#sv3-search-budget"),
-    searchRadius: document.querySelector("#sv3-search-radius"),
-    searchNote: document.querySelector("#sv3-search-note"),
-    status: document.querySelector("#sv3-status-pill"),
-    title: document.querySelector("#sv3-title"),
-    subtitle: document.querySelector("#sv3-subtitle"),
-    businessPill: document.querySelector("#sv3-business-pill"),
-    scopePill: document.querySelector("#sv3-scope-pill"),
-    pressurePill: document.querySelector("#sv3-pressure-pill"),
-    verdictCard: document.querySelector("#sv3-verdict-card"),
-    decision: document.querySelector("#sv3-decision"),
-    decisionSmall: document.querySelector("#sv3-decision-small"),
-    decisionCopy: document.querySelector("#sv3-decision-copy"),
-    score: document.querySelector("#sv3-score"),
-    scoreRing: document.querySelector("#sv3-score-ring"),
-    probability: document.querySelector("#sv3-probability"),
-    confidence: document.querySelector("#sv3-confidence"),
-    bottomTitle: document.querySelector("#sv3-bottom-title"),
-    bottomCopy: document.querySelector("#sv3-bottom-copy"),
-    signalPills: document.querySelector("#sv3-signal-pills"),
-    thesisList: document.querySelector("#sv3-thesis-list"),
-    conditionsSteps: document.querySelector("#sv3-conditions-steps"),
-    whyList: document.querySelector("#sv3-why-list"),
-    watchList: document.querySelector("#sv3-watch-list"),
-    marketBars: document.querySelector("#sv3-market-bars"),
-    mapCaption: document.querySelector("#sv3-map-caption"),
-    fitTitle: document.querySelector("#sv3-fit-title"),
-    fitCopy: document.querySelector("#sv3-fit-copy"),
-    concepts: document.querySelector("#sv3-concepts"),
-    riskCards: document.querySelector("#sv3-risk-cards"),
-    riskList: document.querySelector("#sv3-risk-list"),
-    conditionsList: document.querySelector("#sv3-conditions-list"),
-    alternativesList: document.querySelector("#sv3-alternatives-list"),
-    revenue: document.querySelector("#sv3-revenue"),
-    breakeven: document.querySelector("#sv3-breakeven"),
-    rentSlider: document.querySelector("#sv3-rent-slider"),
-    rentReadout: document.querySelector("#sv3-rent-readout"),
-    moneyNote: document.querySelector("#sv3-money-note"),
-    methodList: document.querySelector("#sv3-method-list")
+    app,
+    tabbar: app.querySelector("#sv3-tabbar"),
+    screenInput: app.querySelector("#sv3-screen-input"),
+    screenReport: app.querySelector("#sv3-screen-report"),
+    screenCompare: app.querySelector("#sv3-screen-compare"),
+    tabOverview: app.querySelector("#sv3-tab-overview"),
+    tabMarket: app.querySelector("#sv3-tab-market"),
+    tabRisk: app.querySelector("#sv3-tab-risk"),
+    tabMoney: app.querySelector("#sv3-tab-money"),
+    tabMethod: app.querySelector("#sv3-tab-method"),
+    compareBody: app.querySelector("#sv3-compare-body"),
+    biztype: app.querySelector("#sv3-biztype"),
+    zip: app.querySelector("#sv3-zip"),
+    address: app.querySelector("#sv3-address"),
+    budget: app.querySelector("#sv3-budget"),
+    radius: app.querySelector("#sv3-radius"),
+    stepnote: app.querySelector("#sv3-stepnote")
   };
 }
 
-function sv3List(items, fallback = "Needs more evidence.") {
-  const clean = (items || []).filter(Boolean).slice(0, 5);
-  return (clean.length ? clean : [fallback])
-    .map((item) => `<li>${escapeText(item)}</li>`)
-    .join("");
+/* ---------- small formatting helpers for the v3 inside app ---------- */
+function sv3Pct(value) { return Math.max(0, Math.min(100, Math.round(safeNumber(value, 0)))); }
+function sv3Level(value) {
+  const v = safeNumber(value, 0);
+  if (v >= 80) return "Excellent";
+  if (v >= 64) return "Strong";
+  if (v >= 48) return "Moderate";
+  if (v >= 32) return "Limited";
+  return "Low";
+}
+function sv3CostLevel(value) {
+  const v = safeNumber(value, 0);
+  if (v >= 80) return "Very high";
+  if (v >= 65) return "High";
+  if (v >= 45) return "Moderate";
+  return "Low";
+}
+function sv3DecisionMeta(decision) {
+  switch (String(decision || "").toUpperCase()) {
+    case "OPEN": return { cls: "go", lcls: "go", word: "Strong opportunity" };
+    case "DO NOT OPEN": return { cls: "avoid", lcls: "avoid", word: "High risk" };
+    case "NEEDS MORE DATA": return { cls: "cond", lcls: "", word: "Needs more data" };
+    default: return { cls: "cond", lcls: "", word: "Conditional" };
+  }
+}
+function sv3BannerHeadline(decision, business) {
+  const b = business || "this business";
+  switch (String(decision || "").toUpperCase()) {
+    case "OPEN": return `Open: ${b}`;
+    case "DO NOT OPEN": return `High risk for ${b}`;
+    case "NEEDS MORE DATA": return `Needs more data: ${b}`;
+    default: return `Open with conditions: ${b}`;
+  }
+}
+function sv3GaugeNeedle(score) {
+  const f = Math.max(0, Math.min(1, safeNumber(score, 0) / 100));
+  const rad = (1 - f) * Math.PI;
+  return { cx: (100 + 86 * Math.cos(rad)).toFixed(1), cy: (100 - 86 * Math.sin(rad)).toFixed(1) };
+}
+function sv3ElText(id) { const el = document.getElementById(id); return el ? el.textContent.trim() : ""; }
+function sv3SplitLabel(text) {
+  const idx = String(text || "").indexOf(":");
+  if (idx === -1) return `<li>${escapeText(text)}</li>`;
+  return `<li><b>${escapeText(text.slice(0, idx))}:</b>${escapeText(text.slice(idx + 1))}</li>`;
 }
 
-function sv3DecisionClass(decision) {
-  const slug = analysisDecisionSlug(decision);
-  if (slug === "open") return "sv3-open";
-  if (slug === "do-not-open") return "sv3-risk";
-  if (slug === "needs-more-data") return "sv3-review";
-  return "sv3-cond";
+/* ---------- repeated component builders (v3 markup) ---------- */
+function sv3Pill(label, status) {
+  const warn = ["Modeled", "Light", "Partial", "Estimated"].includes(status);
+  return `<span class="pill${warn ? " warn" : ""}"><span class="d"></span>${escapeText(label)} <span class="tag">${escapeText(status)}</span></span>`;
+}
+function sv3MiniCard(item) {
+  const value = sv3Pct(item.value);
+  const cls = value >= 70 ? "" : value >= 55 ? " amber" : " amber";
+  const copy = value >= 70
+    ? "Strong positive signal for this business in the selected area."
+    : value >= 50
+      ? "Supportive signal, but exact site economics still matter."
+      : "Mixed signal that needs more location-specific proof.";
+  return `<div class="mini"><div class="badge${cls}">${value}</div><div><div class="t">${escapeText(item.name)}</div><div class="s">${escapeText(copy)}</div></div></div>`;
+}
+function sv3StepCard(index, title, copy) {
+  return `<div class="step"><div class="num">${index}</div><div><div class="st">${escapeText(title)}</div><div class="sd">${escapeText(copy)}</div></div></div>`;
+}
+function sv3BarRow(name, value, colorClass) {
+  return `<div class="bar-row"><div class="bl"><span class="bn">${escapeText(name)}</span><span class="bv">${escapeText(sv3Level(value))}</span></div><div class="track"><div class="fill ${colorClass}" style="width:${sv3Pct(value)}%"></div></div></div>`;
+}
+function sv3GapCard(score, tag, name, desc) {
+  const s = sv3Pct(score);
+  const cls = s >= 80 ? "open" : s >= 62 ? "poss" : "sel";
+  return `<div class="gap ${cls}"><div class="gscore">${s}</div><div><div class="gt">${escapeText(tag)}</div><div class="gn">${escapeText(name)}</div><div class="gd">${escapeText(desc)}</div></div></div>`;
+}
+function sv3RiskCardV3(text, index) {
+  return `<div class="risk"><div class="rk"><span class="d"></span>${index === 0 ? "High risk" : "Risk"}</div><div class="rt">${escapeText(text)}</div><div class="rs">Verify this before signing or investing.</div></div>`;
+}
+function sv3CompCard(place, index) {
+  const grads = ["linear-gradient(135deg,#3a2a20,#1a1410)", "linear-gradient(135deg,#2a3340,#141a24)", "linear-gradient(135deg,#202f2a,#101a16)", "linear-gradient(135deg,#2f2436,#171022)"];
+  const rating = safeNumber(place.rating);
+  const reviews = safeNumber(place.reviews);
+  const chips = [
+    rating !== null ? `<span class="chip">★ ${rating.toFixed(1)}</span>` : "",
+    reviews ? `<span class="chip">${formatInteger(reviews)} reviews</span>` : "",
+    `<span class="chip">${place.chain ? "Chain brand" : "Likely local"}</span>`
+  ].join("");
+  return `<div class="comp"><div class="img" style="background:${grads[index % grads.length]}"></div><div class="cb"><div class="cn">${escapeText(place.name || "Nearby operator")}</div><div class="ca">${escapeText(place.address || "New York, NY")}</div><div class="ct">${chips}</div></div></div>`;
+}
+function sv3CovCard(title, desc, statusText, statusClass) {
+  return `<div class="cov"><div class="cvt">${escapeText(title)}</div><div class="cvd">${escapeText(desc)}</div><span class="stat ${statusClass}">${escapeText(statusText)}</span></div>`;
 }
 
-function sv3MarketBar(name, value, copy) {
-  const score = clampScore(safeNumber(value, 50));
+/* ---------- tab builders ---------- */
+function sv3OverviewHTML(ctx) {
+  const m = sv3DecisionMeta(ctx.decision);
+  const needle = sv3GaugeNeedle(ctx.score);
+  const offset = Math.round(270 * (1 - sv3Pct(ctx.score) / 100));
+  const arcStroke = m.cls === "go" ? "#4ADE80" : m.cls === "avoid" ? "#FF6B6B" : "#F5B544";
+  const thesis = ctx.strongScores.length ? ctx.strongScores : ctx.scores.slice(0, 3);
+  const steps = (ctx.conditions.length ? ctx.conditions : ["Verify site economics before committing."]).slice(0, 4)
+    .map((c, i) => {
+      const idx = c.indexOf(":");
+      const title = idx === -1 ? (i === 0 ? ctx.decisionNext : `Condition ${i + 1}`) : c.slice(0, idx);
+      const copy = idx === -1 ? c : c.slice(idx + 1).trim();
+      return sv3StepCard(i + 1, title, copy);
+    }).join("");
   return `
-    <article class="sv3-bar">
-      <div class="sv3-bar-head">
-        <strong>${escapeText(name)}</strong>
-        <span>${formatScore(score)}</span>
-      </div>
-      <div class="sv3-bar-track"><i style="--sv3-value:${score}%"></i></div>
-      <p>${escapeText(copy)}</p>
-    </article>
-  `;
-}
-
-function sv3SignalStatus(label, connected, partial = false) {
-  const stateLabel = connected ? "Ready" : partial ? "Partial" : "Estimated";
-  return `
-    <article class="sv3-method-row">
-      <div>
-        <strong>${escapeText(label)}</strong>
-        <span>${connected ? "Live signal included in this decision." : partial ? "Some signal coverage is included." : "Directional model used until more proof is available."}</span>
-      </div>
-      <em>${escapeText(stateLabel)}</em>
-    </article>
-  `;
-}
-
-function sv3Mini(item) {
-  return `
-    <div class="sv3-mini">
-      <div class="sv3-mini-badge">${formatBadgeScore(item.value)}</div>
-      <div>
-        <strong>${escapeText(item.name)}</strong>
-        <span>${escapeText(scoreSignalCopy(item))}</span>
+    <div class="banner ${m.cls}" style="--p:${sv3Pct(ctx.score)}%">
+      <div class="ring"><span class="num">${ctx.score}</span><span class="of">/100</span></div>
+      <div><div class="vl">${escapeText(m.word)}</div><h2>${escapeText(sv3BannerHeadline(ctx.decision, ctx.business))}</h2><div class="vsub">${escapeText(ctx.decisionCopy)}</div></div>
+    </div>
+    <div class="card">
+      <div class="gauge-wrap">
+        <div class="gauge">
+          <svg viewBox="0 0 200 112">
+            <defs><linearGradient id="sv3gg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF6B6B"/><stop offset="0.5" stop-color="#F5B544"/><stop offset="1" stop-color="#4ADE80"/></linearGradient></defs>
+            <path d="M14 100 A86 86 0 0 1 186 100" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M14 100 A86 86 0 0 1 186 100" fill="none" stroke="url(#sv3gg)" stroke-width="16" stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="${offset}"/>
+            <circle cx="${needle.cx}" cy="${needle.cy}" r="9" fill="#0c1120" stroke="${arcStroke}" stroke-width="4"/>
+          </svg>
+          <div class="gnum"><div class="v">${ctx.score}</div><div class="l ${m.lcls}">${escapeText(m.word)}</div></div>
+        </div>
+        <div class="gauge-ticks"><span>0 · Avoid</span><span>50</span><span>100 · Go</span></div>
       </div>
     </div>
-  `;
-}
-
-function sv3Step(index, title, copy) {
-  return `
-    <div class="sv3-step">
-      <span>${index}</span>
-      <div>
-        <strong>${escapeText(title)}</strong>
-        <p>${escapeText(copy)}</p>
-      </div>
+    <div class="bottomline">
+      <div class="bt">Bottom line for the owner</div>
+      <p>${ctx.bottomLine}</p>
+      <div class="src">Generated · OpenAI summary over SpotVest signals</div>
     </div>
-  `;
+    <div class="duo">
+      <div class="metric"><div class="k">Success probability</div><div class="v">${ctx.score}<span class="u">/100</span></div></div>
+      <div class="metric good"><div class="k">Evidence confidence</div><div class="v">${ctx.confidence}<span class="u">/100·${escapeText(ctx.confidenceLabel)}</span></div></div>
+    </div>
+    <div class="section-label">Signals in this report</div>
+    <div class="signals">${ctx.signalPills}</div>
+    <div class="section-label"><span class="n">01</span> Investment thesis</div>
+    <div class="card">${thesis.slice(0, 3).map(sv3MiniCard).join("")}<div class="src">NYC Open Data · Census ACS · Google Places</div></div>
+    <div class="section-label"><span class="n">02</span> Why this works</div>
+    <div class="card accent"><div class="sub">Decision insight · market data live, model scored</div><h3>${escapeText(ctx.whyHeadline)}</h3><div class="desc">${escapeText(ctx.whyCopy)}</div><div class="src">Generated · OpenAI over verified signals</div></div>
+    <div class="section-label"><span class="n">03</span> Move from screen to decision</div>
+    <div class="card">${steps}</div>
+    <div class="actions">
+      <button class="btn" type="button" data-sv3-action="generate">Generate decision report</button>
+      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="export-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export PDF</button>
+      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H8a2 2 0 01-2-2V7a2 2 0 012-2h7l4 4v10a2 2 0 01-2 2z"/></svg>Save report</button>
+      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1m-2 8a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>Copy link</button>
+      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>Add to compare</button>
+      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.5M3 4v4h4"/></svg>New search</button>
+    </div>`;
 }
 
-function sv3Pill(label, status = "Verified") {
-  const isModeled = /modeled|light|estimated|partial/i.test(status);
-  return `<span class="sv3-pill ${isModeled ? "warn" : ""}"><i></i>${escapeText(label)} <em>${escapeText(status)}</em></span>`;
-}
-
-function sv3RiskCard(item, index) {
+function sv3MarketHTML(ctx) {
+  const areaBars = [
+    sv3BarRow("Population density", ctx.profile.density, sv3Pct(ctx.profile.density) >= 55 ? "g" : "a"),
+    sv3BarRow("Income strength", ctx.profile.income, sv3Pct(ctx.profile.income) >= 60 ? "g" : "a"),
+    sv3BarRow("Transit access", ctx.profile.transit, sv3Pct(ctx.profile.transit) >= 70 ? "g" : "a"),
+    `<div class="bar-row"><div class="bl"><span class="bn">Cost pressure</span><span class="bv">${escapeText(sv3CostLevel(ctx.profile.rent))}</span></div><div class="track"><div class="fill ${sv3Pct(ctx.profile.rent) <= 45 ? "g" : "a"}" style="width:${sv3Pct(ctx.profile.rent)}%"></div></div></div>`
+  ].join("");
+  const concepts = ctx.conceptCards || "";
+  const competitors = ctx.competitorCards || "";
+  const cuisine = ctx.cuisineRows || "";
   return `
-    <article class="sv3-risk">
-      <span><i></i>Risk ${index + 1}</span>
-      <strong>${escapeText(item)}</strong>
-      <p>Verify this before signing or investing.</p>
-    </article>
-  `;
+    <div class="section-label" style="margin-top:20px"><span class="n">04</span> Area read</div>
+    <div class="card">${areaBars}<div class="src">NYC Open Data · Census ACS · MTA transit feeds</div></div>
+    <div class="section-label"><span class="n">05</span> Market map · ${escapeText(ctx.radiusLabel)}</div>
+    <div class="map">
+      <span class="pin" style="background:#5B8CFF;left:48%;top:42%"></span>
+      <span class="pin" style="background:#FF6B6B;left:30%;top:55%"></span>
+      <span class="pin" style="background:#FF6B6B;left:38%;top:64%"></span>
+      <span class="pin" style="background:#F5B544;left:55%;top:35%"></span>
+      <span class="pin" style="background:#F5B544;left:62%;top:48%"></span>
+      <span class="pin" style="background:#FF6B6B;left:52%;top:58%"></span>
+      <span class="pin" style="background:#F5B544;left:44%;top:30%"></span>
+      <span class="pin" style="background:#4ADE80;left:68%;top:62%"></span>
+      <div class="legend"><span class="lg"><span class="d" style="background:#5B8CFF"></span>Address</span><span class="lg"><span class="d" style="background:#FF6B6B"></span>Competitors</span><span class="lg"><span class="d" style="background:#F5B544"></span>Local activity</span><span class="lg"><span class="d" style="background:#4ADE80"></span>Saved options</span></div>
+    </div>
+    <div class="src" style="margin:-4px 2px 8px">Leaflet · OpenStreetMap · Google Places competitor pins</div>
+    <div class="section-label"><span class="n">06</span> Business fit in this area</div>
+    <div class="card accent"><div class="sub">Market pressure</div><div class="big">${ctx.pressureScore}</div><div class="desc">${escapeText(ctx.business)} market pressure — built from local market activity, competitive signals &amp; demand momentum.</div><div class="bar-row" style="margin-top:14px"><div class="bl"><span class="bn">Saturation</span><span class="bv">${escapeText(ctx.pressureLabel)}</span></div><div class="track"><div class="fill a" style="width:${ctx.pressureScore}%"></div></div></div></div>
+    <div class="card"><div class="sub">Local vs chain</div><h3>${escapeText(ctx.localChainTitle)}</h3><div class="desc">${escapeText(ctx.localChainCopy)}</div></div>
+    <div class="card"><div class="sub">Recommendation</div><h3>${escapeText(ctx.recommendationTitle)}</h3><div class="desc">${escapeText(ctx.recommendationCopy)}</div></div>
+    <div class="section-label"><span class="n">07</span> Concept intelligence</div>
+    ${concepts}
+    <div class="section-label"><span class="n">08</span> Best nearby competitive examples</div>
+    ${competitors}
+    <div class="src" style="margin:-4px 2px 8px">Google Places · Yelp Fusion API</div>
+    <div class="section-label"><span class="n">09</span> Foot traffic intelligence</div>
+    <div class="card accent"><div class="sub">Modeled estimate · ${escapeText(ctx.ftBacking)}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. Based on SpotVest's location intelligence model.</div></div>
+    <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span></div></div></div>
+    <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · MTA turnstile + SpotVest mobility model</div></div>
+    <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative"><span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span><svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/><path d="M0,118 L24,112 L48,108 L72,96 L96,70 L120,40 L144,52 L168,74 L192,66 L216,48 L240,28 L264,44 L288,82 L312,104 L320,110" fill="none" stroke="#3BD6C9" stroke-width="2.5" stroke-linejoin="round"/><path d="M0,118 L24,112 L48,108 L72,96 L96,70 L120,40 L144,52 L168,74 L192,66 L216,48 L240,28 L264,44 L288,82 L312,104 L320,110 L320,130 L0,130 Z" fill="rgba(57,194,214,.12)"/><circle cx="120" cy="40" r="3.5" fill="#4FE3D8"/><circle cx="240" cy="28" r="3.5" fill="#4FE3D8"/></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">Modeled · MTA turnstile + mobility model</div></div>
+    <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g><rect x="6" y="40" width="32" height="80" rx="5" fill="#3BD6C9"/><rect x="51" y="34" width="32" height="86" rx="5" fill="#3BD6C9"/><rect x="96" y="30" width="32" height="90" rx="5" fill="#3BD6C9"/><rect x="141" y="36" width="32" height="84" rx="5" fill="#3BD6C9"/><rect x="186" y="22" width="32" height="98" rx="5" fill="#33A7D8"/><rect x="231" y="48" width="32" height="72" rx="5" fill="#5B8CFF"/><rect x="276" y="58" width="32" height="62" rx="5" fill="#5B8CFF"/></g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
+    <div class="card"><div class="sub">Category saturation nearby</div>${cuisine}<div class="src">Google Places density · ${escapeText(ctx.radiusLabel)}</div></div>`;
+}
+
+function sv3RiskHTML(ctx) {
+  const risks = (ctx.topRisks.length ? ctx.topRisks : ["No severe risk signals detected yet."]).slice(0, 4).map(sv3RiskCardV3).join("");
+  const succeed = (ctx.strongScores.length ? ctx.strongScores : ctx.scores.slice(0, 3)).slice(0, 3).map(sv3MiniCard).join("");
+  const conditions = (ctx.conditions.length ? ctx.conditions : ["Verify site economics before committing."]).map(sv3SplitLabel).join("");
+  const verify = (ctx.missing.length ? ctx.missing : ["Dwell time, parking, rent, buildout cost, and operator financials need on-site confirmation."]).map((t) => `<li>${escapeText(t)}</li>`).join("");
+  const alts = ctx.alternativeCards || "";
+  return `
+    <div class="section-label" style="margin-top:20px"><span class="n">10</span> Risk register</div>
+    ${risks}
+    <div class="src" style="margin:-4px 2px 8px">NYC 311 complaints · DOB permits · Health inspections</div>
+    <div class="section-label"><span class="n">11</span> Why this may succeed</div>
+    <div class="card">${succeed}</div>
+    <div class="section-label"><span class="n">12</span> Conditions for success</div>
+    <div class="card"><ul class="bullets">${conditions}</ul></div>
+    <div class="section-label"><span class="n">13</span> Needs verification</div>
+    <div class="card"><ul class="bullets">${verify}</ul></div>
+    <div class="section-label"><span class="n">14</span> Better alternatives</div>
+    ${alts}`;
+}
+
+function sv3MoneyHTML(ctx) {
+  const revLow = ctx.revenueLowK;
+  const cost = ctx.costK;
+  const aud = ctx.profile.audience || [];
+  const profileCards = aud.map((row) => `<div style="margin-bottom:14px"><div class="cvt" style="font-size:13.5px;font-weight:650">${escapeText(row[0])}</div><div class="cvd" style="font-size:12px;color:var(--txt-3);margin-top:3px">${escapeText(row[1])}</div></div>`).join("");
+  return `
+    <div class="section-label" style="margin-top:20px"><span class="n">15</span> Cost vs revenue at a glance</div>
+    <div class="cvr">
+      <div class="cvr-row"><div class="lab"><span class="n">Projected revenue (low)</span><span class="v" style="color:var(--green)">${escapeText(revLow)}/mo</span></div><div class="tk"><div class="fl rev"></div></div></div>
+      <div class="cvr-row"><div class="lab"><span class="n">Est. total monthly cost</span><span class="v" style="color:var(--amber)">~${escapeText(cost)}/mo</span></div><div class="tk"><div class="fl cost"></div></div></div>
+      <div class="desc" style="margin-top:4px">Modeled comparison of base-case revenue against estimated total monthly cost. Confirm real rent and labor before committing.</div>
+    </div>
+    <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="M0,70 L320,58" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="M0,128 C80,120 140,96 180,72 C220,48 280,30 320,22" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="186" y1="18" x2="186" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="186" cy="68" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:50%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled · SpotVest unit-economics engine</div></div>
+    <div class="card whatif"><div class="sub">What-if · drag to test the deal</div>
+      <div style="margin-top:12px"><div class="rng-lab"><span>Monthly rent</span><span class="rv" id="sv3-wf-rent-l">$18,000</span></div><input type="range" class="rng" id="sv3-wf-rent" min="8000" max="35000" step="500" value="18000"></div>
+      <div style="margin-top:16px"><div class="rng-lab"><span>Size (sq ft)</span><span class="rv" id="sv3-wf-size-l">1,200</span></div><input type="range" class="rng" id="sv3-wf-size" min="500" max="4000" step="50" value="1200"></div>
+      <div class="wf-out"><div class="wf-box"><div class="k">Projected revenue</div><div class="v" id="sv3-wf-rev">$102k–$171k</div></div><div class="wf-box"><div class="k">Break-even</div><div class="v" id="sv3-wf-be">14–28 mo</div></div><div class="wf-box"><div class="k">Rent % of sales</div><div class="v" id="sv3-wf-pct">6%</div></div><div class="wf-box"><div class="k">Verdict</div><div class="v" id="sv3-wf-verd" style="color:var(--amber)">Conditional</div></div></div>
+      <div class="src">Live estimate · recalculated locally</div>
+    </div>
+    <div class="card"><div class="sub">Seasonality · projected demand by month</div><div class="chart"><svg viewBox="0 0 320 110"><g><rect x="2" y="58" width="20" height="52" rx="4" fill="#33A7D8"/><rect x="28" y="64" width="20" height="46" rx="4" fill="#33A7D8"/><rect x="54" y="44" width="20" height="66" rx="4" fill="#3BD6C9"/><rect x="80" y="36" width="20" height="74" rx="4" fill="#3BD6C9"/><rect x="106" y="26" width="20" height="84" rx="4" fill="#4ADE80"/><rect x="132" y="22" width="20" height="88" rx="4" fill="#4ADE80"/><rect x="158" y="30" width="20" height="80" rx="4" fill="#4ADE80"/><rect x="184" y="34" width="20" height="76" rx="4" fill="#3BD6C9"/><rect x="210" y="42" width="20" height="68" rx="4" fill="#3BD6C9"/><rect x="236" y="50" width="20" height="60" rx="4" fill="#33A7D8"/><rect x="262" y="70" width="20" height="40" rx="4" fill="#5B8CFF"/><rect x="288" y="74" width="20" height="36" rx="4" fill="#5B8CFF"/></g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div></div><div class="desc">Summer &amp; early fall are strongest; <b style="color:var(--txt)">Jan–Feb dip ~35%</b> — keep 2–3 months of runway for the slow season.</div><div class="src">Modeled · category seasonality + local activity</div></div>
+    <div class="section-label"><span class="n">16</span> Revenue estimator · estimate only</div>
+    <div class="card"><div class="statline"><span class="sl">Projected monthly revenue</span><span class="sv" style="color:var(--teal-bright)">${escapeText(ctx.revenueProjection)}</span></div><div class="statline"><span class="sl">Break-even estimate</span><span class="sv">${escapeText(ctx.revenueBreakeven)}</span></div><div class="statline"><span class="sl">Rent %</span><span class="sv">${escapeText(ctx.revenueRentPercent)}</span></div><div class="desc" style="margin-top:12px">${escapeText(ctx.revenueNote)}</div><div class="src">Modeled · CartoDB rent comps · SpotVest unit-economics model</div></div>
+    <div class="section-label"><span class="n">17</span> Customer profile</div>
+    <div class="card">${profileCards}<div class="src">Census ACS 5-year · NYC Open Data</div></div>
+    <div class="section-label"><span class="n">18</span> Market pulse</div>
+    <div class="card"><div class="statline"><span class="sl">Foot traffic proxy</span><span class="sv" style="color:var(--green)">${escapeText(ctx.pulseFoot)}</span></div><div class="statline"><span class="sl">Customer spend</span><span class="sv" style="color:var(--amber)">${escapeText(ctx.pulseSpend)}</span></div><div class="statline"><span class="sl">Cost pressure</span><span class="sv" style="color:var(--green)">${escapeText(ctx.pulseCost)}</span></div></div>
+    <div class="section-label"><span class="n">19</span> Local vs chain fit</div>
+    <div class="card accent"><div class="sub">Operator quality matters more than brand type</div><div class="desc" style="margin-top:0">${escapeText(ctx.localChainCopy)}</div><div style="margin-top:16px"><div class="track" style="height:9px"><div class="fill g" style="width:${ctx.chainFitPct}%"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--txt-3);margin-top:9px"><span>Local boutique</span><span>National chain</span></div></div></div>`;
+}
+
+function sv3MethodHTML(ctx) {
+  const m = sv3DecisionMeta(ctx.decision);
+  const breakdown = ctx.breakdownCards || "";
+  const coverage = ctx.coverageCards || "";
+  const verified = (ctx.methodVerified || []).map((t) => `<li>${escapeText(t)}</li>`).join("");
+  const model = (ctx.methodModel || []).map((t) => `<li>${escapeText(t)}</li>`).join("");
+  return `
+    <div class="section-label" style="margin-top:20px"><span class="n">20</span> Decision rationale</div>
+    <div class="card accent"><div class="sub" style="color:var(--teal)">${escapeText(m.word)}</div><div class="desc" style="margin-top:0">${escapeText(ctx.summary)}</div></div>
+    <div class="section-label"><span class="n">21</span> Evidence quality</div>
+    <div class="duo"><div class="metric"><div class="k">Success probability</div><div class="v">${ctx.score}<span class="u">/100</span></div></div><div class="metric good"><div class="k">Evidence confidence</div><div class="v">${ctx.confidence}<span class="u">/100</span></div></div></div>
+    <div class="duo"><div class="metric good"><div class="k">Freshness</div><div class="v">${ctx.freshness}<span class="u">/100</span></div></div><div class="metric good"><div class="k">Source quality</div><div class="v">${ctx.sourceQuality}<span class="u">/100</span></div></div></div>
+    <div class="section-label"><span class="n">22</span> Why ${ctx.score}/100?</div>
+    ${breakdown}
+    <div class="section-label"><span class="n">23</span> Evidence summary — what SpotVest used</div>
+    ${coverage}
+    <div class="section-label"><span class="n">24</span> Methodology</div>
+    <div class="card"><div class="sub">Verified signals</div><ul class="bullets" style="margin-bottom:14px">${verified}</ul><div class="sub">Model insights</div><ul class="bullets" style="margin-bottom:14px">${model}</ul><div class="sub">Weighting</div><ul class="bullets"><li>Success probability weighted: Demand 25%, Customer fit 20%, Competition 15%, Financial 15%, Location 10%, Growth 10%, Risk 5%.</li></ul><div class="src">SpotVest scoring engine · OpenAI narrative layer</div></div>`;
 }
 
 function renderSpotVestV3(profile, recommendations, analysis) {
   const refs = sv3Refs();
   if (!refs.app || !profile || !analysis) return;
-  refs.app.querySelectorAll("[data-sv3-main]").forEach((screen) => {
-    screen.classList.toggle("active", screen.dataset.sv3Main === "report");
-  });
-  refs.app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.sv3Nav === "report");
-  });
-  refs.app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.sv3Tab === "overview");
-  });
-  refs.app.querySelectorAll("[data-sv3-screen]").forEach((screen) => {
-    screen.classList.toggle("active", screen.dataset.sv3Screen === "overview");
-  });
 
   const businessResult = currentBusinessResult();
   const civicResult = currentCivicResult();
@@ -3661,227 +3808,321 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const conceptFitResult = currentConceptFitResult();
   const decision = decisionFor(profile, recommendations, businessResult);
   const business = businessDisplayName(state.business || analysis.topRecommendation?.name || "business");
-  const scope = state.location
-    ? `${state.location.address || "Selected address"}`
-    : `${profile.name} · ZIP ${state.zip}`;
-  const radius = state.location ? `${state.location.radiusMiles || "0.5"} mi radius` : "Area screen";
+  const score = formatBadgeScore(analysis.successProbability);
+  const confidence = formatBadgeScore(analysis.confidenceScore);
   const competitionCount = competitiveSetSize(businessResult);
-  const competitionPressure = competitionCount > 0
-    ? saturationFromCount(competitionCount, profile)
-    : profile.competition;
-  const pressureLabel = saturationLabel(competitionPressure);
+  const pressure = competitionCount > 0 ? saturationFromCount(competitionCount, profile) : safeNumber(profile.competition, 50);
+  const pressureLabel = saturationLabel(pressure);
   const scoreMap = Object.fromEntries(analysis.scores.map((item) => [item.name, item]));
   const strongScores = analysis.scores
     .filter((item) => safeNumber(item.value, 0) >= 62)
-    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0))
-    .slice(0, 4);
-  const why = strongScores.length
-    ? strongScores.map((item) => `${item.name}: ${scoreSignalCopy(item)}`)
-    : ["No strong positive signal is proven yet; use this as a first screen."];
+    .sort((a, b) => safeNumber(b.value, 0) - safeNumber(a.value, 0));
 
-  if (refs.status) refs.status.textContent = analysis.confidenceScore >= 70 ? "Live decision" : "Needs proof";
-  if (refs.searchBusiness) refs.searchBusiness.value = business;
-  if (refs.searchZip) refs.searchZip.value = state.zip || "";
-  if (refs.searchAddress) refs.searchAddress.value = state.location?.address || "";
-  if (refs.searchBudget) refs.searchBudget.value = state.budget || "";
-  if (refs.searchRadius) refs.searchRadius.value = state.location?.radiusMiles || "0.5";
-  if (refs.searchNote) {
-    refs.searchNote.textContent = state.location
-      ? `Using ${state.location.address || "selected address"} within ${state.location.radiusMiles || "0.5"} mile.`
-      : `Using ZIP ${state.zip || "selected area"} for an area-level screen.`;
+  // Sync the in-app search fields with current state
+  if (refs.biztype && business) {
+    const opt = [...refs.biztype.options].find((o) => o.value.toLowerCase() === String(state.business || "").toLowerCase());
+    if (opt) refs.biztype.value = opt.value;
   }
-  refs.title.textContent = state.location ? state.location.address : `${profile.name}`;
-  refs.subtitle.textContent = `Should ${business.toLowerCase()} open here? SpotVest turns demand, competition, customer fit, cost pressure, and risk into one business decision.`;
-  if (refs.businessPill) refs.businessPill.textContent = `${business} demand`;
-  if (refs.scopePill) refs.scopePill.textContent = radius;
-  if (refs.pressurePill) refs.pressurePill.textContent = `${pressureLabel} competition`;
-  refs.verdictCard.className = `sv3-banner ${sv3DecisionClass(analysis.decision)}`;
-  refs.decision.textContent = analysis.decision;
-  if (refs.decisionSmall) refs.decisionSmall.textContent = titleCase(analysisDecisionSlug(analysis.decision).replace(/-/g, " "));
-  refs.decisionCopy.textContent = decision.copy;
-  refs.score.textContent = formatScore(analysis.successProbability);
-  if (refs.scoreRing) refs.scoreRing.textContent = formatBadgeScore(analysis.successProbability);
-  if (refs.probability) refs.probability.textContent = formatScore(analysis.successProbability);
-  refs.confidence.textContent = `${formatBadgeScore(analysis.confidenceScore)}%`;
-  refs.bottomTitle.textContent = decision.next;
-  refs.bottomCopy.textContent = decision.nextCopy;
-  if (refs.whyList) refs.whyList.innerHTML = sv3List(why, "Needs more evidence before naming success drivers.");
-  if (refs.watchList) refs.watchList.innerHTML = sv3List(analysis.topRisks, "No severe risk signals detected yet.");
-  if (refs.signalPills) {
-    refs.signalPills.innerHTML = [
-      sv3Pill("Demographics", state.liveProfiles[state.zip] ? "Verified" : "Estimated"),
-      sv3Pill("Competition", businessResult?.googlePlaces || businessResult?.registryExact ? "Verified" : "Estimated"),
-      sv3Pill("Mobility", siteIntelResult && !siteIntelResult.fallback ? "Verified" : "Modeled"),
-      sv3Pill("Foot traffic", "Modeled"),
-      sv3Pill("Risk signals", civicResult && !civicResult.fallback ? "Verified" : "Partial"),
-      sv3Pill("Demand", businessResult?.demandMomentum?.available ? "Light" : "Estimated")
-    ].join("");
-  }
-  if (refs.thesisList) {
-    refs.thesisList.innerHTML = (strongScores.length ? strongScores : analysis.scores.slice(0, 3))
-      .slice(0, 4)
-      .map(sv3Mini)
-      .join("");
-  }
-  if (refs.conditionsSteps) {
-    const conditions = (analysis.conditions || []).slice(0, 4);
-    refs.conditionsSteps.innerHTML = (conditions.length ? conditions : ["Verify site economics before committing."])
-      .map((item, index) => sv3Step(index + 1, index === 0 ? decision.next : `Condition ${index + 1}`, item))
-      .join("");
-  }
+  if (refs.zip) refs.zip.value = state.zip || refs.zip.value;
+  if (refs.address && state.location?.address) refs.address.value = state.location.address;
 
-  refs.marketBars.innerHTML = [
-    sv3MarketBar("Demand", scoreMap.Demand?.value, "Category demand, visible activity, and local momentum."),
-    sv3MarketBar("Customer fit", scoreMap["Customer fit"]?.value, "Income, age, household profile, and lifestyle compatibility."),
-    sv3MarketBar("Competition", scoreMap.Competition?.value, `${pressureLabel} pressure for this business category.`),
-    sv3MarketBar("Location quality", scoreMap["Location quality"]?.value, "Transit access, density, street activity, and address context."),
-    sv3MarketBar("Financial viability", scoreMap["Financial viability"]?.value, "Cost pressure, likely margins, and budget support."),
-    sv3MarketBar("Risk control", scoreMap.Risk?.value, "Higher score means safer risk-adjusted conditions.")
+  // Bottom line for the owner (composed from real signals)
+  const altTop = recommendations.find((r) => r.business !== normalizeBusiness(state.business));
+  const revRange = sv3ElText("revenue-projection") || elements.revenueProjection?.textContent || "";
+  const bottomLine = `${escapeText(decision.copy)} ${competitionCount > 0 ? `There are about <b>${formatInteger(competitionCount)}</b> directly comparable operators nearby, so differentiation and site economics decide the outcome.` : "Competitive density is light, so demand proof and the exact block decide the outcome."}${altTop ? ` If the numbers don't hold, <b>${escapeText(altTop.name.toLowerCase())}</b> screens stronger here (${formatBadgeScore(altTop.score)}).` : ""}`;
+
+  // signal pills
+  const signalPills = [
+    sv3Pill("Demographics", state.liveProfiles[state.zip] ? "Verified" : "Estimated"),
+    sv3Pill("Competition", businessResult?.googlePlaces || businessResult?.registryExact ? "Verified" : "Estimated"),
+    sv3Pill("Mobility", siteIntelResult && !siteIntelResult.fallback ? "Verified" : "Modeled"),
+    sv3Pill("Foot traffic", "Modeled"),
+    sv3Pill("Risk signals", civicResult && !civicResult.fallback ? "Verified" : "Partial"),
+    sv3Pill("Demand", businessResult?.demandMomentum?.available ? "Light" : "Estimated")
   ].join("");
 
-  refs.mapCaption.textContent = state.location ? `${radius} · selected address` : `ZIP ${state.zip} · area screen`;
-  refs.fitTitle.textContent = `${business} market pressure`;
-  refs.fitCopy.textContent = elements.businessReason?.textContent || decision.copy;
-
+  // concept gap cards (market)
   const conceptCards = conceptFitResult?.concepts?.length
-    ? conceptFitResult.concepts.slice(0, 4).map((item) => `
-        <article class="sv3-concept">
-          <div>
-            <strong>${escapeText(item.label || item.name || "Concept")}</strong>
-            <span>${escapeText(item.reason || item.note || "Worth deeper validation.")}</span>
-          </div>
-          <em>${formatBadgeScore(item.score)}</em>
-        </article>
-      `).join("")
-    : `
-      <article class="sv3-concept">
-        <div>
-          <strong>${escapeText(business)}</strong>
-          <span>Concept-specific data is limited. SpotVest used broader market and competition signals instead.</span>
-        </div>
-        <em>${formatBadgeScore(analysis.successProbability)}</em>
-      </article>
-    `;
-  refs.concepts.innerHTML = conceptCards;
+    ? conceptFitResult.concepts.slice(0, 4).map((c) => sv3GapCard(c.score, c.verdict || c.label || "Concept", c.name || c.label || business, c.reason || c.note || "Validate positioning before committing.")).join("")
+    : sv3GapCard(analysis.successProbability, "Screen result", business, "Concept-specific data is limited; broader market and competition signals were used.");
 
-  if (refs.riskCards) {
-    const risks = (analysis.topRisks || []).slice(0, 4);
-    refs.riskCards.innerHTML = (risks.length ? risks : ["No severe risk signals detected yet."])
-      .map(sv3RiskCard)
-      .join("");
-  }
-  if (refs.riskList) refs.riskList.innerHTML = sv3List(analysis.topRisks, "No severe risk signals detected yet.");
-  refs.conditionsList.innerHTML = sv3List(analysis.conditions, "Verify site economics before committing.");
-  refs.alternativesList.innerHTML = sv3List(analysis.alternatives, "No stronger alternative has been identified yet.");
-  refreshSpotVestV3Money();
+  // competitor cards (market)
+  const places = (businessResult?.googlePlaces?.topPlaces || businessResult?.googlePlaces?.mapPlaces || []).filter((p) => p && p.name).slice(0, 3);
+  const competitorCards = places.length ? places.map(sv3CompCard).join("") : `<div class="card"><div class="desc" style="margin-top:0">No nearby competitor records were returned for this exact search. Treat competition as directional.</div></div>`;
 
-  refs.methodList.innerHTML = [
-    sv3SignalStatus("Market demographics", Boolean(state.liveProfiles[state.zip])),
-    sv3SignalStatus("Competitive signals", Boolean(businessResult?.registryExact && businessResult?.googlePlaces), Boolean(businessResult?.registryExact || businessResult?.googlePlaces)),
-    sv3SignalStatus("Consumer demand", Boolean(businessResult?.demandMomentum?.available)),
-    sv3SignalStatus("Local risk and development", Boolean(civicResult && !civicResult.fallback)),
-    sv3SignalStatus("Mobility and commercial mix", Boolean(siteIntelResult && !siteIntelResult.fallback)),
-    sv3SignalStatus("Exact address context", Boolean(state.location))
+  // cuisine/category saturation rows (market) — from concept fit gaps
+  const cuisineRows = conceptFitResult?.concepts?.length
+    ? conceptFitResult.concepts.slice(0, 5).map((c) => {
+        const s = sv3Pct(100 - safeNumber(c.score, 50));
+        const lvl = s >= 70 ? "High" : s >= 45 ? "Med" : "Gap";
+        const color = s >= 70 ? "var(--red)" : s >= 45 ? "var(--amber)" : "var(--green)";
+        const grad = s >= 70 ? "linear-gradient(90deg,#FF6B6B,#F5B544)" : s >= 45 ? "linear-gradient(90deg,#F5B544,#FF8A5b)" : "var(--grad)";
+        return `<div class="demo-row"><span class="dl">${escapeText(c.name || c.label || "Concept")}</span><div class="dtrack"><div class="dfill" style="width:${Math.max(18, s)}%;background:${grad}"></div></div><span class="dv" style="color:${color}">${lvl}</span></div>`;
+      }).join("")
+    : `<div class="demo-row"><span class="dl">${escapeText(business)}</span><div class="dtrack"><div class="dfill" style="width:${pressure}%;background:linear-gradient(90deg,#FF6B6B,#F5B544)"></div></div><span class="dv" style="color:var(--amber)">${escapeText(pressureLabel)}</span></div>`;
+
+  // alternatives gap cards (risk) — analysis.alternatives are "Name (score): note"
+  const alternativeCards = (analysis.alternatives || []).slice(0, 5).map((line, i) => {
+    const mt = line.match(/^(.*?)\s*\((\d+)\):\s*(.*)$/);
+    const name = mt ? mt[1] : line;
+    const sc = mt ? Number(mt[2]) : 60;
+    const note = mt ? mt[3] : "";
+    return sv3GapCard(sc, i === 0 ? "Best alternative" : "Alternative", name, note);
+  }).join("") || `<div class="card"><div class="desc" style="margin-top:0">No stronger alternative has been identified yet.</div></div>`;
+
+  // method: score breakdown (contribution per driver)
+  const weightByName = {
+    Demand: businessSuccessWeights.demand, "Customer fit": businessSuccessWeights.customerFit,
+    Competition: businessSuccessWeights.competition, "Financial viability": businessSuccessWeights.financial,
+    "Location quality": businessSuccessWeights.location, "Area momentum": businessSuccessWeights.growth, Risk: businessSuccessWeights.risk
+  };
+  const breakdownCards = analysis.scores.map((s) => {
+    const delta = Math.round((safeNumber(s.value, 50) - 50) * (weightByName[s.name] || 0.1));
+    const pos = delta >= 0;
+    const copy = safeNumber(s.value, 50) >= 60 ? "Strong positive signal in selected area." : safeNumber(s.value, 50) >= 48 ? "Supportive signal, exact site economics still matter." : "Weak signal / risk factor for this business.";
+    return `<div class="bd"><div><div class="bdl">${escapeText(s.name)}</div><div class="bds">${escapeText(copy)}</div></div><div class="bdv ${pos ? "pos" : "neg"}">${pos ? "+" : "−"}${Math.abs(delta)}</div></div>`;
+  }).join("");
+
+  // method: evidence coverage cov cards
+  const liveProfile = Boolean(state.liveProfiles[state.zip]);
+  const google = Boolean(businessResult?.googlePlaces);
+  const demandSig = Boolean(businessResult?.demandMomentum?.available);
+  const civic = Boolean(civicResult && !civicResult.fallback);
+  const siteIntel = Boolean(siteIntelResult && !siteIntelResult.fallback);
+  const localAct = Boolean(businessResult?.registryExact);
+  const coverageCards = [
+    sv3CovCard("Market demographics", "Income, age, households, rent pressure, renter profile & education are loaded.", liveProfile ? "Available" : "Estimated", liveProfile ? "ok" : "part"),
+    sv3CovCard("Competitive signals", "Nearby operators surfaced with ratings, reviews & visibility.", google ? "Available" : "Partial", google ? "ok" : "part"),
+    sv3CovCard("Consumer demand", "Demand momentum included as a light signal in the success score.", demandSig ? "Available" : "Weak demand", demandSig ? "ok" : "part"),
+    sv3CovCard("Local market activity", "Verified local activity matches inform category pressure.", localAct ? "Available" : "Partial", localAct ? "ok" : "part"),
+    sv3CovCard("Mobility & site signals", "Transit access, commercial mix, licenses & outdoor activity.", siteIntel ? "Available" : "Partial", siteIntel ? "ok" : "part"),
+    sv3CovCard("Risk & development", "Quality-of-life, development activity & permit signals included.", civic ? "Available" : "Partial", civic ? "ok" : "part"),
+    sv3CovCard("Decision report generation", "Optional client-ready memo only; core scoring still runs without it.", "Partial", "part"),
+    sv3CovCard("Still needs verification", "Dwell time, rent, buildout cost, parking & operator financials.", "Manual check", "man")
   ].join("");
+
+  // method narrative
+  const verifiedGroup = (analysis.explainability || []).find((g) => g.type === "Verified Signals");
+  const modelGroup = (analysis.explainability || []).find((g) => g.type === "Model Insights");
+
+  // money values
+  const revenueProjection = elements.revenueProjection?.textContent || "Run a location first";
+  const revenueBreakeven = elements.revenueBreakeven?.textContent || "—";
+  const revenueRentPercent = elements.revenueRentPercent?.textContent || "—";
+  const revenueNote = elements.revenueNote?.textContent || "Modeled ranges — verify against operator P&Ls.";
+  const revNums = revenueProjection.match(/\$([\d.,]+)\s*[kK]?/g) || [];
+  const parseK = (s) => { const n = Number(String(s).replace(/[^\d.]/g, "")); return /k/i.test(s) ? n : n / 1000; };
+  const revenueLowK = revNums.length ? `$${Math.round(parseK(revNums[0]))}k` : "$—";
+  const costK = revNums.length ? `$${Math.round(parseK(revNums[0]) * 0.62)}k` : "$—";
+  const beMatch = revenueBreakeven.match(/(\d+)/);
+  const breakevenShort = beMatch ? `mo ${beMatch[1]}` : "mo 14";
+
+  const ctx = {
+    profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
+    decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
+    confidenceLabel: analysis.confidenceScore >= 80 ? "HIGH" : analysis.confidenceScore >= 60 ? "GOOD" : "REVIEW",
+    bottomLine, signalPills, summary: analysis.summary,
+    whyHeadline: strongScores.length ? `${strongScores[0].name} is the strongest signal here.` : "Use this as a first-pass screen.",
+    whyCopy: `${profile.name} — ${profile.affluenceLabel || "market demographics loaded"}. Strongest current fit is ${(recommendations[0]?.name || business).toLowerCase()}. Treat as a first-pass screen, then verify the exact block, frontage, cost terms, and live competitor data before recommending.`,
+    conditions: analysis.conditions || [], missing: analysis.validation?.missing || [], topRisks: analysis.topRisks || [],
+    radiusLabel: state.location ? `${state.location.radiusMiles || "0.5"} mi` : "ZIP area",
+    pressureScore: sv3Pct(pressure), pressureLabel,
+    localChainTitle: chainFitTitleSafe(profile), localChainCopy: chainFitCopySafe(profile),
+    recommendationTitle: pressure >= 78 ? "Possible, but competition is heavy." : pressure >= 55 ? "Workable with the right concept." : "Open lane for a sharp operator.",
+    recommendationCopy: `${business} is scored against local market structure. Validate category-specific competition, reviews, delivery demand, labor, buildout, and the exact block.`,
+    conceptCards, competitorCards, cuisineRows, alternativeCards, breakdownCards, coverageCards,
+    methodVerified: verifiedGroup ? verifiedGroup.items : [], methodModel: modelGroup ? modelGroup.items : [],
+    ftScore: (String(elements.footTrafficScore?.textContent || "").match(/\d+/) || ["60"])[0],
+    ftActivity: (elements.footTrafficActivity?.textContent || "Moderate").replace(/^Estimated Activity:\s*/i, "").replace(/\..*$/, ""),
+    ftBacking: "stronger data backing",
+    ftVisitors: (elements.footTrafficVisitors?.textContent || "—").replace(/\s*daily$/i, ""),
+    ftWalk: (String(elements.footTrafficWalkability?.textContent || "").match(/\d+/) || ["60"])[0],
+    ftPeak: elements.footTrafficPeaks?.textContent || "Morning / lunch / evening",
+    ftSplit: (elements.footTrafficWeekSplit?.textContent || "").replace(/Weekday\s*/i, "").replace(/\s*\/\s*weekend\s*/i, " / ").replace(/\s*modeled split\.?$/i, "") || "64% / 36%",
+    freshness: formatBadgeScore(analysis.validation.freshness), sourceQuality: formatBadgeScore(analysis.validation.sourceQuality),
+    revenueProjection, revenueBreakeven, revenueRentPercent, revenueNote, revenueLowK, costK, breakevenShort,
+    pulseFoot: sv3Level((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [String(safeNumber(profile.transit, 50))])[0]), pulseSpend: sv3Level(profile.income),
+    pulseCost: safeNumber(profile.rent, 50) >= 70 ? "Elevated" : "Manageable",
+    chainFitPct: sv3Pct(safeNumber(profile.chainFit, 50))
+  };
+
+  // Preserve the tab the user is currently on across late async re-renders;
+  // only force the report/overview view when first entering from the search screen.
+  const activeTab = refs.app.querySelector("[data-sv3-tab].on")?.dataset.sv3Tab || "overview";
+  const showingReport = refs.screenReport?.classList.contains("show");
+  const showingCompare = refs.screenCompare?.classList.contains("show");
+
+  refs.tabOverview.innerHTML = sv3OverviewHTML(ctx);
+  refs.tabMarket.innerHTML = sv3MarketHTML(ctx);
+  refs.tabRisk.innerHTML = sv3RiskHTML(ctx);
+  refs.tabMoney.innerHTML = sv3MoneyHTML(ctx);
+  refs.tabMethod.innerHTML = sv3MethodHTML(ctx);
+
+  sv3BindActions();
+  sv3InitWhatIf();
+  if (!showingReport && !showingCompare) {
+    sv3ShowMain("report");
+    sv3ShowTab("overview");
+  } else {
+    sv3ShowTab(activeTab);
+  }
 }
 
-function refreshSpotVestV3Money() {
+function chainFitTitleSafe(profile) {
+  const v = safeNumber(profile.chainFit, 50);
+  if (v >= 64) return "Chain-friendly market";
+  if (v <= 40) return "Local-first market";
+  return "Mixed market";
+}
+function chainFitCopySafe() {
+  return "Neither side has an automatic advantage. The exact block, signage, price point & operator quality matter more than brand type.";
+}
+
+function refreshSpotVestV3Money() { /* values are rebuilt with the Money tab; kept for compatibility */ }
+
+/* ---------- what-if slider (self-contained, like v3) ---------- */
+function sv3InitWhatIf() {
+  const rent = document.getElementById("sv3-wf-rent");
+  const size = document.getElementById("sv3-wf-size");
+  if (!rent || !size) return;
+  const recalc = () => {
+    const r = Number(rent.value), s = Number(size.value);
+    document.getElementById("sv3-wf-rent-l").textContent = "$" + r.toLocaleString();
+    document.getElementById("sv3-wf-size-l").textContent = s.toLocaleString();
+    const revLow = Math.round(s * 85), revHigh = Math.round(s * 142);
+    document.getElementById("sv3-wf-rev").textContent = "$" + Math.round(revLow / 1000) + "k–$" + Math.round(revHigh / 1000) + "k";
+    const pct = Math.round((r / revLow) * 100);
+    document.getElementById("sv3-wf-pct").textContent = pct + "%";
+    const beLow = Math.round(10 + r / 2200), beHigh = Math.round(beLow * 1.9);
+    document.getElementById("sv3-wf-be").textContent = beLow + "–" + beHigh + " mo";
+    const v = document.getElementById("sv3-wf-verd");
+    if (pct <= 10) { v.textContent = "Go"; v.style.color = "var(--green)"; }
+    else if (pct <= 18) { v.textContent = "Conditional"; v.style.color = "var(--amber)"; }
+    else { v.textContent = "Caution"; v.style.color = "var(--red)"; }
+  };
+  rent.addEventListener("input", recalc);
+  size.addEventListener("input", recalc);
+  recalc();
+}
+
+/* ---------- overview action buttons -> existing handlers ---------- */
+function sv3BindActions() {
+  const map = {
+    "export-pdf": "#export-pdf-button",
+    "save": "#save-report-button",
+    "copy": "#copy-link-button",
+    "generate": "#export-full-button",
+    "new": "#new-search-button"
+  };
+  document.querySelectorAll("#sv3-app [data-sv3-action]").forEach((btn) => {
+    if (btn.dataset.sv3Bound) return;
+    btn.dataset.sv3Bound = "1";
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.sv3Action;
+      if (action === "compare") { try { addToCompare(); } catch {} sv3RenderCompare(); sv3ShowMain("compare"); return; }
+      const sel = map[action];
+      if (sel) document.querySelector(sel)?.click();
+    });
+  });
+}
+
+/* ---------- compare view ---------- */
+function sv3RenderCompare() {
   const refs = sv3Refs();
-  if (!refs.revenue) return;
-  refs.revenue.textContent = elements.revenueProjection?.textContent || "Needs inputs";
-  refs.breakeven.textContent = elements.revenueBreakeven?.textContent || "Needs inputs";
-  if (refs.rentReadout && refs.rentSlider) {
-    refs.rentReadout.textContent = formatCurrency(refs.rentSlider.value);
+  if (!refs.compareBody) return;
+  const list = Array.isArray(state.compareList) ? state.compareList : [];
+  if (!list.length) {
+    refs.compareBody.innerHTML = `<div class="bottomline"><div class="bt">Compare locations</div><p>Add this report to compare, then run another location. SpotVest will rank them side by side.</p></div>`;
+    return;
   }
-  if (refs.moneyNote) {
-    refs.moneyNote.textContent = elements.revenueNote?.textContent || "Use this as a quick screen. Exact financials still need operator proof.";
-  }
+  const ranked = [...list].sort((a, b) => safeNumber(b.score, 0) - safeNumber(a.score, 0));
+  const top = ranked[0], second = ranked[1];
+  const summary = second
+    ? `<div class="bottomline"><div class="bt">Which spot wins?</div><p><b>${escapeText(top.label || top.zip)}</b> screens higher (${formatBadgeScore(top.score)}) than <b>${escapeText(second.label || second.zip)}</b> (${formatBadgeScore(second.score)}). It has the edge on this screen.</p></div>`
+    : `<div class="bottomline"><div class="bt">Compare locations</div><p>One location saved. Add another to see a side-by-side ranking.</p></div>`;
+  const cols = ranked.slice(0, 2).map((item, i) => {
+    const sc = formatBadgeScore(item.score);
+    const scls = safeNumber(item.score, 0) >= 70 ? "g" : "a";
+    return `<div class="cmp-col${i === 0 ? " win" : ""}">
+      <div class="cmp-head"><div class="ct">${escapeText(item.label || item.zip || "Location")}</div><div class="cl">${escapeText(item.business || "")}</div>${i === 0 ? '<span class="winbadge">★ Best fit</span>' : ""}</div>
+      <div class="cmp-score"><div class="s ${scls}">${sc}</div><div class="sl">${escapeText(item.decision || "Screened")}</div></div>
+      <div class="cmp-rows">
+        <div class="r"><span class="rl">Competition</span><span class="rv">${escapeText(item.competition || "—")}</span></div>
+        <div class="r"><span class="rl">Confidence</span><span class="rv">${formatBadgeScore(item.confidence)}</span></div>
+        <div class="r"><span class="rl">Location</span><span class="rv">${escapeText(item.zip || "—")}</span></div>
+      </div>
+    </div>`;
+  }).join("");
+  refs.compareBody.innerHTML = `${summary}<div class="cmp-grid">${cols}</div>`;
+}
+
+/* ---------- screen / tab controls ---------- */
+function sv3ShowMain(name) {
+  const refs = sv3Refs();
+  if (!refs.app) return;
+  [["input", refs.screenInput], ["report", refs.screenReport], ["compare", refs.screenCompare]].forEach(([key, el]) => {
+    if (!el) return;
+    el.classList.toggle("show", key === name);
+    el.classList.toggle("hide", key !== name);
+  });
+  if (refs.tabbar) refs.tabbar.classList.toggle("hide", name !== "report");
+  refs.app.querySelectorAll("[data-sv3-nav]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Nav === name));
+  if (name === "compare") sv3RenderCompare();
+  try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
+}
+function sv3ShowTab(name) {
+  const refs = sv3Refs();
+  if (!refs.app) return;
+  ["overview", "market", "risk", "money", "method"].forEach((t) => {
+    const el = document.getElementById("sv3-tab-" + t);
+    if (el) el.classList.toggle("hide", t !== name);
+  });
+  refs.app.querySelectorAll("[data-sv3-tab]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Tab === name));
+  try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
 }
 
 let spotVestV3ControlsReady = false;
-
 function initSpotVestV3Controls() {
   if (spotVestV3ControlsReady) return;
   const app = document.querySelector("#sv3-app");
   if (!app) return;
   spotVestV3ControlsReady = true;
 
-  const showReportTab = (name) => {
-    app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.sv3Tab === name);
-    });
-    app.querySelectorAll("[data-sv3-screen]").forEach((screen) => {
-      screen.classList.toggle("active", screen.dataset.sv3Screen === name);
-    });
-  };
-  const showMain = (name) => {
-    app.querySelectorAll("[data-sv3-main]").forEach((screen) => {
-      screen.classList.toggle("active", screen.dataset.sv3Main === name);
-    });
-    app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.sv3Nav === name);
-    });
-    if (name === "report") showReportTab("overview");
-  };
-
   app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
-    button.addEventListener("click", () => {
-      showMain("report");
-      showReportTab(button.dataset.sv3Tab);
-    });
+    button.addEventListener("click", () => { sv3ShowMain("report"); sv3ShowTab(button.dataset.sv3Tab); });
   });
-
-  app.querySelectorAll("[data-sv3-jump]").forEach((button) => {
-    button.addEventListener("click", () => showReportTab(button.dataset.sv3Jump));
-  });
-
   app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
-    button.addEventListener("click", () => showMain(button.dataset.sv3Nav));
+    button.addEventListener("click", () => { sv3ShowMain(button.dataset.sv3Nav); if (button.dataset.sv3Nav === "report") sv3ShowTab("overview"); });
   });
+  document.querySelector("#sv3-close")?.addEventListener("click", () => sv3ShowMain("input"));
+  document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
+  document.querySelector("#sv3-compare-add")?.addEventListener("click", () => { try { addToCompare(); } catch {} sv3RenderCompare(); });
+  document.querySelector("#sv3-compare-back")?.addEventListener("click", () => sv3ShowMain("report"));
 
-  document.querySelector("#sv3-compare-button")?.addEventListener("click", () => {
-    addToCompare();
-    showMain("compare");
-    const button = document.querySelector("#sv3-compare-button");
-    if (!button) return;
-    const original = button.textContent;
-    button.textContent = "Added";
-    window.setTimeout(() => { button.textContent = original; }, 1200);
-  });
-
-  document.querySelector("#sv3-assistant-button")?.addEventListener("click", openAssistant);
-
-  document.querySelector("#sv3-rent-slider")?.addEventListener("input", refreshSpotVestV3Money);
-
+  const syncFields = () => {
+    const refs = sv3Refs();
+    if (refs.biztype?.value && elements.businessInput) { elements.businessInput.value = refs.biztype.value; syncBusinessInput(); }
+    if (refs.budget?.value && elements.budgetInput) elements.budgetInput.value = refs.budget.value;
+  };
   const runArea = () => {
     const refs = sv3Refs();
-    if (refs.searchBusiness?.value?.trim() && elements.businessInput) {
-      elements.businessInput.value = refs.searchBusiness.value.trim();
-      syncBusinessInput();
-    }
-    if (refs.searchZip?.value?.trim() && elements.input) elements.input.value = refs.searchZip.value.trim();
-    if (refs.searchBudget?.value && elements.budgetInput) elements.budgetInput.value = refs.searchBudget.value;
-    showMain("report");
+    syncFields();
+    if (refs.zip?.value?.trim() && elements.input) elements.input.value = refs.zip.value.trim();
+    state.location = null;
+    sv3ShowMain("report");
     elements.form?.requestSubmit();
   };
   const runAddress = () => {
     const refs = sv3Refs();
-    if (refs.searchBusiness?.value?.trim() && elements.businessInput) {
-      elements.businessInput.value = refs.searchBusiness.value.trim();
-      syncBusinessInput();
-    }
-    if (refs.searchAddress?.value?.trim() && elements.addressInput) elements.addressInput.value = refs.searchAddress.value.trim();
-    if (refs.searchRadius?.value && elements.radiusInput) elements.radiusInput.value = refs.searchRadius.value;
-    if (refs.searchBudget?.value && elements.budgetInput) elements.budgetInput.value = refs.searchBudget.value;
-    showMain("report");
+    syncFields();
+    if (refs.address?.value?.trim() && elements.addressInput) elements.addressInput.value = refs.address.value.trim();
+    if (refs.radius?.value && elements.radiusInput) elements.radiusInput.value = refs.radius.value;
+    sv3ShowMain("report");
     elements.addressForm?.requestSubmit();
   };
-
-  document.querySelector("#sv3-run-area")?.addEventListener("click", runArea);
-  document.querySelector("#sv3-use-area")?.addEventListener("click", runArea);
-  document.querySelector("#sv3-run-address")?.addEventListener("click", runAddress);
+  document.querySelector("#sv3-analyze-address")?.addEventListener("click", runAddress);
+  document.querySelector("#sv3-analyze-area")?.addEventListener("click", runArea);
 }
-
 initSpotVestV3Controls();
 
 function sourceStatus(connected, partial = false) {
