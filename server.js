@@ -9,7 +9,7 @@ import { fetchDemandMomentum } from "./services/googleTrends.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 5174);
 const startedAt = new Date();
-const dataRoot = process.env.AREAINTEL_DATA_DIR || join(root, "data");
+const dataRoot = (process.env.SPOTVEST_DATA_DIR || process.env.AREAINTEL_DATA_DIR) || join(root, "data");
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -693,7 +693,7 @@ async function runAgentTasks(options = {}) {
 }
 
 function startAgentAutopilot() {
-  const setting = String(process.env.AREAINTEL_AGENT_AUTORUN || process.env.AGENT_AUTORUN || "true");
+  const setting = String(process.env.SPOTVEST_AGENT_AUTORUN || process.env.AREAINTEL_AGENT_AUTORUN || process.env.AGENT_AUTORUN || "true");
   const enabled = !/^(0|false|no|off)$/i.test(setting);
   if (!enabled) return;
   const minutes = Math.max(5, Math.min(Number(process.env.AGENT_AUTORUN_INTERVAL_MINUTES || 15) || 15, 120));
@@ -722,7 +722,7 @@ function adminAuthorized(request) {
 function checkoutUrlFor(plan) {
   const normalized = safeText(plan, 80).toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   const specific = process.env[`STRIPE_${normalized}_PAYMENT_URL`];
-  return specific || process.env.STRIPE_REPORT_PAYMENT_URL || process.env.AREAINTEL_PAYMENT_URL || "";
+  return specific || process.env.STRIPE_REPORT_PAYMENT_URL || process.env.SPOTVEST_PAYMENT_URL || process.env.AREAINTEL_PAYMENT_URL || "";
 }
 
 function publicAccount(account) {
@@ -873,7 +873,7 @@ async function updateAccountRecord(accountIdValue, updater) {
 }
 
 function authEmailBaseUrl(request) {
-  return process.env.AREAINTEL_PUBLIC_URL || `${isHostedProduction ? "https" : "http"}://${request.headers.host}`;
+  return process.env.SPOTVEST_PUBLIC_URL || process.env.AREAINTEL_PUBLIC_URL || `${isHostedProduction ? "https" : "http"}://${request.headers.host}`;
 }
 
 async function queueAuthEmail(type, account, token, request) {
@@ -893,7 +893,7 @@ async function queueAuthEmail(type, account, token, request) {
     text: `${intro}\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
     status: process.env.RESEND_API_KEY
       ? "queued-resend"
-      : process.env.AREAINTEL_EMAIL_WEBHOOK_URL
+      : (process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL)
         ? "queued-webhook"
         : "queued-local",
     createdAt: new Date().toISOString()
@@ -910,7 +910,7 @@ async function queueAuthEmail(type, account, token, request) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          from: process.env.AREAINTEL_EMAIL_FROM || "SpotVest <onboarding@resend.dev>",
+          from: process.env.SPOTVEST_EMAIL_FROM || process.env.AREAINTEL_EMAIL_FROM || "SpotVest <onboarding@resend.dev>",
           to: [account.email],
           subject: email.subject,
           text: email.text
@@ -923,9 +923,9 @@ async function queueAuthEmail(type, account, token, request) {
     } catch (error) {
       console.error(`[AreaIntel] Resend auth email failed: ${error.message}`);
     }
-  } else if (process.env.AREAINTEL_EMAIL_WEBHOOK_URL) {
+  } else if ((process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL)) {
     try {
-      await fetch(process.env.AREAINTEL_EMAIL_WEBHOOK_URL, {
+      await fetch((process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(email)
@@ -2285,7 +2285,7 @@ createServer(async (request, response) => {
         cacheEntries: responseCache.size,
         storage: {
           configured: true,
-          mode: process.env.AREAINTEL_DATA_DIR ? "configured-json-store" : "local-json-store"
+          mode: (process.env.SPOTVEST_DATA_DIR || process.env.AREAINTEL_DATA_DIR) ? "configured-json-store" : "local-json-store"
         },
         keyStatus: keyStatus()
       });
