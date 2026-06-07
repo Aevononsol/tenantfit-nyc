@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
     <link rel="stylesheet" href="./styles.css?v=20260607-qa2" />
-    <link rel="stylesheet" href="./inside-v3.css?v=20260607-qa2" />
+    <link rel="stylesheet" href="./inside-v3.css?v=20260607-v4sections" />
   </head>
   <body class="landing-mode">
     <main class="app-shell">
@@ -651,10 +651,32 @@
               <div class="foot">Powered by the live SpotVest decision engine</div>
             </div>
 
+            <!-- ===== PORTFOLIO ===== -->
+            <div class="screen hide" id="sv3-screen-portfolio" data-sv3-screen-main="portfolio">
+              <div class="section-label" style="margin-top:24px"><span class="n">▦</span> Portfolio · enterprise</div>
+              <div class="brand" style="padding:8px 4px 4px">
+                <div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 6.8H21l-5.3 4 2 6.8L12 15.6 6.3 19.6l2-6.8L3 8.8h6.6L12 2z" fill="#04222a"/></svg></div>
+                <div><div class="eyebrow">Multi-site analysis</div><h1 style="font-size:24px">Site portfolio</h1><div class="tag">Your saved &amp; compared locations, ranked</div></div>
+              </div>
+              <div id="sv3-portfolio-body"></div>
+              <div class="actions">
+                <button class="btn ghost sm" type="button" id="sv3-portfolio-clear">Clear portfolio</button>
+                <button class="btn ghost sm" type="button" id="sv3-portfolio-search" style="margin-top:10px">+ Analyze another site</button>
+              </div>
+              <div class="upload-zone" style="margin-top:14px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/></svg>
+                <div class="ut">Bulk import candidate sites</div>
+                <div class="us">CSV upload &amp; auto-scoring — coming soon. For now, analyze sites and add them to compare.</div>
+              </div>
+              <div class="src" style="margin:6px 2px">Scoring: Census · Google Places · NYC Open Data · OpenAI · Cannibalization: store-distance math</div>
+              <div class="foot">Powered by the live SpotVest decision engine</div>
+            </div>
+
             <nav class="nav" aria-label="SpotVest app navigation">
               <button type="button" class="on" data-sv3-nav="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search</button>
               <button type="button" data-sv3-nav="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 12l3 3 5-6"/></svg>Report</button>
               <button type="button" data-sv3-nav="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>Compare</button>
+              <button type="button" data-sv3-nav="portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>Portfolio</button>
             </nav>
           </div>
         </section>
@@ -1402,7 +1424,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260607-foot"></script>
+    <script defer src="./app.js?v=20260607-v4sections"></script>
     <script defer src="./home.js?v=20260604-home-1"></script>
   </body>
 </html>

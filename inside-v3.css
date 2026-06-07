@@ -367,3 +367,102 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 /* Competitor card image: centered icon placeholder when no photo. */
 .sv3-app .comp .img.sv3-img-ph{display:flex;align-items:center;justify-content:center}
 .sv3-app .comp .img.sv3-img-ph svg{width:30px;height:30px;opacity:.65}
+
+/* ================================================================
+   v4 NEW SECTIONS — P&L, cash-to-open, scenarios, survival, permit,
+   area-dining, accuracy badge, portfolio. Ported from
+   spotvest-redesign-v4.html, scoped under .sv3-app.
+   ================================================================ */
+/* Monthly P&L */
+.sv3-app .pnl{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--pad);margin-bottom:14px}
+.sv3-app .pnl .prow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.sv3-app .pnl .prow .pl{color:var(--txt-2);display:flex;align-items:center;gap:8px}
+.sv3-app .pnl .prow .pl .pc{width:8px;height:8px;border-radius:2px}
+.sv3-app .pnl .prow .pv{font-family:'Sora';font-weight:700}
+.sv3-app .pnl .prow.rev .pv{color:var(--green)}
+.sv3-app .pnl .prow.cost .pv{color:var(--txt)}
+.sv3-app .pnl .prow.profit{border-bottom:none;border-top:2px solid var(--border-strong);margin-top:4px;padding-top:14px}
+.sv3-app .pnl .prow.profit .pl{font-weight:700;color:var(--txt);font-size:15px}
+.sv3-app .pnl .prow.profit .pv{font-size:22px;color:var(--green)}
+.sv3-app .pnl .prow.profit .pv.neg{color:var(--red)}
+.sv3-app .pnl .margin-badge{display:inline-block;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--green-bg);color:var(--green);margin-top:14px}
+.sv3-app .pnl .margin-badge.warn{background:var(--amber-bg);color:var(--amber)}
+.sv3-app .stackbar{display:flex;height:22px;border-radius:8px;overflow:hidden;margin:14px 0 6px}
+.sv3-app .stackbar span{display:block;height:100%}
+.sv3-app .stack-key{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px}
+.sv3-app .stack-key .sk{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--txt-2);font-weight:550}
+.sv3-app .stack-key .sk .d{width:9px;height:9px;border-radius:2px}
+/* Cash to open */
+.sv3-app .cashbig{font-family:'Sora';font-size:34px;font-weight:800;letter-spacing:-1px;margin:4px 0}
+.sv3-app .cashbig .u{font-size:14px;color:var(--txt-3);font-weight:600}
+.sv3-app .cashitem{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sv3-app .cashitem:last-child{border-bottom:none}
+.sv3-app .cashitem .ci-l{color:var(--txt-2)}
+.sv3-app .cashitem .ci-v{font-family:'Sora';font-weight:700}
+/* Scenarios */
+.sv3-app .scen-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px}
+.sv3-app .scen{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 11px;text-align:center}
+.sv3-app .scen.base{border-color:rgba(57,194,214,.35);box-shadow:0 0 0 1px rgba(57,194,214,.12)}
+.sv3-app .scen .stt{font-size:10px;letter-spacing:.8px;font-weight:700;text-transform:uppercase;color:var(--txt-3)}
+.sv3-app .scen.good .stt{color:var(--green)}.sv3-app .scen.base .stt{color:var(--teal-bright)}.sv3-app .scen.bad .stt{color:var(--red)}
+.sv3-app .scen .sval{font-family:'Sora';font-size:19px;font-weight:800;letter-spacing:-.5px;margin:8px 0 2px}
+.sv3-app .scen .sprob{font-size:10.5px;color:var(--txt-3);font-weight:600}
+.sv3-app .scen .snote{font-size:10.5px;color:var(--txt-2);margin-top:8px;line-height:1.35}
+/* Survival benchmark */
+.sv3-app .survival{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--pad);margin-bottom:14px}
+.sv3-app .survival .surv-big{font-family:'Sora';font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1}
+.sv3-app .survival .surv-big.ok{color:var(--green)}.sv3-app .survival .surv-big.warn{color:var(--amber)}
+.sv3-app .survbar{display:flex;height:30px;border-radius:9px;overflow:hidden;margin:14px 0 6px}
+.sv3-app .survbar .live{background:linear-gradient(90deg,#4ADE80,#36E0C8);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#04222a}
+.sv3-app .survbar .closed{background:rgba(255,107,107,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--red)}
+.sv3-app .surv-vs{display:flex;justify-content:space-between;font-size:11.5px;color:var(--txt-3);font-weight:600;margin-top:8px}
+/* Permit roadmap */
+.sv3-app .permit{display:flex;gap:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 15px;margin-bottom:10px;align-items:flex-start}
+.sv3-app .permit .pnum{font-family:'JetBrains Mono';font-weight:600;font-size:12px;min-width:30px;height:30px;border-radius:9px;background:var(--grad-soft);border:1px solid rgba(57,194,214,.2);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sv3-app .permit .pmid{flex:1}
+.sv3-app .permit .pname{font-size:14px;font-weight:650}
+.sv3-app .permit .pmeta{display:flex;gap:14px;margin-top:5px;font-size:11.5px;color:var(--txt-3)}
+.sv3-app .permit .pmeta b{color:var(--teal-bright);font-weight:600}
+.sv3-app .permit-total{display:flex;justify-content:space-between;align-items:center;background:var(--grad-soft);border:1px solid rgba(57,194,214,.2);border-radius:var(--r);padding:14px 15px;margin-top:4px}
+.sv3-app .permit-total .ptl{font-size:12px;letter-spacing:1px;font-weight:700;text-transform:uppercase;color:var(--teal-bright)}
+.sv3-app .permit-total .ptv{font-family:'Sora';font-weight:700;font-size:16px}
+/* Accuracy badge */
+.sv3-app .accuracy{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(74,222,128,.10),rgba(54,224,200,.04));border:1px solid rgba(74,222,128,.22);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:14px}
+.sv3-app .accuracy .av{font-family:'Sora';font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--green);line-height:1;flex-shrink:0}
+.sv3-app .accuracy .av.pending{font-size:15px;letter-spacing:0;color:var(--teal-bright)}
+.sv3-app .accuracy .at{font-size:12.5px;color:var(--txt-2);line-height:1.45}
+.sv3-app .accuracy .at b{color:var(--txt);font-weight:650}
+.sv3-app .accuracy .badge-ico{width:38px;height:38px;border-radius:11px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sv3-app .accuracy .badge-ico svg{width:20px;height:20px;color:var(--green)}
+/* Portfolio */
+.sv3-app .pf-head{display:flex;gap:12px;margin:18px 0 14px}
+.sv3-app .pf-stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.sv3-app .pf-stat .v{font-family:'Sora';font-size:24px;font-weight:800;letter-spacing:-.5px}
+.sv3-app .pf-stat .l{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--txt-3);font-weight:700;margin-top:4px}
+.sv3-app .pf-toolbar{display:flex;gap:8px;margin-bottom:14px}
+.sv3-app .pf-toolbar .pfb{flex:1;font-size:12.5px;font-weight:600;font-family:'Sora';padding:11px;border-radius:var(--r);border:1px solid var(--border-strong);background:var(--surface-2);color:var(--txt-2);text-align:center;cursor:pointer}
+.sv3-app .pf-toolbar .pfb.on{background:var(--grad-soft);border-color:rgba(57,194,214,.3);color:var(--teal-bright)}
+.sv3-app .cann{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.2);border-radius:var(--r);padding:14px 15px;margin-bottom:14px}
+.sv3-app .cann .ct{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--red)}
+.sv3-app .cann .ct .d{width:7px;height:7px;border-radius:50%;background:var(--red)}
+.sv3-app .cann .cm{font-size:13px;color:var(--txt-2);line-height:1.5;margin-top:8px}
+.sv3-app .cann .cm b{color:var(--txt)}
+.sv3-app .site{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:10px;position:relative}
+.sv3-app .site .rank{font-family:'Sora';font-size:13px;font-weight:800;color:var(--txt-3);min-width:22px}
+.sv3-app .site .sc{font-family:'Sora';font-weight:800;font-size:17px;min-width:50px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sv3-app .site .sc.g{background:var(--green-bg);color:var(--green)}
+.sv3-app .site .sc.a{background:var(--amber-bg);color:var(--amber)}
+.sv3-app .site .sc.r{background:var(--red-bg);color:var(--red)}
+.sv3-app .site .si{flex:1;min-width:0}
+.sv3-app .site .sn{font-family:'Sora';font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv3-app .site .sa{font-size:11.5px;color:var(--txt-3);margin-top:2px}
+.sv3-app .site .smeta{display:flex;gap:10px;margin-top:6px;font-size:10.5px;color:var(--txt-2);flex-wrap:wrap}
+.sv3-app .site .smeta .flag{color:var(--red);font-weight:600}
+.sv3-app .site .smeta .ok{color:var(--green);font-weight:600}
+.sv3-app .site .chev{color:var(--txt-faint);flex-shrink:0}
+.sv3-app .site.win{border-color:rgba(74,222,128,.35)}
+.sv3-app .site .crown{position:absolute;top:-7px;left:42px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:var(--green);color:#04140a;padding:3px 8px;border-radius:999px}
+.sv3-app .upload-zone{border:1.5px dashed var(--border-strong);border-radius:var(--r-lg);padding:24px;text-align:center;margin-bottom:14px;background:var(--surface)}
+.sv3-app .upload-zone svg{width:30px;height:30px;color:var(--teal);margin-bottom:8px}
+.sv3-app .upload-zone .ut{font-size:14px;font-weight:650}
+.sv3-app .upload-zone .us{font-size:12px;color:var(--txt-3);margin-top:4px}

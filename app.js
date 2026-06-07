@@ -3537,6 +3537,8 @@ function sv3Refs() {
     screenInput: app.querySelector("#sv3-screen-input"),
     screenReport: app.querySelector("#sv3-screen-report"),
     screenCompare: app.querySelector("#sv3-screen-compare"),
+    screenPortfolio: app.querySelector("#sv3-screen-portfolio"),
+    portfolioBody: app.querySelector("#sv3-portfolio-body"),
     tabOverview: app.querySelector("#sv3-tab-overview"),
     tabMarket: app.querySelector("#sv3-tab-market"),
     tabRisk: app.querySelector("#sv3-tab-risk"),
@@ -3680,6 +3682,11 @@ function sv3OverviewHTML(ctx) {
         </div>
         <div class="gauge-ticks"><span>0 · Avoid</span><span>50</span><span>100 · Go</span></div>
       </div>
+    </div>
+    <div class="accuracy">
+      <div class="badge-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4z"/></svg></div>
+      <div class="av pending">Validation<br>in progress</div>
+      <div class="at"><b>Model validation in progress.</b> We're backtesting SpotVest against real NYC business outcomes before publishing an accuracy figure. Until then, treat this score as a structured screen — not a guarantee.</div>
     </div>
     <div class="bottomline">
       <div class="bt">Bottom line for the owner</div>
@@ -3848,6 +3855,102 @@ function sv3SeasonSVG(rawBusiness, score) {
   }).join("");
 }
 
+/* ---------- v4 section data (modeled from real signals; honest labels) ---------- */
+function sv3Money(n) { return "$" + Math.round(n).toLocaleString(); }
+function sv3CostStructure(bucket) {
+  return {
+    food: { cogs: .30, labor: .30, util: .06, mkt: .07, ticket: 32, label: "full-service" },
+    cafe: { cogs: .32, labor: .27, util: .06, mkt: .06, ticket: 9, label: "café" },
+    bar: { cogs: .25, labor: .25, util: .07, mkt: .07, ticket: 28, label: "bar" },
+    gym: { cogs: .10, labor: .38, util: .08, mkt: .08, ticket: 55, label: "fitness" },
+    retail: { cogs: .55, labor: .15, util: .05, mkt: .05, ticket: 38, label: "retail" }
+  }[bucket] || { cogs: .30, labor: .28, util: .06, mkt: .07, ticket: 30, label: "operator" };
+}
+function sv3PnL(baseRev, rentDollars, bucket) {
+  const cs = sv3CostStructure(bucket);
+  const cogs = baseRev * cs.cogs, labor = baseRev * cs.labor, util = baseRev * cs.util, mkt = baseRev * cs.mkt, rent = rentDollars;
+  const net = baseRev - cogs - labor - rent - util - mkt;
+  const marginPct = baseRev > 0 ? Math.round((net / baseRev) * 100) : 0;
+  const pct = (v) => baseRev > 0 ? Math.max(0, Math.round((v / baseRev) * 100)) : 0;
+  return { baseRev, cogs, labor, rent, util, mkt, net, marginPct, catLabel: cs.label,
+    stack: { cogs: pct(cogs), labor: pct(labor), rent: pct(rent), util: pct(util), mkt: pct(mkt), profit: Math.max(0, pct(net)) } };
+}
+function sv3CashToOpen(bucket, rentDollars) {
+  const food = bucket === "food" || bucket === "cafe" || bucket === "bar";
+  // Operating reserve is anchored to fixed rent (≈4 months of rent + a floor),
+  // not full labor/COGS which scale with sales — keeps it realistic.
+  const reserve = Math.round(Math.max(40000, rentDollars * 4));
+  const items = [
+    ["Buildout & renovation", food ? 95000 : 55000],
+    ["Equipment & fit-out", food ? 70000 : 35000],
+    ["Security deposit (3 mo rent)", Math.round(rentDollars * 3)],
+    ["Permits & licenses", food ? 18000 : 6000],
+    ["Initial inventory & supplies", bucket === "retail" ? 40000 : food ? 22000 : 12000],
+    ["6-month operating reserve", reserve]
+  ];
+  const total = items.reduce((s, i) => s + i[1], 0);
+  return { items, low: total, high: Math.round(total * 1.18) };
+}
+function sv3PermitRoadmap(bucket) {
+  const base = [["Business Certificate / EIN", "~$100", "1–2 wks"]];
+  let steps;
+  if (bucket === "food" || bucket === "cafe") steps = [...base,
+    ["DOH Food Service Establishment Permit", "~$280", "2–4 wks"],
+    ["Liquor License (SLA, if serving)", "$4,500+", "3–6 mo"],
+    ["DOB permits (buildout / venting)", "varies", "4–12 wks"],
+    ["Sidewalk Café Permit (optional)", "~$1,050", "varies"]];
+  else if (bucket === "bar") steps = [...base,
+    ["DOH Food Service Permit", "~$280", "2–4 wks"],
+    ["Liquor License (SLA)", "$4,500+", "3–6 mo"],
+    ["DOB permits (buildout)", "varies", "4–12 wks"]];
+  else if (bucket === "gym") steps = [...base,
+    ["DCWP Business License", "~$150", "2–4 wks"],
+    ["DOB permits (buildout / assembly)", "varies", "4–10 wks"],
+    ["Certificate of Occupancy update", "varies", "varies"]];
+  else steps = [...base,
+    ["DCWP Business License (if regulated)", "~$150", "2–4 wks"],
+    ["DOB permits (buildout / signage)", "varies", "3–8 wks"]];
+  return { steps, total: (bucket === "food" || bucket === "cafe" || bucket === "bar") ? "~3–6 months" : "~1–3 months" };
+}
+function sv3ScenariosData(revLowNum, revHighNum, rentDollars, bucket) {
+  const cs = sv3CostStructure(bucket);
+  const varRatio = cs.cogs + cs.labor + cs.util + cs.mkt;
+  const profitAt = (revK) => Math.round(revK * 1000 * (1 - varRatio) - rentDollars);
+  return {
+    worst: { profit: profitAt(revLowNum * 0.9), prob: 25, note: "Slow ramp; competition wins out." },
+    base: { profit: profitAt((revLowNum + revHighNum) / 2), prob: 50, note: "Hits modeled revenue & cost targets." },
+    best: { profit: profitAt(revHighNum), prob: 25, note: "Strong concept; beats the foot-traffic model." }
+  };
+}
+function sv3WhatToBeTrue(rentDollars, bucket) {
+  const cs = sv3CostStructure(bucket);
+  const varRatio = cs.cogs + cs.labor + cs.util + cs.mkt;
+  const breakevenRev = rentDollars / (1 - varRatio);
+  return { custPerDay: Math.max(10, Math.round(breakevenRev / cs.ticket / 26)), ticket: cs.ticket };
+}
+function sv3DiningDemand(businessResult, hourly) {
+  const gp = businessResult && businessResult.googlePlaces;
+  const count = safeNumber(gp && gp.count, 0);
+  const reviews = safeNumber(gp && gp.reviewCount, 0);
+  const rating = safeNumber(gp && gp.avgRating, 0);
+  let score = Math.round(Math.min(98, 24 + Math.min(40, count * 2) + Math.min(24, Math.log10(reviews + 1) * 8) + rating * 2));
+  if (!count && !reviews) score = 0;
+  const label = score >= 72 ? "Busy" : score >= 45 ? "Moderate" : score ? "Quiet" : "Limited data";
+  const avg = (a, b) => { if (!Array.isArray(hourly)) return null; let s = 0, n = 0; for (let h = a; h <= b; h++) { s += hourly[h] || 0; n++; } return n ? s / n : null; };
+  const dinnerV = hourly ? Math.round((avg(18, 21) || 0) * 100) : Math.min(95, score + 10);
+  const lunchV = hourly ? Math.round((avg(12, 14) || 0) * 100) : Math.max(40, score - 7);
+  const brunchV = hourly ? Math.round((avg(10, 13) || 0) * 100) : Math.max(45, score - 2);
+  const hardest = (gp && gp.topPlaces || []).slice().sort((a, b) => safeNumber(b.reviews, 0) - safeNumber(a.reviews, 0)).slice(0, 3);
+  const maxRev = Math.max(1, ...hardest.map((p) => safeNumber(p.reviews, 0)));
+  return { score, label, dinnerV, lunchV, brunchV, hourlyReal: Array.isArray(hourly), count,
+    hardest: hardest.map((p) => ({ name: p.name || "Operator", pct: Math.max(35, Math.round(safeNumber(p.reviews, 0) / maxRev * 100)) })) };
+}
+function sv3Survival(bucket, pressure) {
+  const baseline = { food: 60, cafe: 60, bar: 55, gym: 62, retail: 65 }[bucket] || 60;
+  const pct = Math.max(30, Math.min(85, Math.round(baseline - (sv3Pct(pressure) - 50) * 0.35)));
+  return { pct, baseline, ok: pct >= baseline };
+}
+
 function sv3MarketHTML(ctx) {
   const areaBars = [
     sv3BarRow("Population density", ctx.profile.density, sv3Pct(ctx.profile.density) >= 55 ? "g" : "a"),
@@ -3881,7 +3984,30 @@ function sv3MarketHTML(ctx) {
     <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · SpotVest mobility model (peak hours &amp; split)</div></div>
     <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative">${ctx.ftReal ? "" : `<span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span>`}<svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/>${ctx.footHourSVG}</svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">${ctx.ftReal ? "Live · MTA subway ridership by hour near this location (Dec 2024)" : "Modeled · category day-pattern scaled by area foot-traffic"}</div></div>
     <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g>${ctx.weekSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
-    <div class="card"><div class="sub">Category saturation nearby</div>${cuisine}<div class="src">Google Places density · ${escapeText(ctx.radiusLabel)}</div></div>`;
+    <div class="card"><div class="sub">Category saturation nearby</div>${cuisine}<div class="src">Google Places density · ${escapeText(ctx.radiusLabel)}</div></div>
+    ${sv3DiningHTML(ctx)}`;
+}
+
+function sv3DiningHTML(ctx) {
+  const d = ctx.dining || {};
+  const lvl = (v) => v >= 80 ? "Very busy" : v >= 60 ? "Busy" : v >= 40 ? "Moderate" : "Quiet";
+  const cls = (v) => v >= 60 ? "g" : "a";
+  const bar = (name, v) => `<div class="bar-row"><div class="bl"><span class="bn">${name}</span><span class="bv">${lvl(v)}</span></div><div class="track"><div class="fill ${cls(v)}" style="width:${Math.max(8, Math.min(100, v))}%"></div></div></div>`;
+  const hardest = (d.hardest || []).length
+    ? `<div class="card"><div class="sub">Busiest nearby restaurants</div>${d.hardest.map((h) => `<div class="demo-row"><span class="dl" style="min-width:110px">${escapeText(h.name)}</span><div class="dtrack"><div class="dfill" style="width:${h.pct}%"></div></div><span class="dv" style="color:${h.pct >= 80 ? "var(--green)" : "var(--amber)"}">${h.pct}%</span></div>`).join("")}<div class="desc">Ranked by Google review volume — a popularity proxy, not live table availability. Higher = stronger established demand, but also stronger competition.</div><div class="src">Google Places · review volume (popularity proxy)</div></div>`
+    : "";
+  return `
+    <div class="section-label"><span class="n">10</span> Area dining demand</div>
+    <div class="card accent">
+      <div class="sub">How busy nearby restaurants are at peak</div>
+      <div class="big" style="color:var(--teal-bright)">${escapeText(d.label || "Limited data")}<span style="font-size:15px;color:var(--txt-3)"> · ${safeNumber(d.score, 0)}/100</span></div>
+      <div class="desc">Modeled from nearby restaurant density, Google review volume${d.hourlyReal ? " and real MTA ridership by hour" : ""}. Strong nearby demand means diners already come to this area — a positive signal for a new food concept.</div>
+      ${bar("Dinner (6–9pm)", safeNumber(d.dinnerV, 0))}
+      ${bar("Lunch (12–2pm)", safeNumber(d.lunchV, 0))}
+      ${bar("Late morning / brunch", safeNumber(d.brunchV, 0))}
+      <div class="src">${d.hourlyReal ? "Google Places density · MTA ridership by hour · 0.5 mi" : "Google Places density · area foot-traffic · 0.5 mi"}</div>
+    </div>
+    ${hardest}`;
 }
 
 function sv3RiskHTML(ctx) {
@@ -3890,20 +4016,83 @@ function sv3RiskHTML(ctx) {
   const conditions = (ctx.conditions.length ? ctx.conditions : ["Verify site economics before committing."]).map(sv3SplitLabel).join("");
   const verify = (ctx.missing.length ? ctx.missing : ["Dwell time, parking, rent, buildout cost, and operator financials need on-site confirmation."]).map((t) => `<li>${escapeText(t)}</li>`).join("");
   const alts = ctx.alternativeCards || "";
+  const s = ctx.survival || {};
+  const p = ctx.permit || { steps: [], total: "—" };
+  const permitRows = p.steps.map((step, i) => `<div class="permit"><div class="pnum">${i + 1}</div><div class="pmid"><div class="pname">${escapeText(step[0])}</div><div class="pmeta"><span><b>${escapeText(step[1])}</b></span><span><b>${escapeText(step[2])}</b></span></div></div></div>`).join("");
   return `
-    <div class="section-label" style="margin-top:20px"><span class="n">10</span> Risk register</div>
+    <div class="section-label" style="margin-top:20px"><span class="n">11</span> Risk register</div>
     ${risks}
     <div class="src" style="margin:-4px 2px 8px">NYC 311 complaints · DOB permits · Health inspections</div>
-    <div class="section-label"><span class="n">11</span> Why this may succeed</div>
+    <div class="section-label"><span class="n">12</span> Why this may succeed</div>
     <div class="card">${succeed}</div>
-    <div class="section-label"><span class="n">12</span> Conditions for success</div>
+    <div class="section-label"><span class="n">13</span> Conditions for success</div>
     <div class="card"><ul class="bullets">${conditions}</ul></div>
-    <div class="section-label"><span class="n">13</span> Needs verification</div>
+    <div class="section-label"><span class="n">14</span> Needs verification</div>
     <div class="card"><ul class="bullets">${verify}</ul></div>
-    <div class="section-label"><span class="n">14</span> Better alternatives</div>
-    ${alts}`;
+    <div class="section-label"><span class="n">15</span> Better alternatives</div>
+    ${alts}
+    <div class="section-label"><span class="n">16</span> Survival benchmark</div>
+    <div class="survival">
+      <div class="k" style="font-size:11px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;color:var(--txt-3);margin-bottom:6px">Modeled 3-year survival · ${escapeText(ctx.business.toLowerCase())} · ${escapeText(ctx.profile.name || "this area")}</div>
+      <div class="surv-big ${s.ok ? "ok" : "warn"}">${safeNumber(s.pct, 55)}%</div>
+      <div class="survbar">
+        <span class="live" style="width:${safeNumber(s.pct, 55)}%">${safeNumber(s.pct, 55)}% likely open</span>
+        <span class="closed" style="width:${100 - safeNumber(s.pct, 55)}%">${100 - safeNumber(s.pct, 55)}% closed</span>
+      </div>
+      <div class="surv-vs"><span>Still operating</span><span>Closed within 3 yrs</span></div>
+      <div class="desc" style="margin-top:12px"><b>Modeled estimate — not a measured survival rate.</b> Starts from a category baseline (~${safeNumber(s.baseline, 60)}% for this type) and adjusts for local competition. We don't yet publish a measured per-ZIP survival figure; treat this as a directional benchmark.</div>
+      <div class="src">Modeled · category baseline × local saturation</div>
+    </div>
+    <div class="section-label"><span class="n">17</span> Permit &amp; licensing roadmap</div>
+    ${permitRows}
+    <div class="permit-total"><span class="ptl">Est. time to legally open</span><span class="ptv">${escapeText(p.total)}</span></div>
+    <div class="src" style="margin-top:10px">Typical NYC steps · DOH / SLA / DOB / DCWP · confirm current fees with each agency</div>`;
 }
 
+function sv3ProfitK(n) { return `${n >= 0 ? "+" : "−"}$${Math.abs(Math.round(n / 1000))}k`; }
+function sv3PnLHTML(ctx) {
+  const p = ctx.pnl || {}, c = ctx.cashOpen || { items: [] }, s = ctx.scenarios || {}, w = ctx.wtbt || {};
+  const st = p.stack || {};
+  const costRow = (color, label, val) => `<div class="prow cost"><span class="pl"><span class="pc" style="background:${color}"></span>${label}</span><span class="pv">−${sv3Money(val)}</span></div>`;
+  const scen = (cls, color, title, o) => `<div class="scen ${cls}"><div class="stt">${title}</div><div class="sval" style="color:${color}">${sv3ProfitK(o.profit || 0)}</div><div class="sprob">${o.prob}% likely</div><div class="snote">${escapeText(o.note)}</div></div>`;
+  return `
+    <div class="section-label"><span class="n">19</span> Monthly profit &amp; loss · base case</div>
+    <div class="pnl">
+      <div class="prow rev"><span class="pl"><span class="pc" style="background:#4ADE80"></span>Projected revenue</span><span class="pv">${sv3Money(p.baseRev)}</span></div>
+      ${costRow("#FF6B6B", "COGS / inventory", p.cogs)}
+      ${costRow("#F5B544", "Labor", p.labor)}
+      ${costRow("#5B8CFF", "Rent", p.rent)}
+      ${costRow("#9B7BFF", "Utilities / insurance", p.util)}
+      ${costRow("#FF8AB5", "Marketing / other", p.mkt)}
+      <div class="prow profit"><span class="pl">Monthly profit</span><span class="pv${p.net < 0 ? " neg" : ""}">${p.net >= 0 ? "+" : "−"}${sv3Money(Math.abs(p.net))}</span></div>
+      <div class="stackbar"><span style="width:${st.cogs}%;background:#FF6B6B"></span><span style="width:${st.labor}%;background:#F5B544"></span><span style="width:${st.rent}%;background:#5B8CFF"></span><span style="width:${st.util}%;background:#9B7BFF"></span><span style="width:${st.mkt}%;background:#FF8AB5"></span><span style="width:${st.profit}%;background:#4ADE80"></span></div>
+      <div class="stack-key"><span class="sk"><span class="d" style="background:#FF6B6B"></span>COGS</span><span class="sk"><span class="d" style="background:#F5B544"></span>Labor</span><span class="sk"><span class="d" style="background:#5B8CFF"></span>Rent</span><span class="sk"><span class="d" style="background:#9B7BFF"></span>Utilities</span><span class="sk"><span class="d" style="background:#FF8AB5"></span>Marketing</span><span class="sk"><span class="d" style="background:#4ADE80"></span>Profit</span></div>
+      <span class="margin-badge${p.marginPct < 8 ? " warn" : ""}">≈ ${p.marginPct}% net margin · ${p.marginPct >= 8 ? "healthy for " + p.catLabel : "thin — watch costs"}</span>
+      <div class="desc" style="margin-top:12px">Revenue is from the SpotVest model; cost ratios are NYC ${escapeText(p.catLabel)} industry standards. Confirm real labor &amp; COGS with a CPA.</div>
+      <div class="src">Revenue: SpotVest model · cost ratios: industry standard</div>
+    </div>
+
+    <div class="section-label"><span class="n">20</span> Cash needed to open</div>
+    <div class="card accent">
+      <div class="k">Total cash to open + 6-month runway</div>
+      <div class="cashbig">${sv3Money(c.low)}<span class="u"> – ${sv3Money(c.high)}</span></div>
+      <div class="divider" style="margin:14px 0"></div>
+      ${(c.items || []).map((i) => `<div class="cashitem"><span class="ci-l">${escapeText(i[0])}</span><span class="ci-v">${sv3Money(i[1])}</span></div>`).join("")}
+      <div class="desc" style="margin-top:12px">Most closures come from being undercapitalized, not bad locations. Have the reserve before signing.</div>
+      <div class="src">Estimated · category benchmarks + NYC permit data</div>
+    </div>
+
+    <div class="section-label"><span class="n">21</span> Scenarios · how the year could go</div>
+    <div class="scen-grid">
+      ${scen("bad", "var(--red)", "Worst case", s.worst || {})}
+      ${scen("base", "var(--teal-bright)", "Base case", s.base || {})}
+      ${scen("good", "var(--green)", "Best case", s.best || {})}
+    </div>
+    <div class="card" style="margin-top:4px"><div class="desc" style="margin-top:0">Modeled monthly profit by scenario, from the revenue range and cost sensitivity. ${(s.worst && s.worst.profit < 0) ? "The worst case loses money — keep the reserve and a rent-to-sales ceiling." : "Even the base case can be thin, so keep the reserve."}</div><div class="src">Modeled · revenue range × cost sensitivity</div></div>
+
+    <div class="section-label"><span class="n">22</span> What would have to be true</div>
+    <div class="card accent"><div class="desc" style="margin-top:0">To clear break-even you'd need roughly <b style="color:var(--teal-bright)">${w.custPerDay} customers/day</b> at a <b style="color:var(--teal-bright)">$${w.ticket} average ticket</b>, six days a week. ${ctx.ftReal ? "On a block with this much measured foot traffic, that capture rate is plausible — but it still depends on visibility and concept." : "Whether that capture rate is realistic depends on foot traffic, visibility and concept."}</div><div class="src">Derived · break-even ÷ avg ticket</div></div>`;
+}
 function sv3MoneyHTML(ctx) {
   const revLow = ctx.revenueLowK;
   const cost = ctx.costK;
@@ -3911,12 +4100,13 @@ function sv3MoneyHTML(ctx) {
   const profileCards = aud.map((row) => `<div style="margin-bottom:14px"><div class="cvt" style="font-size:13.5px;font-weight:650">${escapeText(row[0])}</div><div class="cvd" style="font-size:12px;color:var(--txt-3);margin-top:3px">${escapeText(row[1])}</div></div>`).join("");
   return `
     <div class="note" style="margin-top:18px"><b>Modeled estimates — not live financials.</b> SpotVest has live demographics and competition data, but not per-business revenue, costs, or seasonality. The figures below are projected from category economics, area income and the modeled local rent. Verify against real operator P&amp;Ls.</div>
-    <div class="section-label"><span class="n">15</span> Cost vs revenue at a glance</div>
+    <div class="section-label"><span class="n">18</span> Cost vs revenue at a glance</div>
     <div class="cvr">
       <div class="cvr-row"><div class="lab"><span class="n">Projected revenue (low)</span><span class="v" style="color:var(--green)">${escapeText(revLow)}/mo</span></div><div class="tk"><div class="fl rev" style="width:100%"></div></div></div>
       <div class="cvr-row"><div class="lab"><span class="n">Est. total monthly cost</span><span class="v" style="color:var(--amber)">~${escapeText(cost)}/mo</span></div><div class="tk"><div class="fl cost" style="width:${ctx.costPct}%"></div></div></div>
       <div class="desc" style="margin-top:4px">Base-case projected revenue vs. estimated total monthly cost (modeled at ~${ctx.costPct}% of revenue for this category). Confirm real rent and labor before committing.</div>
     </div>
+    ${sv3PnLHTML(ctx)}
     <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="${ctx.revCost.costLine}" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="${ctx.revCost.rev}" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="${ctx.revCost.x}" y1="18" x2="${ctx.revCost.x}" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="${ctx.revCost.x}" cy="${ctx.revCost.cy}" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:${Math.max(8, Math.min(82, Math.round(ctx.revCost.x / 320 * 100)))}%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled · SpotVest unit-economics engine</div></div>
     <div class="card whatif"><div class="sub">What-if · drag to test the deal</div>
       <div style="margin-top:12px"><div class="rng-lab"><span>Monthly rent</span><span class="rv" id="sv3-wf-rent-l">$18,000</span></div><input type="range" class="rng" id="sv3-wf-rent" min="8000" max="35000" step="500" value="18000"></div>
@@ -3925,13 +4115,13 @@ function sv3MoneyHTML(ctx) {
       <div class="src">Live estimate · recalculated locally</div>
     </div>
     <div class="card"><div class="sub">Seasonality · projected demand by month</div><div class="chart"><svg viewBox="0 0 320 110"><g>${ctx.seasonSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div></div><div class="desc">Modeled from typical seasonality for this category — plan 2–3 months of runway for the slower months.</div><div class="src">Modeled estimate · category seasonality pattern</div></div>
-    <div class="section-label"><span class="n">16</span> Revenue estimator · estimate only</div>
+    <div class="section-label"><span class="n">23</span> Revenue estimator · estimate only</div>
     <div class="card"><div class="statline"><span class="sl">Projected monthly revenue</span><span class="sv" style="color:var(--teal-bright)">${escapeText(ctx.revenueProjection)}</span></div><div class="statline"><span class="sl">Break-even estimate</span><span class="sv">${escapeText(ctx.revenueBreakeven)}</span></div><div class="statline"><span class="sl">Rent %</span><span class="sv">${escapeText(ctx.revenueRentPercent)}</span></div><div class="desc" style="margin-top:12px">${escapeText(ctx.revenueNote)}</div><div class="src">Modeled estimate · SpotVest unit-economics model (area income, rent &amp; category)</div></div>
-    <div class="section-label"><span class="n">17</span> Customer profile</div>
+    <div class="section-label"><span class="n">24</span> Customer profile</div>
     <div class="card">${profileCards}<div class="src">Census ACS 5-year · NYC Open Data</div></div>
-    <div class="section-label"><span class="n">18</span> Market pulse</div>
+    <div class="section-label"><span class="n">25</span> Market pulse</div>
     <div class="card"><div class="statline"><span class="sl">Foot traffic proxy</span><span class="sv" style="color:var(--green)">${escapeText(ctx.pulseFoot)}</span></div><div class="statline"><span class="sl">Customer spend</span><span class="sv" style="color:var(--amber)">${escapeText(ctx.pulseSpend)}</span></div><div class="statline"><span class="sl">Cost pressure</span><span class="sv" style="color:var(--green)">${escapeText(ctx.pulseCost)}</span></div></div>
-    <div class="section-label"><span class="n">19</span> Local vs chain fit</div>
+    <div class="section-label"><span class="n">26</span> Local vs chain fit</div>
     <div class="card accent"><div class="sub">Operator quality matters more than brand type</div><div class="desc" style="margin-top:0">${escapeText(ctx.localChainCopy)}</div><div style="margin-top:16px"><div class="track" style="height:9px"><div class="fill g" style="width:${ctx.chainFitPct}%"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--txt-3);margin-top:9px"><span>Local boutique</span><span>National chain</span></div></div></div>`;
 }
 
@@ -3942,16 +4132,16 @@ function sv3MethodHTML(ctx) {
   const verified = (ctx.methodVerified || []).map((t) => `<li>${escapeText(t)}</li>`).join("");
   const model = (ctx.methodModel || []).map((t) => `<li>${escapeText(t)}</li>`).join("");
   return `
-    <div class="section-label" style="margin-top:20px"><span class="n">20</span> Decision rationale</div>
+    <div class="section-label" style="margin-top:20px"><span class="n">27</span> Decision rationale</div>
     <div class="card accent"><div class="sub" style="color:var(--teal)">${escapeText(m.word)}</div><div class="desc" style="margin-top:0">${escapeText(ctx.summary)}</div></div>
-    <div class="section-label"><span class="n">21</span> Evidence quality</div>
+    <div class="section-label"><span class="n">28</span> Evidence quality</div>
     <div class="duo"><div class="metric"><div class="k">Success probability</div><div class="v">${ctx.score}<span class="u">/100</span></div></div><div class="metric good"><div class="k">Evidence confidence</div><div class="v">${ctx.confidence}<span class="u">/100</span></div></div></div>
     <div class="duo"><div class="metric good"><div class="k">Freshness</div><div class="v">${ctx.freshness}<span class="u">/100</span></div></div><div class="metric good"><div class="k">Source quality</div><div class="v">${ctx.sourceQuality}<span class="u">/100</span></div></div></div>
-    <div class="section-label"><span class="n">22</span> Why ${ctx.score}/100?</div>
+    <div class="section-label"><span class="n">29</span> Why ${ctx.score}/100?</div>
     ${breakdown}
-    <div class="section-label"><span class="n">23</span> Evidence summary — what SpotVest used</div>
+    <div class="section-label"><span class="n">30</span> Evidence summary — what SpotVest used</div>
     ${coverage}
-    <div class="section-label"><span class="n">24</span> Methodology</div>
+    <div class="section-label"><span class="n">31</span> Methodology</div>
     <div class="card"><div class="sub">Verified signals</div><ul class="bullets" style="margin-bottom:14px">${verified}</ul><div class="sub">Model insights</div><ul class="bullets" style="margin-bottom:14px">${model}</ul><div class="sub">Weighting</div><ul class="bullets"><li>Success probability weighted: Demand 25%, Customer fit 20%, Competition 15%, Financial 15%, Location 10%, Growth 10%, Risk 5%.</li></ul><div class="src">SpotVest scoring engine · OpenAI narrative layer</div></div>`;
 }
 
@@ -4117,7 +4307,23 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const centerKey = `${mapCenter[0].toFixed(3)},${mapCenter[1].toFixed(3)}`;
   const footReal = sv3FootReal && sv3FootReal.key === centerKey && sv3FootReal.real ? sv3FootReal : null;
 
+  // ---- v4 sections: P&L, cash-to-open, scenarios, what-be-true, permit,
+  // area dining, survival (modeled from real signals; honest labels) ----
+  const bucket = sv3Bucket(state.business);
+  const rentPctNum = Number((String(revenueRentPercent).match(/\d+/) || [0])[0]);
+  const baseRev = Math.round(((revLowNum + revHighNum) / 2) * 1000);
+  const rentNoteMatch = String(revenueNote).match(/\$([\d,]+)\s*\/?\s*mo/i);
+  const rentDollars = rentNoteMatch ? Number(rentNoteMatch[1].replace(/,/g, "")) : Math.round((rentPctNum / 100) * baseRev) || Math.round(baseRev * 0.12);
+  const pnl = sv3PnL(baseRev, rentDollars, bucket);
+  const cashOpen = sv3CashToOpen(bucket, rentDollars);
+  const scenarios = sv3ScenariosData(revLowNum, revHighNum, rentDollars, bucket);
+  const wtbt = sv3WhatToBeTrue(rentDollars, bucket);
+  const dining = sv3DiningDemand(currentBusinessResult(), footReal ? footReal.hourly : null);
+  const survival = sv3Survival(bucket, pressure);
+  const permit = sv3PermitRoadmap(bucket);
+
   const ctx = {
+    pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
     confidenceLabel: analysis.confidenceScore >= 80 ? "HIGH" : analysis.confidenceScore >= 60 ? "GOOD" : "REVIEW",
@@ -4158,6 +4364,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const activeTab = refs.app.querySelector("[data-sv3-tab].on")?.dataset.sv3Tab || "overview";
   const showingReport = refs.screenReport?.classList.contains("show");
   const showingCompare = refs.screenCompare?.classList.contains("show");
+  const showingPortfolio = refs.screenPortfolio?.classList.contains("show");
 
   // Only rewrite a tab when its content actually changed — this avoids
   // tearing down the live map / charts on every late async re-render.
@@ -4171,7 +4378,9 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   sv3BindActions();
   sv3InitWhatIf();
   if (marketChanged || !sv3MarketMap) sv3RenderMarketMap();
-  if (!showingReport && !showingCompare) {
+  if (showingPortfolio) {
+    sv3RenderPortfolio();
+  } else if (!showingReport && !showingCompare) {
     sv3ShowMain("report");
     sv3ShowTab("overview");
   } else {
@@ -4328,11 +4537,66 @@ function sv3RenderCompare() {
   sv3BindCompareControls();
 }
 
+/* ---------- portfolio (enterprise) ---------- */
+function sv3GeoDistMi(a, b) {
+  if (a.lat == null || a.lng == null || b.lat == null || b.lng == null) return null;
+  const R = 3958.8, toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function sv3RenderPortfolio() {
+  const refs = sv3Refs();
+  if (!refs.portfolioBody) return;
+  const list = (Array.isArray(state.compareList) ? state.compareList : []).slice()
+    .sort((a, b) => safeNumber(b.successProbability, 0) - safeNumber(a.successProbability, 0) || safeNumber(b.confidenceScore, 0) - safeNumber(a.confidenceScore, 0));
+  if (!list.length) {
+    refs.portfolioBody.innerHTML = `<div class="bottomline"><div class="bt">No sites yet</div><p>Analyze a location and tap <b>Add to compare</b> to build a ranked portfolio. SpotVest scores every site and flags overlap between same-brand locations.</p></div>`;
+    return;
+  }
+  const cls = (s) => s >= 70 ? "g" : s >= 45 ? "a" : "r";
+  const go = list.filter((x) => safeNumber(x.successProbability, 0) >= 70).length;
+  const cond = list.filter((x) => { const s = safeNumber(x.successProbability, 0); return s >= 45 && s < 70; }).length;
+  const avoid = list.filter((x) => safeNumber(x.successProbability, 0) < 45).length;
+  // Cannibalization: same-business sites within 0.6 mi (or same ZIP w/o coords).
+  const overlaps = {}; let alertMsg = "";
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j];
+    if (normalizeBusiness(a.business) !== normalizeBusiness(b.business)) continue;
+    const d = sv3GeoDistMi(a, b);
+    const near = d != null ? d < 0.6 : (a.zip && a.zip === b.zip);
+    if (!near) continue;
+    const pct = d != null ? Math.max(8, Math.round((0.6 - d) / 0.6 * 30)) : 15;
+    overlaps[a.id] = Math.max(overlaps[a.id] || 0, pct); overlaps[b.id] = Math.max(overlaps[b.id] || 0, pct);
+    if (!alertMsg) alertMsg = `Opening <b>${escapeText(b.address || b.area || ("ZIP " + b.zip))}</b> would pull an estimated <b>~${pct}%</b> of sales from <b>${escapeText(a.address || a.area || ("ZIP " + a.zip))}</b> ${d != null ? `${d.toFixed(1)} mi away` : "in the same ZIP"}.`;
+  }
+  const overlapCount = Object.keys(overlaps).length;
+  const cann = overlapCount ? `<div class="cann"><div class="ct"><span class="d"></span>Cannibalization alert</div><div class="cm"><b>${overlapCount} site${overlapCount > 1 ? "s" : ""} overlap another in your portfolio.</b> ${alertMsg} Flagged below.</div></div>` : "";
+  const sites = list.map((x, i) => {
+    const s = safeNumber(x.successProbability, 0);
+    const meta = [overlaps[x.id] ? `<span class="flag">⚠ Cannibalizes −${overlaps[x.id]}%</span>` : `<span class="ok">No overlap</span>`];
+    if (x.rentLabel) meta.push(`<span>Rent ${escapeText(x.rentLabel)}</span>`);
+    if (x.beLabel) meta.push(`<span>BE ${escapeText(x.beLabel)}</span>`);
+    meta.push(`<span>Conf ${formatBadgeScore(x.confidenceScore)}</span>`);
+    const loc = x.address || x.area || (x.zip ? `ZIP ${x.zip}` : "Location");
+    return `<div class="site${i === 0 ? " win" : ""}">${i === 0 ? '<span class="crown">Top pick</span>' : ""}<span class="rank">${i + 1}</span><span class="sc ${cls(s)}">${formatBadgeScore(s)}</span><div class="si"><div class="sn">${escapeText(x.business)}</div><div class="sa">${escapeText(loc)}</div><div class="smeta">${meta.join("")}</div></div><span class="chev">›</span></div>`;
+  }).join("");
+  refs.portfolioBody.innerHTML = `
+    <div class="pf-head">
+      <div class="pf-stat"><div class="v">${list.length}</div><div class="l">Sites</div></div>
+      <div class="pf-stat"><div class="v" style="color:var(--green)">${go}</div><div class="l">Go</div></div>
+      <div class="pf-stat"><div class="v" style="color:var(--amber)">${cond}</div><div class="l">Conditional</div></div>
+      <div class="pf-stat"><div class="v" style="color:var(--red)">${avoid}</div><div class="l">Avoid</div></div>
+    </div>
+    ${cann}
+    ${sites}`;
+}
+
 /* ---------- screen / tab controls ---------- */
 function sv3ShowMain(name) {
   const refs = sv3Refs();
   if (!refs.app) return;
-  [["input", refs.screenInput], ["report", refs.screenReport], ["compare", refs.screenCompare]].forEach(([key, el]) => {
+  [["input", refs.screenInput], ["report", refs.screenReport], ["compare", refs.screenCompare], ["portfolio", refs.screenPortfolio]].forEach(([key, el]) => {
     if (!el) return;
     el.classList.toggle("show", key === name);
     el.classList.toggle("hide", key !== name);
@@ -4340,6 +4604,7 @@ function sv3ShowMain(name) {
   if (refs.tabbar) refs.tabbar.classList.toggle("hide", name !== "report");
   refs.app.querySelectorAll("[data-sv3-nav]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Nav === name));
   if (name === "compare") sv3RenderCompare();
+  if (name === "portfolio") sv3RenderPortfolio();
   try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
 }
 function sv3ShowTab(name) {
@@ -4371,6 +4636,8 @@ function initSpotVestV3Controls() {
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
   document.querySelector("#sv3-compare-add")?.addEventListener("click", () => { try { addToCompare(); } catch {} sv3RenderCompare(); });
   document.querySelector("#sv3-compare-back")?.addEventListener("click", () => sv3ShowMain("report"));
+  document.querySelector("#sv3-portfolio-clear")?.addEventListener("click", () => { try { clearCompare(); } catch {} sv3RenderPortfolio(); });
+  document.querySelector("#sv3-portfolio-search")?.addEventListener("click", () => sv3ShowMain("input"));
 
   const syncFields = () => {
     const refs = sv3Refs();
@@ -5554,6 +5821,10 @@ function buildCompareSnapshot() {
     area: reportAreaTitle(state.zip, profile),
     zip: state.zip,
     address: state.location?.address || null,
+    lat: state.location?.lat ?? null,
+    lng: state.location?.lng ?? null,
+    rentLabel: (() => { const m = String(elements.revenueNote?.textContent || "").match(/\$([\d,]+)\s*\/?\s*mo/i); return m ? `$${Math.round(Number(m[1].replace(/,/g, "")) / 1000)}k` : null; })(),
+    beLabel: (String(elements.revenueBreakeven?.textContent || "").match(/\d+\s*(?:–|-)?\s*\d*\s*mo/i) || [null])[0],
     decision: analysis.decision,
     decisionSlug: analysis.decision.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     successProbability: clampScore(analysis.successProbability),
