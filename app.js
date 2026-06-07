@@ -3712,6 +3712,9 @@ function sv3OverviewHTML(ctx) {
 /* ---------- inside-app live map (MapLibre, real competitor pins) ---------- */
 let sv3MarketMap = null;
 let sv3MarketMapData = null;
+// Real foot-traffic data fetched from /api/point (MTA ridership + hourly
+// profile) for the analyzed location, keyed by rounded center coords.
+let sv3FootReal = null;
 
 function sv3Circle(center, radiusM) {
   const pts = 64, coords = [], [lng, lat] = center;
@@ -3771,20 +3774,29 @@ function sv3Spark(vals, w, h, top, bottom) {
   const area = line + ` L${w},${h} L0,${h} Z`;
   return { line, area, pts };
 }
-function sv3FootHourSVG(rawBusiness, score, seed) {
-  const shapes = {
-    cafe: [.35, .85, 1, .8, .6, .55, .6, .55, .5, .5, .42, .32, .22, .14, .08],
-    bar: [.05, .08, .12, .2, .3, .3, .35, .45, .6, .8, 1, .95, .72, .46, .3],
-    gym: [.5, .72, .55, .4, .35, .4, .45, .45, .52, .72, .92, 1, .7, .4, .2],
-    food: [.1, .2, .35, .6, 1, .7, .45, .5, .72, .96, .9, .6, .4, .22, .12],
-    retail: [.1, .3, .5, .66, .76, .82, .86, .9, 1, .94, .8, .6, .4, .25, .12]
-  };
-  const base = shapes[sv3Bucket(rawBusiness)] || shapes.retail;
-  const amp = 0.5 + Math.max(0, Math.min(100, score)) / 200; // taller where score is higher
-  const vals = base.map((v, i) => {
-    const j = (((seed >> (i % 16)) & 7) - 3) / 60; // small deterministic per-location jitter
-    return Math.max(0.05, Math.min(1, v * amp + j));
-  });
+function sv3FootHourSVG(rawBusiness, score, seed, realHourly) {
+  let vals;
+  if (Array.isArray(realHourly) && realHourly.length === 24 && realHourly.some((v) => v > 0)) {
+    // Real MTA hour-of-day ridership near this location, 6am → midnight.
+    const hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0];
+    const raw = hours.map((h) => Math.max(0, Math.min(1, Number(realHourly[h]) || 0)));
+    const max = Math.max(...raw, 0.001);
+    vals = raw.map((v) => Math.max(0.05, v / max));
+  } else {
+    const shapes = {
+      cafe: [.35, .85, 1, .8, .6, .55, .6, .55, .5, .5, .42, .32, .22, .14, .08],
+      bar: [.05, .08, .12, .2, .3, .3, .35, .45, .6, .8, 1, .95, .72, .46, .3],
+      gym: [.5, .72, .55, .4, .35, .4, .45, .45, .52, .72, .92, 1, .7, .4, .2],
+      food: [.1, .2, .35, .6, 1, .7, .45, .5, .72, .96, .9, .6, .4, .22, .12],
+      retail: [.1, .3, .5, .66, .76, .82, .86, .9, 1, .94, .8, .6, .4, .25, .12]
+    };
+    const base = shapes[sv3Bucket(rawBusiness)] || shapes.retail;
+    const amp = 0.5 + Math.max(0, Math.min(100, score)) / 200; // taller where score is higher
+    vals = base.map((v, i) => {
+      const j = (((seed >> (i % 16)) & 7) - 3) / 60; // small deterministic per-location jitter
+      return Math.max(0.05, Math.min(1, v * amp + j));
+    });
+  }
   const { line, area, pts } = sv3Spark(vals, 320, 130, 16, 118);
   // mark the two tallest points
   const order = vals.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
@@ -3864,10 +3876,10 @@ function sv3MarketHTML(ctx) {
     ${competitors}
     <div class="src" style="margin:-4px 2px 8px">Google Places · Yelp Fusion API</div>
     <div class="section-label"><span class="n">09</span> Foot traffic intelligence</div>
-    <div class="card accent"><div class="sub">Modeled estimate · ${escapeText(ctx.ftBacking)}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. Based on SpotVest's location intelligence model.</div></div>
+    <div class="card accent"><div class="sub">${ctx.ftReal ? "Live signal · MTA ridership near this point" : "Modeled estimate · SpotVest location model"}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. ${ctx.ftReal ? "Derived from MTA subway ridership near this location." : "Modeled from area density, transit, and commercial activity."}</div></div>
     <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span></div></div></div>
-    <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · MTA turnstile + SpotVest mobility model</div></div>
-    <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative"><span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span><svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/>${ctx.footHourSVG}</svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">Modeled · MTA turnstile + mobility model</div></div>
+    <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · SpotVest mobility model (peak hours &amp; split)</div></div>
+    <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative">${ctx.ftReal ? "" : `<span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span>`}<svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/>${ctx.footHourSVG}</svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">${ctx.ftReal ? "Live · MTA subway ridership by hour near this location (Dec 2024)" : "Modeled · category day-pattern scaled by area foot-traffic"}</div></div>
     <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g>${ctx.weekSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
     <div class="card"><div class="sub">Category saturation nearby</div>${cuisine}<div class="src">Google Places density · ${escapeText(ctx.radiusLabel)}</div></div>`;
 }
@@ -4101,6 +4113,10 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const beMonthMatch = String(revenueBreakeven).match(/(\d+)/);
   const beMonth = beMonthMatch ? Number(beMonthMatch[1]) : 14;
 
+  // Real per-location foot traffic from MTA ridership (fetched async below).
+  const centerKey = `${mapCenter[0].toFixed(3)},${mapCenter[1].toFixed(3)}`;
+  const footReal = sv3FootReal && sv3FootReal.key === centerKey && sv3FootReal.real ? sv3FootReal : null;
+
   const ctx = {
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
@@ -4116,10 +4132,11 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     recommendationCopy: `${business} is scored against local market structure. Validate category-specific competition, reviews, delivery demand, labor, buildout, and the exact block.`,
     conceptCards, competitorCards, cuisineRows, alternativeCards, breakdownCards, coverageCards,
     methodVerified: verifiedGroup ? verifiedGroup.items : [], methodModel: modelGroup ? modelGroup.items : [],
-    ftScore: (String(elements.footTrafficScore?.textContent || "").match(/\d+/) || ["60"])[0],
-    ftActivity: (elements.footTrafficActivity?.textContent || "Moderate").replace(/^Estimated Activity:\s*/i, "").replace(/\..*$/, ""),
-    ftBacking: "stronger data backing",
-    ftVisitors: (elements.footTrafficVisitors?.textContent || "—").replace(/\s*daily$/i, ""),
+    ftReal: !!footReal,
+    ftScore: footReal ? String(footReal.footPct) : (String(elements.footTrafficScore?.textContent || "").match(/\d+/) || ["60"])[0],
+    ftActivity: footReal ? (footReal.footPct >= 74 ? "High" : footReal.footPct >= 48 ? "Medium" : "Low") : (elements.footTrafficActivity?.textContent || "Moderate").replace(/^Estimated Activity:\s*/i, "").replace(/\..*$/, ""),
+    ftBacking: footReal ? "live MTA ridership near this location" : "modeled estimate",
+    ftVisitors: footReal ? `~${Number(footReal.footfall).toLocaleString()}/day` : (elements.footTrafficVisitors?.textContent || "—").replace(/\s*daily$/i, ""),
     ftWalk: (String(elements.footTrafficWalkability?.textContent || "").match(/\d+/) || ["60"])[0],
     ftPeak: elements.footTrafficPeaks?.textContent || "Morning / lunch / evening",
     ftSplit: (elements.footTrafficWeekSplit?.textContent || "").replace(/Weekday\s*/i, "").replace(/\s*\/\s*weekend\s*/i, " / ").replace(/\s*modeled split\.?$/i, "") || "64% / 36%",
@@ -4128,7 +4145,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     pulseFoot: sv3Level((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [String(safeNumber(profile.transit, 50))])[0]), pulseSpend: sv3Level(profile.income),
     pulseCost: safeNumber(profile.rent, 50) >= 70 ? "Elevated" : "Manageable",
     chainFitPct: sv3Pct(safeNumber(profile.chainFit, 50)),
-    footHourSVG: sv3FootHourSVG(state.business, ftScoreNum, seed),
+    footHourSVG: sv3FootHourSVG(state.business, ftScoreNum, seed, footReal ? footReal.hourly : null),
     weekSVG: sv3WeekSVG(weekdayPct),
     revCost: sv3RevCostSVG(beMonth, costFrac),
     seasonSVG: sv3SeasonSVG(state.business, ftScoreNum),
@@ -4159,6 +4176,25 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     sv3ShowTab("overview");
   } else {
     sv3ShowTab(activeTab);
+  }
+
+  // Fetch real MTA ridership + hourly profile for this location once, then
+  // re-render so the foot-traffic score, activity and by-hour curve are
+  // location-specific. Guarded by centerKey so it runs only once per location.
+  if (mapCenter && (!sv3FootReal || sv3FootReal.key !== centerKey)) {
+    sv3LoadFootTraffic(mapCenter, centerKey, profile, recommendations, analysis);
+  }
+}
+
+async function sv3LoadFootTraffic(center, key, profile, recommendations, analysis) {
+  try {
+    const u = `/api/point?lng=${center[0]}&lat=${center[1]}&radius=805&business=all`;
+    const d = await (await fetch(u)).json();
+    // Only treat as real when the figure is backed by actual MTA ridership.
+    sv3FootReal = { key, real: !!d.mtaSource, hourly: Array.isArray(d.hourly) ? d.hourly : null, footfall: safeNumber(d.footfall, 0), footPct: sv3Pct(d.footPct) };
+    if (sv3FootReal.real) renderSpotVestV3(profile, recommendations, analysis);
+  } catch (e) {
+    sv3FootReal = { key, real: false }; // mark attempted; keep modeled fallback
   }
 }
 

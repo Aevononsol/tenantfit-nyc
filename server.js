@@ -1556,12 +1556,16 @@ async function pointSnapshot(lng, lat, radiusMeters, business) {
     radiusMeters: Math.round(Math.max(150, Math.min(3000, radiusMeters || 800)))
   };
 
-  const [places, mtaRows] = await Promise.all([
+  const mtaWhere = `within_circle(georeference, ${lat}, ${lng}, ${location.radiusMeters}) AND transit_timestamp between '2024-12-01T00:00:00' and '2025-01-01T00:00:00'`;
+  const [places, mtaRows, hourRows] = await Promise.all([
     googlePlaceSignals("", term, location).catch(integrationFallback("nearby competitors", null)),
+    dataNyJson("wujg-7c2s", { $select: "sum(ridership)", $where: mtaWhere }).catch(integrationFallback("MTA ridership", [])),
+    // Real hour-of-day ridership profile near this point — powers a
+    // location-specific foot-traffic-by-hour curve (not a category template).
     dataNyJson("wujg-7c2s", {
-      $select: "sum(ridership)",
-      $where: `within_circle(georeference, ${lat}, ${lng}, ${location.radiusMeters}) AND transit_timestamp between '2024-12-01T00:00:00' and '2025-01-01T00:00:00'`
-    }).catch(integrationFallback("MTA ridership", []))
+      $select: "date_extract_hh(transit_timestamp) AS hour, sum(ridership) AS ride",
+      $where: mtaWhere, $group: "hour", $order: "hour", $limit: "24"
+    }).catch(integrationFallback("MTA hourly", []))
   ]);
 
   const competitors = ((places && places.mapPlaces) || [])
@@ -1587,7 +1591,17 @@ async function pointSnapshot(lng, lat, radiusMeters, business) {
   const footPct = Math.max(1, Math.min(99, Math.round(Math.log10(footfall + 1) * 22)));
   const demand = Math.max(5, Math.min(98, Math.round(footPct * 0.7 + (24 - Math.min(24, inRadiusCount * 3)))));
 
-  return { footfall, footPct, demand, competitors };
+  // Normalized 24-hour ridership profile (peak = 1). Null when no nearby
+  // station data, so the client can fall back to a modeled curve.
+  let hourly = null;
+  if (Array.isArray(hourRows) && hourRows.length) {
+    const arr = new Array(24).fill(0);
+    hourRows.forEach((r) => { const h = Number(r.hour); const v = Number(r.ride) || 0; if (h >= 0 && h < 24) arr[h] = v; });
+    const max = Math.max(...arr);
+    if (max > 0) hourly = arr.map((v) => Math.round((v / max) * 100) / 100);
+  }
+
+  return { footfall, footPct, demand, competitors, hourly, mtaDaily: dailyRidership, mtaSource: dailyRidership > 0 };
 }
 
 async function businessCount(zip, businessInput, location = null) {
