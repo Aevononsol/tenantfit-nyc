@@ -2991,12 +2991,14 @@ function readSignalBundleRaw() {
 function persistSignalBundle() {
   try {
     const prev = readSignalBundleRaw() || {};
+    // First-write-wins: once a real value is cached for a location it LOCKS for
+    // the TTL window, so a later differing live response can't change the score.
     localStorage.setItem(signalCacheKey(), JSON.stringify({
-      t: Date.now(),
-      business: sigReal(state.lastBusinessResult, true) ? state.lastBusinessResult : (prev.business || null),
-      civic: sigReal(state.lastCivicResult) ? state.lastCivicResult : (prev.civic || null),
-      site: sigReal(state.lastSiteIntelResult) ? state.lastSiteIntelResult : (prev.site || null),
-      concept: sigReal(state.lastConceptFitResult) ? state.lastConceptFitResult : (prev.concept || null)
+      t: prev.t || Date.now(),
+      business: prev.business || (sigReal(state.lastBusinessResult, true) ? state.lastBusinessResult : null),
+      civic: prev.civic || (sigReal(state.lastCivicResult) ? state.lastCivicResult : null),
+      site: prev.site || (sigReal(state.lastSiteIntelResult) ? state.lastSiteIntelResult : null),
+      concept: prev.concept || (sigReal(state.lastConceptFitResult) ? state.lastConceptFitResult : null)
     }));
   } catch (e) { /* storage unavailable — non-fatal */ }
 }
@@ -3006,10 +3008,13 @@ function persistSignalBundle() {
 function reconcileSignalsFromCache() {
   const c = readSignalBundleRaw();
   if (!c) return;
-  if (c.business && !sigReal(state.lastBusinessResult, true)) state.lastBusinessResult = c.business;
-  if (c.civic && !sigReal(state.lastCivicResult)) state.lastCivicResult = c.civic;
-  if (c.site && !sigReal(state.lastSiteIntelResult)) state.lastSiteIntelResult = c.site;
-  if (c.concept && !sigReal(state.lastConceptFitResult)) state.lastConceptFitResult = c.concept;
+  // Always prefer the cached real value (it's locked first-write-wins), so the
+  // score uses identical inputs on every run within the TTL window. Cache only
+  // ever holds real (non-fallback) values.
+  if (c.business) state.lastBusinessResult = c.business;
+  if (c.civic) state.lastCivicResult = c.civic;
+  if (c.site) state.lastSiteIntelResult = c.site;
+  if (c.concept) state.lastConceptFitResult = c.concept;
 }
 function hydrateSignalBundle() {
   // Seed last-known-good before loaders fire (so even the first render uses
@@ -3031,15 +3036,24 @@ function requiredSignalsReal() {
 // signal has actually arrived. Retry loaders (the server caches a slow first
 // fetch, so a later attempt succeeds) within a time budget, then render once.
 // Result: a brand-new address scores the same on run 1 as run 2.
-async function commitScoreWhenReady(zip, fireSignals) {
-  const deadline = Date.now() + 80000; // generous budget — prefer slow over wrong
+async function commitScoreWhenReady(zip) {
+  const deadline = Date.now() + 120000; // generous budget — prefer slow over wrong
+  const notReal = (r, isBiz) => !(r && contextMatches(r) && !r.fallback && (!isBiz || !r.loading));
+  // Concept-fit doesn't gate the score (it's flavor) — fire once.
+  safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit());
   for (;;) {
-    await fireSignals();
+    reconcileSignalsFromCache(); // lock any already-cached real signals first
+    const jobs = [];
+    if (notReal(state.lastBusinessResult, true)) jobs.push(safeUiUpdate("business signal loader", () => renderBusinessCheck()));
+    if (notReal(state.lastCivicResult)) jobs.push(safeUiUpdate("risk signal loader", () => renderCivicCheck()));
+    if (notReal(state.lastSiteIntelResult)) jobs.push(safeUiUpdate("site signal loader", () => renderSiteIntelCheck()));
+    if (!jobs.length) break; // all required signals are real
+    await Promise.allSettled(jobs.filter((p) => p && typeof p.then === "function"));
     if (state.zip !== zip) return; // superseded by a newer analysis
     persistSignalBundle();
     reconcileSignalsFromCache();
     if (requiredSignalsReal() || Date.now() > deadline) break;
-    await new Promise((r) => setTimeout(r, 1500)); // brief pause lets the server cache warm
+    await new Promise((r) => setTimeout(r, 1200)); // brief pause; lets the server cache warm
   }
   if (state.zip !== zip) return;
   persistSignalBundle();
@@ -5696,17 +5710,10 @@ function render(zip, options = {}) {
   safeUiUpdate("foot traffic intelligence", () => renderFootTrafficIntelligence(profile));
   safeUiUpdate("revenue estimator", () => renderRevenueEstimator(profile));
   if (!options.preserveLiveSignals) {
-    // Seed last-known-good signals for this exact location before firing loaders.
+    // Seed last-known-good signals for this exact location, then load+commit the
+    // score only once every required signal is real (retrying the missing ones).
     hydrateSignalBundle();
-    // Fire all signal loaders once; returns a promise that settles when this
-    // round is done.
-    const fireSignals = () => Promise.allSettled([
-      safeUiUpdate("business signal loader", () => renderBusinessCheck()),
-      safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit()),
-      safeUiUpdate("risk signal loader", () => renderCivicCheck()),
-      safeUiUpdate("site signal loader", () => renderSiteIntelCheck())
-    ].filter((p) => p && typeof p.then === "function"));
-    commitScoreWhenReady(zip, fireSignals);
+    commitScoreWhenReady(zip);
   }
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
