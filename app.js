@@ -2960,6 +2960,65 @@ function currentConceptFitResult() {
   return contextMatches(state.lastConceptFitResult) ? state.lastConceptFitResult : null;
 }
 
+// ---- Deterministic scoring: per-location signal cache ----------------------
+// The score is a pure function of the resolved signal set. To guarantee that
+// the SAME address always produces the SAME score, we (1) cache the fully
+// resolved signal bundle per location, (2) reuse it if a later fetch flaps or
+// times out (so the input set never silently changes), and (3) compute the
+// authoritative score once, after all signals settle (see render()).
+const SIGNAL_CACHE_TTL_MS = 20 * 60 * 1000; // matches the server's API cache window
+function signalCacheKey() {
+  return `sigbundle:${state.zip}|${normalizeBusiness(state.business)}|${state.location?.lat || ""}|${state.location?.lng || ""}|${state.location?.radiusMiles || ""}`;
+}
+function signalBundleComplete() {
+  const b = currentBusinessResult();
+  return Boolean(
+    b && b.registryExact &&
+    state.lastCivicResult && !state.lastCivicResult.fallback &&
+    state.lastSiteIntelResult && !state.lastSiteIntelResult.fallback
+  );
+}
+function persistSignalBundle() {
+  try {
+    if (!signalBundleComplete()) return; // only cache a complete, real bundle
+    localStorage.setItem(signalCacheKey(), JSON.stringify({
+      t: Date.now(),
+      business: state.lastBusinessResult || null,
+      civic: state.lastCivicResult || null,
+      site: state.lastSiteIntelResult || null,
+      concept: state.lastConceptFitResult || null
+    }));
+  } catch (e) { /* storage unavailable — non-fatal */ }
+}
+function readSignalBundle() {
+  try {
+    const raw = localStorage.getItem(signalCacheKey());
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    if (!c || Date.now() - c.t > SIGNAL_CACHE_TTL_MS) return null;
+    return c;
+  } catch (e) { return null; }
+}
+// Reuse a cached complete bundle so a flapping/timed-out fetch can't change the
+// input set (and therefore the score) between identical runs.
+function restoreSignalBundle(c) {
+  if (!c) return;
+  if (c.business) state.lastBusinessResult = c.business;
+  if (c.civic) state.lastCivicResult = c.civic;
+  if (c.site) state.lastSiteIntelResult = c.site;
+  if (c.concept) state.lastConceptFitResult = c.concept;
+}
+function hydrateSignalBundle() {
+  const c = readSignalBundle();
+  if (!c) return;
+  // Seed last-known-good so the first render and any timed-out signal use stable
+  // inputs rather than a divergent fallback.
+  if (c.business && !contextMatches(state.lastBusinessResult)) state.lastBusinessResult = c.business;
+  if (c.civic && !contextMatches(state.lastCivicResult)) state.lastCivicResult = c.civic;
+  if (c.site && !contextMatches(state.lastSiteIntelResult)) state.lastSiteIntelResult = c.site;
+  if (c.concept && !contextMatches(state.lastConceptFitResult)) state.lastConceptFitResult = c.concept;
+}
+
 function decisionCopyFor(decision, successProbability, confidenceScore, riskScore) {
   if (decision === "OPEN") {
     return "Strong customer fit and healthy demand support opening, subject to normal site diligence.";
@@ -5241,7 +5300,10 @@ async function renderBusinessCheck() {
   const config = modeledBusinessConfig(business);
   const count = estimateCompetitors(state.zip, business, profile, config);
   const requestId = ++state.businessRequestId;
-  state.lastBusinessResult = null;
+  // Keep a hydrated last-known-good result while the live check is in flight, so
+  // a slow/timed-out fetch doesn't transiently flip competition to the fallback
+  // path (which would change the score). Only clear if there's nothing valid.
+  if (!contextMatches(state.lastBusinessResult)) state.lastBusinessResult = null;
   state.businessCheckPending = true;
   updateActionGuards();
 
@@ -5516,10 +5578,25 @@ function render(zip, options = {}) {
   safeUiUpdate("foot traffic intelligence", () => renderFootTrafficIntelligence(profile));
   safeUiUpdate("revenue estimator", () => renderRevenueEstimator(profile));
   if (!options.preserveLiveSignals) {
-    safeUiUpdate("business signal loader", () => renderBusinessCheck());
-    safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit());
-    safeUiUpdate("risk signal loader", () => renderCivicCheck());
-    safeUiUpdate("site signal loader", () => renderSiteIntelCheck());
+    // Seed last-known-good signals for this exact location before firing loaders.
+    hydrateSignalBundle();
+    const cachedBundle = readSignalBundle();
+    const loaders = [
+      safeUiUpdate("business signal loader", () => renderBusinessCheck()),
+      safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit()),
+      safeUiUpdate("risk signal loader", () => renderCivicCheck()),
+      safeUiUpdate("site signal loader", () => renderSiteIntelCheck())
+    ];
+    // Authoritative, deterministic score: compute ONCE after every signal has
+    // settled, from a complete input set. If any signal flapped/timed out, reuse
+    // the last complete cached bundle so identical input → identical score.
+    Promise.allSettled(loaders.filter((p) => p && typeof p.then === "function")).then(() => {
+      if (state.zip !== zip) return; // a newer analysis superseded this one
+      if (signalBundleComplete()) persistSignalBundle();
+      else if (cachedBundle) restoreSignalBundle(cachedBundle);
+      const recs = buildRecommendations(profileForZip(state.zip));
+      safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
+    });
   }
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
