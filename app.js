@@ -2970,27 +2970,13 @@ const SIGNAL_CACHE_TTL_MS = 20 * 60 * 1000; // matches the server's API cache wi
 function signalCacheKey() {
   return `sigbundle:${state.zip}|${normalizeBusiness(state.business)}|${state.location?.lat || ""}|${state.location?.lng || ""}|${state.location?.radiusMiles || ""}`;
 }
-function signalBundleComplete() {
-  const b = currentBusinessResult();
-  return Boolean(
-    b && b.registryExact &&
-    state.lastCivicResult && !state.lastCivicResult.fallback &&
-    state.lastSiteIntelResult && !state.lastSiteIntelResult.fallback
-  );
+// A signal is "real" (cacheable) when it matches the current location AND is not
+// a transient fallback. Business is real only with a live registry/Places match.
+function sigReal(r, isBusiness) {
+  if (!r || !contextMatches(r)) return false;
+  return isBusiness ? Boolean(r.registryExact) : !r.fallback;
 }
-function persistSignalBundle() {
-  try {
-    if (!signalBundleComplete()) return; // only cache a complete, real bundle
-    localStorage.setItem(signalCacheKey(), JSON.stringify({
-      t: Date.now(),
-      business: state.lastBusinessResult || null,
-      civic: state.lastCivicResult || null,
-      site: state.lastSiteIntelResult || null,
-      concept: state.lastConceptFitResult || null
-    }));
-  } catch (e) { /* storage unavailable — non-fatal */ }
-}
-function readSignalBundle() {
+function readSignalBundleRaw() {
   try {
     const raw = localStorage.getItem(signalCacheKey());
     if (!raw) return null;
@@ -2999,24 +2985,36 @@ function readSignalBundle() {
     return c;
   } catch (e) { return null; }
 }
-// Reuse a cached complete bundle so a flapping/timed-out fetch can't change the
-// input set (and therefore the score) between identical runs.
-function restoreSignalBundle(c) {
+// Accumulate the best (real) value for EACH signal independently, merging with
+// what's already cached — so a signal we obtained earlier is never lost just
+// because a different signal (or a later run) flapped.
+function persistSignalBundle() {
+  try {
+    const prev = readSignalBundleRaw() || {};
+    localStorage.setItem(signalCacheKey(), JSON.stringify({
+      t: Date.now(),
+      business: sigReal(state.lastBusinessResult, true) ? state.lastBusinessResult : (prev.business || null),
+      civic: sigReal(state.lastCivicResult) ? state.lastCivicResult : (prev.civic || null),
+      site: sigReal(state.lastSiteIntelResult) ? state.lastSiteIntelResult : (prev.site || null),
+      concept: sigReal(state.lastConceptFitResult) ? state.lastConceptFitResult : (prev.concept || null)
+    }));
+  } catch (e) { /* storage unavailable — non-fatal */ }
+}
+// For any signal that is currently missing OR a transient fallback, substitute
+// the cached real value. This is what makes a flapping/timed-out fetch unable to
+// change the score: once a signal has been obtained for a location, it sticks.
+function reconcileSignalsFromCache() {
+  const c = readSignalBundleRaw();
   if (!c) return;
-  if (c.business) state.lastBusinessResult = c.business;
-  if (c.civic) state.lastCivicResult = c.civic;
-  if (c.site) state.lastSiteIntelResult = c.site;
-  if (c.concept) state.lastConceptFitResult = c.concept;
+  if (c.business && !sigReal(state.lastBusinessResult, true)) state.lastBusinessResult = c.business;
+  if (c.civic && !sigReal(state.lastCivicResult)) state.lastCivicResult = c.civic;
+  if (c.site && !sigReal(state.lastSiteIntelResult)) state.lastSiteIntelResult = c.site;
+  if (c.concept && !sigReal(state.lastConceptFitResult)) state.lastConceptFitResult = c.concept;
 }
 function hydrateSignalBundle() {
-  const c = readSignalBundle();
-  if (!c) return;
-  // Seed last-known-good so the first render and any timed-out signal use stable
-  // inputs rather than a divergent fallback.
-  if (c.business && !contextMatches(state.lastBusinessResult)) state.lastBusinessResult = c.business;
-  if (c.civic && !contextMatches(state.lastCivicResult)) state.lastCivicResult = c.civic;
-  if (c.site && !contextMatches(state.lastSiteIntelResult)) state.lastSiteIntelResult = c.site;
-  if (c.concept && !contextMatches(state.lastConceptFitResult)) state.lastConceptFitResult = c.concept;
+  // Seed last-known-good before loaders fire (so even the first render uses
+  // stable inputs). Same logic as reconcile.
+  reconcileSignalsFromCache();
 }
 
 function decisionCopyFor(decision, successProbability, confidenceScore, riskScore) {
@@ -3543,8 +3541,64 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   };
 }
 
+// Deterministic, inspectable score breakdown for every report. Internal/debug
+// (window.__spotvestScoreBreakdown + console.debug when window.__spotvestDebug);
+// proves every number traces to a deterministic component, not AI/random.
+function spotvestScoreBreakdown(analysis, profile) {
+  const by = (name) => {
+    const s = (analysis.scores || []).find((x) => x.name === name);
+    return s ? clampScore(s.value) : null;
+  };
+  const br = currentBusinessResult();
+  const site = currentSiteIntelResult();
+  const civic = currentCivicResult();
+  const ftNum = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [null])[0]);
+  const dataSourcesUsed = [
+    "U.S. Census ACS (demographics)",
+    br && br.googlePlaces && "Google Places (competition)",
+    br && br.registryExact && "NYC Open Data (business registry)",
+    site && !site.fallback && "MTA / PLUTO (mobility & commercial mix)",
+    civic && !civic.fallback && "NYC 311 / DOB (risk & development)",
+    br && br.demandMomentum && br.demandMomentum.available && "Google Trends (demand momentum)"
+  ].filter(Boolean);
+  const fallbackDataUsed = [
+    !(br && br.registryExact) && "competition (no live registry/Places match → category model fallback)",
+    !(site && !site.fallback) && "mobility / site-intelligence (modeled fallback)",
+    !(civic && !civic.fallback) && "risk / civic signals (neutral fallback)",
+    !(br && br.demandMomentum && br.demandMomentum.available) && "demand momentum (unavailable)"
+  ].filter(Boolean);
+  return {
+    location: { zip: state.zip, business: normalizeBusiness(state.business), address: state.location?.address || null, radiusMiles: state.location?.radiusMiles || null },
+    components: {
+      demographicsScore: by("Customer fit"),
+      competitionScore: by("Competition"),
+      demandScore: by("Demand"),
+      mobilityScore: by("Location quality"),
+      financialViabilityScore: by("Financial viability"),
+      areaMomentumScore: by("Area momentum"),
+      riskScore: by("Risk"),
+      footTrafficEstimateScore: Number.isFinite(ftNum) ? ftNum : null
+    },
+    weights: businessSuccessWeights,
+    finalWeightedScore: clampScore(analysis.successProbability),
+    confidenceScore: clampScore(analysis.confidenceScore),
+    confidenceMeans: "completeness/reliability of available evidence — NOT odds of success",
+    decision: analysis.decision,
+    dataSourcesUsed,
+    missingData: (analysis.validation && analysis.validation.missing) || [],
+    fallbackDataUsed
+  };
+}
+function logScoreBreakdown(analysis, profile) {
+  try {
+    window.__spotvestScoreBreakdown = spotvestScoreBreakdown(analysis, profile);
+    if (window.__spotvestDebug) console.debug("[SpotVest score breakdown]", window.__spotvestScoreBreakdown);
+  } catch (e) { /* breakdown is best-effort/internal */ }
+}
+
 function renderInstitutionalAnalysis(profile, recommendations) {
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
+  logScoreBreakdown(analysis, profile);
   renderEvidenceCoverage(analysis);
   setStatusPill(
     elements.institutionalConfidence,
@@ -4063,7 +4117,7 @@ function sv3MarketHTML(ctx) {
     <div class="src" style="margin:-4px 2px 8px">Google Places · Yelp Fusion API</div>
     <div class="section-label"><span class="n">09</span> Foot traffic intelligence</div>
     <div class="card accent"><div class="sub">${ctx.ftReal ? "Live signal · MTA ridership near this point" : "Modeled estimate · SpotVest location model"}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. ${ctx.ftReal ? "Derived from MTA subway ridership near this location." : "Modeled from area density, transit, and commercial activity."}</div></div>
-    <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span></div></div></div>
+    <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div><div class="src" style="margin-top:4px">${escapeText(ctx.ftVisitorsTag || "MODELED RANGE")}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span> <span class="src" style="display:inline">MODELED</span></div></div></div>
     <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · SpotVest mobility model (peak hours &amp; split)</div></div>
     <div class="card"><div class="sub">Foot traffic by hour</div><div class="chart" style="position:relative">${ctx.ftReal ? "" : `<span class="peaktag" style="left:34%;top:-2px">Lunch peak</span><span class="peaktag" style="left:72%;top:-2px">Dinner peak</span>`}<svg viewBox="0 0 320 130" style="margin-top:14px"><line class="gl" x1="0" y1="30" x2="320" y2="30"/><line class="gl" x1="0" y1="65" x2="320" y2="65"/><line class="gl" x1="0" y1="100" x2="320" y2="100"/>${ctx.footHourSVG}</svg><div style="display:flex;justify-content:space-between" class="axlab"><span>6a</span><span>9a</span><span>12p</span><span>3p</span><span>6p</span><span>9p</span><span>12a</span></div></div><div class="src">${ctx.ftReal ? "Live · MTA subway ridership by hour near this location (Dec 2024)" : "Modeled · category day-pattern scaled by area foot-traffic"}</div></div>
     <div class="card"><div class="sub">Weekday vs weekend demand</div><div class="chart"><svg viewBox="0 0 320 120"><g>${ctx.weekSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#3BD6C9"></span>Weekday</span><span class="li"><span class="sw" style="background:#5B8CFF"></span>Weekend</span></div></div>
@@ -4425,7 +4479,12 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     ftScore: footReal ? String(footReal.footPct) : (String(elements.footTrafficScore?.textContent || "").match(/\d+/) || ["60"])[0],
     ftActivity: footReal ? (footReal.footPct >= 74 ? "High" : footReal.footPct >= 48 ? "Medium" : "Low") : (elements.footTrafficActivity?.textContent || "Moderate").replace(/^Estimated Activity:\s*/i, "").replace(/\..*$/, ""),
     ftBacking: footReal ? "live MTA ridership near this location" : "modeled estimate",
-    ftVisitors: footReal ? `~${Number(footReal.footfall).toLocaleString()}/day` : (elements.footTrafficVisitors?.textContent || "—").replace(/\s*daily$/i, ""),
+    // Rounded to avoid false precision. Real MTA ridership is a verified proxy;
+    // the modeled path is already an estimated range. Tagged honestly.
+    ftVisitors: footReal
+      ? `≈ ${(() => { const n = Number(footReal.footfall); return n >= 10000 ? Math.round(n / 1000) + "k" : n >= 1000 ? (Math.round(n / 100) / 10) + "k" : String(Math.round(n / 100) * 100); })()}/day`
+      : (elements.footTrafficVisitors?.textContent || "—").replace(/\s*daily$/i, ""),
+    ftVisitorsTag: footReal ? "VERIFIED · MTA ridership proxy" : "MODELED RANGE",
     ftWalk: (String(elements.footTrafficWalkability?.textContent || "").match(/\d+/) || ["60"])[0],
     ftPeak: elements.footTrafficPeaks?.textContent || "Morning / lunch / evening",
     ftSplit: (elements.footTrafficWeekSplit?.textContent || "").replace(/Weekday\s*/i, "").replace(/\s*\/\s*weekend\s*/i, " / ").replace(/\s*modeled split\.?$/i, "") || "64% / 36%",
@@ -4504,10 +4563,29 @@ function chainFitCopySafe() {
 function refreshSpotVestV3Money() { /* values are rebuilt with the Money tab; kept for compatibility */ }
 
 async function generateClientDecisionReport() {
+  // Compute the deterministic score here and send it so OpenAI explains it
+  // rather than inventing its own numbers.
+  let score = null;
+  try {
+    const profile = profileForZip(state.zip);
+    if (profile) {
+      const recs = buildRecommendations(profile);
+      const a = buildInstitutionalAnalysis(profile, recs);
+      score = {
+        successProbability: clampScore(a.successProbability),
+        confidenceScore: clampScore(a.confidenceScore),
+        decision: a.decision,
+        topRisks: (a.topRisks || []).slice(0, 4),
+        conditions: (a.conditions || []).slice(0, 5),
+        footTraffic: (elements.footTrafficActivity?.textContent || "").replace(/^Estimated Activity:\s*/i, "").trim() || (elements.footTrafficScore?.textContent || "").trim(),
+        revenue: (elements.revenueProjection?.textContent || "").trim()
+      };
+    }
+  } catch (e) { /* if scoring isn't ready, server will say evidence insufficient */ }
   const response = await fetch("/api/client-memo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zip: state.zip, business: state.business })
+    body: JSON.stringify({ zip: state.zip, business: state.business, score })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok && result.memo) return { memo: result.memo, warning: result.error || "" };
@@ -5580,7 +5658,6 @@ function render(zip, options = {}) {
   if (!options.preserveLiveSignals) {
     // Seed last-known-good signals for this exact location before firing loaders.
     hydrateSignalBundle();
-    const cachedBundle = readSignalBundle();
     const loaders = [
       safeUiUpdate("business signal loader", () => renderBusinessCheck()),
       safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit()),
@@ -5588,12 +5665,13 @@ function render(zip, options = {}) {
       safeUiUpdate("site signal loader", () => renderSiteIntelCheck())
     ];
     // Authoritative, deterministic score: compute ONCE after every signal has
-    // settled, from a complete input set. If any signal flapped/timed out, reuse
-    // the last complete cached bundle so identical input → identical score.
+    // settled. Accumulate any real signals obtained this run, then substitute
+    // cached real values for any signal that flapped/timed out — so identical
+    // input → identical score, even when an upstream intermittently fails.
     Promise.allSettled(loaders.filter((p) => p && typeof p.then === "function")).then(() => {
       if (state.zip !== zip) return; // a newer analysis superseded this one
-      if (signalBundleComplete()) persistSignalBundle();
-      else if (cachedBundle) restoreSignalBundle(cachedBundle);
+      persistSignalBundle();
+      reconcileSignalsFromCache();
       const recs = buildRecommendations(profileForZip(state.zip));
       safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
     });

@@ -2054,7 +2054,7 @@ async function sendPlacePhoto(response, photoRef) {
   response.end(bytes);
 }
 
-async function clientMemo({ zip, business, profile, businessResult }) {
+async function clientMemo({ zip, business, profile, businessResult, score }) {
   if (!process.env.OPENAI_API_KEY) {
     return {
       memo: "Decision report service is not connected, so the report could not be generated.",
@@ -2062,31 +2062,37 @@ async function clientMemo({ zip, business, profile, businessResult }) {
     };
   }
 
+  // SpotVest's deterministic engine computes every number. OpenAI ONLY writes
+  // prose that explains those fixed values — it must never calculate or output
+  // its own score, probability, revenue, foot-traffic, rent, or decision.
+  const s = score || {};
+  const computed = [
+    "COMPUTED VALUES — already produced by SpotVest's deterministic model. Treat as FIXED FACTS. Do NOT change, recompute, round, or invent any number, score, probability, range, or decision:",
+    `- Success probability (opportunity score): ${s.successProbability != null ? `${s.successProbability}/100` : "not provided"}`,
+    `- Evidence confidence (data quality, NOT odds of success): ${s.confidenceScore != null ? `${s.confidenceScore}/100` : "not provided"}`,
+    `- Decision: ${s.decision || "not provided"}`,
+    `- Top risks: ${(s.topRisks && s.topRisks.length) ? s.topRisks.join("; ") : "not provided"}`,
+    `- Conditions to open: ${(s.conditions && s.conditions.length) ? s.conditions.join("; ") : "not provided"}`,
+    `- Foot traffic (modeled): ${s.footTraffic || "not provided"}`,
+    `- Revenue (modeled range): ${s.revenue || "not provided"}`
+  ].join("\n");
+
   const prompt = [
-    "You are SpotVest, an enterprise-grade business decision intelligence, market research, site selection, and business fit decision engine.",
-    "Your job is to determine the probability that a business succeeds in a specific geographic area using evidence-based analysis.",
-    "Never generate random business ideas. Never optimize for popularity. Optimize for probability of long-term business success.",
-    "Separate Verified Signals, Model Insights, and Estimated Factors. Do not fabricate numbers. Do not present estimates as facts.",
-    "If the supplied evidence is too weak for a confident recommendation, write INSUFFICIENT DATA and explain what is missing.",
+    "You are SpotVest's explanation writer. You ONLY write a plain-English prose report that EXPLAINS an already-computed decision.",
+    "You must NEVER calculate, estimate, output, or alter any numeric value — no score, probability, confidence, revenue, foot traffic, rent, survival rate, or ranking. A separate deterministic engine computed those and they are given to you below.",
+    "If you state a number, it MUST exactly match one of the computed values provided. Never introduce a new number or a different value.",
+    "'Confidence' means how complete and reliable the available evidence is — NOT the odds of success. Make that distinction explicit if you mention confidence.",
+    "Separate Verified Signals, Modeled Estimates, and Needs-Verification. Clearly label modeled values as modeled; never present an estimate as a fact.",
+    "If a computed value says 'not provided', say the evidence is insufficient for it rather than inventing one.",
     "",
-    `Location: ZIP ${zip}`,
-    `Business category: ${business}`,
+    `Location: ZIP ${zip} · Business category: ${business}`,
     "",
-    "Write a concise business success decision report with these sections:",
-    "EXECUTIVE SUMMARY",
-    "OVERALL OPPORTUNITY SCORE",
-    "CONFIDENCE SCORE",
-    "TOP RECOMMENDATION",
-    "TOP RISKS",
-    "VERIFIED SIGNALS",
-    "MODEL INSIGHTS",
-    "ESTIMATED FACTORS",
-    "SCENARIO ANALYSIS: best case, base case, worst case",
-    "DECISION: YES, NO, or CONDITIONAL",
-    "REQUIRED CONDITIONS: traffic, max rent, minimum demand, margins, and next diligence steps",
+    computed,
     "",
+    "Write a concise decision report with these prose sections, explaining the computed values above (introduce NO new numbers):",
+    "EXECUTIVE SUMMARY, WHY THIS SCORE, TOP RISKS, CONDITIONS TO OPEN, NEXT DILIGENCE STEPS.",
     "Use plain English for a client deciding whether this business should open in the area.",
-    "Do not overpromise. Exact block, cost, frontage, visibility, commitment terms, and operator quality still matter.",
+    "Do not overpromise. Exact block, cost, frontage, visibility, commitment terms, and operator quality still matter and need on-site verification.",
     "",
     `Market profile data: ${JSON.stringify(profile)}`,
     `Competition data: ${JSON.stringify(businessResult)}`
@@ -2969,7 +2975,10 @@ createServer(async (request, response) => {
           businessCount(zip, business).catch((error) => ({ error: error.message }))
         ]);
 
-        sendJson(response, 200, await clientMemo({ zip, business, profile, businessResult }));
+        // score is computed client-side by the deterministic engine and passed
+        // in; OpenAI only explains it (never recomputes).
+        const score = body.score && typeof body.score === "object" ? body.score : null;
+        sendJson(response, 200, await clientMemo({ zip, business, profile, businessResult, score }));
       } catch (error) {
         sendJson(response, 502, {
           memo: "Decision report service could not generate the report right now. The rest of the live data is connected.",
