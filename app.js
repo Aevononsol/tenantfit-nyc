@@ -4682,15 +4682,16 @@ function sv3RenderPortfolio() {
 function sv3ShowMain(name) {
   const refs = sv3Refs();
   if (!refs.app) return;
+  const target = new Set(["input", "report", "compare", "portfolio"]).has(name) ? name : "input";
   [["input", refs.screenInput], ["report", refs.screenReport], ["compare", refs.screenCompare], ["portfolio", refs.screenPortfolio]].forEach(([key, el]) => {
     if (!el) return;
-    el.classList.toggle("show", key === name);
-    el.classList.toggle("hide", key !== name);
+    el.classList.toggle("show", key === target);
+    el.classList.toggle("hide", key !== target);
   });
-  if (refs.tabbar) refs.tabbar.classList.toggle("hide", name !== "report");
-  refs.app.querySelectorAll("[data-sv3-nav]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Nav === name));
-  if (name === "compare") sv3RenderCompare();
-  if (name === "portfolio") sv3RenderPortfolio();
+  if (refs.tabbar) refs.tabbar.classList.toggle("hide", target !== "report");
+  refs.app.querySelectorAll("[data-sv3-nav]").forEach((b) => b.classList.toggle("on", b.dataset.sv3Nav === target));
+  if (target === "compare") sv3RenderCompare();
+  if (target === "portfolio") sv3RenderPortfolio();
   try { window.scrollTo({ top: 0, behavior: "instant" }); } catch {}
 }
 function sv3ShowTab(name) {
@@ -5459,7 +5460,7 @@ function render(zip, options = {}) {
     // search screen so it never sits on an empty report.
     const sv3note = document.querySelector("#sv3-stepnote");
     if (sv3note) sv3note.textContent = elements.message.textContent;
-    if (document.querySelector("#sv3-app") && typeof sv3ShowMain === "function") sv3ShowMain("search");
+    if (document.querySelector("#sv3-app") && typeof sv3ShowMain === "function") sv3ShowMain("input");
     return;
   }
   elements.message.classList.remove("form-message-warn");
@@ -6548,9 +6549,18 @@ function newSearch() {
   if (elements.budgetInput) elements.budgetInput.value = "";
   if (elements.addressMessage) elements.addressMessage.textContent = "";
   try { history.replaceState(null, "", `${location.origin}${location.pathname}`); } catch { /* ignore */ }
-  elements.results.hidden = true;
-  elements.startScreen.hidden = false;
-  document.body.classList.add("landing-mode");
+  const sv3App = document.querySelector("#sv3-app");
+  const stayInApp = sv3App && !document.body.classList.contains("landing-mode");
+  if (stayInApp) {
+    if (elements.results) elements.results.hidden = false;
+    if (elements.startScreen) elements.startScreen.hidden = true;
+    if (typeof sv3ShowMain === "function") sv3ShowMain("input");
+    document.querySelector("#sv3-biztype")?.focus({ preventScroll: true });
+  } else {
+    if (elements.results) elements.results.hidden = true;
+    if (elements.startScreen) elements.startScreen.hidden = false;
+    document.body.classList.add("landing-mode");
+  }
   elements.message.textContent = "Enter a ZIP code or use an exact storefront address to start.";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -6828,13 +6838,8 @@ document.querySelectorAll("[data-start-analysis]").forEach((button) => {
     if (elements.startScreen) elements.startScreen.hidden = true;
     if (elements.results) elements.results.hidden = false;
     const sv3App = document.querySelector("#sv3-app");
-    sv3App?.querySelectorAll("[data-sv3-main]").forEach((screen) => {
-      screen.classList.toggle("active", screen.dataset.sv3Main === "search");
-    });
-    sv3App?.querySelectorAll("[data-sv3-nav]").forEach((navButton) => {
-      navButton.classList.toggle("active", navButton.dataset.sv3Nav === "search");
-    });
-    document.querySelector("#sv3-search-business")?.focus({ preventScroll: true });
+    if (typeof sv3ShowMain === "function") sv3ShowMain("input");
+    document.querySelector("#sv3-biztype")?.focus({ preventScroll: true });
     sv3App?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 });
