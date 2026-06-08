@@ -2169,12 +2169,9 @@ function renderCivicSignals(data) {
   elements.permitTypes.innerHTML = permitMiniList(data.permits.topTypes);
   updatePanelTimestamp(".civic-panel");
 
-  const profile = profileForZip(state.zip);
-  if (profile) {
-    const recommendations = buildRecommendations(profile);
-    renderDecisionStrip(profile, recommendations);
-    renderInstitutionalAnalysis(profile, recommendations);
-  }
+  // Civic signals are supporting evidence. Keep the executive decision stable
+  // after the primary market/competition pass so users do not watch the score
+  // keep changing as slower secondary panels finish.
 }
 
 async function renderCivicCheck() {
@@ -2351,12 +2348,8 @@ function renderConceptFit(data) {
     `;
   }).join("");
 
-  const profile = profileForZip(state.zip);
-  if (profile) {
-    const recommendations = buildRecommendations(profile);
-    renderDecisionStrip(profile, recommendations);
-    renderInstitutionalAnalysis(profile, recommendations);
-  }
+  // Concept intelligence updates this panel only; it should not mutate the
+  // executive decision after the main report has already settled.
 }
 
 async function renderRestaurantConceptFit() {
@@ -2466,12 +2459,7 @@ function renderSiteIntelligence(data) {
   updatePanelTimestamp(".site-intel-panel");
 
   const profile = profileForZip(state.zip);
-  if (profile) {
-    const recommendations = buildRecommendations(profile);
-    renderFootTrafficIntelligence(profile);
-    renderDecisionStrip(profile, recommendations);
-    renderInstitutionalAnalysis(profile, recommendations);
-  }
+  if (profile) renderFootTrafficIntelligence(profile);
 }
 
 function loadLeases() {
@@ -4078,8 +4066,8 @@ function sv3PnLHTML(ctx) {
       <div class="cashbig">${sv3Money(c.low)}<span class="u"> – ${sv3Money(c.high)}</span></div>
       <div class="divider" style="margin:14px 0"></div>
       ${(c.items || []).map((i) => `<div class="cashitem"><span class="ci-l">${escapeText(i[0])}</span><span class="ci-v">${sv3Money(i[1])}</span></div>`).join("")}
-      <div class="desc" style="margin-top:12px">Most closures come from being undercapitalized, not bad locations. Have the reserve before signing.</div>
-      <div class="src">Estimated · category benchmarks + NYC permit data</div>
+      <div class="desc" style="margin-top:12px">Planning range only. Verify real rent, buildout, equipment, permits, working capital, and operator costs before signing.</div>
+      <div class="src">Estimated planning model · category benchmarks, permit signals, and modeled rent pressure</div>
     </div>
 
     <div class="section-label"><span class="n">21</span> Scenarios · how the year could go</div>
@@ -4107,7 +4095,7 @@ function sv3MoneyHTML(ctx) {
       <div class="desc" style="margin-top:4px">Base-case projected revenue vs. estimated total monthly cost (modeled at ~${ctx.costPct}% of revenue for this category). Confirm real rent and labor before committing.</div>
     </div>
     ${sv3PnLHTML(ctx)}
-    <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="${ctx.revCost.costLine}" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="${ctx.revCost.rev}" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="${ctx.revCost.x}" y1="18" x2="${ctx.revCost.x}" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="${ctx.revCost.x}" cy="${ctx.revCost.cy}" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:${Math.max(8, Math.min(82, Math.round(ctx.revCost.x / 320 * 100)))}%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled · SpotVest unit-economics engine</div></div>
+    <div class="card"><div class="sub">Revenue vs cost · first 24 months</div><div class="chart"><svg viewBox="0 0 320 150" style="margin-top:8px"><line class="gl" x1="0" y1="35" x2="320" y2="35"/><line class="gl" x1="0" y1="75" x2="320" y2="75"/><line class="gl" x1="0" y1="115" x2="320" y2="115"/><path d="${ctx.revCost.costLine}" fill="none" stroke="#FF6B6B" stroke-width="2.5"/><path d="${ctx.revCost.rev}" fill="none" stroke="#4ADE80" stroke-width="2.5"/><line x1="${ctx.revCost.x}" y1="18" x2="${ctx.revCost.x}" y2="140" stroke="rgba(57,194,214,.4)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="${ctx.revCost.x}" cy="${ctx.revCost.cy}" r="4.5" fill="#4FE3D8" stroke="#0c1120" stroke-width="2"/></svg><div style="position:relative"><span class="peaktag" style="left:${Math.max(8, Math.min(82, Math.round(ctx.revCost.x / 320 * 100)))}%;top:-2px;transform:translateX(-50%)">Break-even ≈ ${escapeText(ctx.breakevenShort)}</span></div><div style="display:flex;justify-content:space-between;margin-top:10px" class="axlab"><span>Mo 1</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div><div class="legend-row"><span class="li"><span class="sw" style="background:#4ADE80"></span>Projected revenue</span><span class="li"><span class="sw" style="background:#FF6B6B"></span>Total cost</span></div><div class="src">Modeled planning estimate · verify real P&amp;L before using with a client</div></div>
     <div class="card whatif"><div class="sub">What-if · drag to test the deal</div>
       <div style="margin-top:12px"><div class="rng-lab"><span>Monthly rent</span><span class="rv" id="sv3-wf-rent-l">$18,000</span></div><input type="range" class="rng" id="sv3-wf-rent" min="8000" max="35000" step="500" value="18000"></div>
       <div style="margin-top:16px"><div class="rng-lab"><span>Size (sq ft)</span><span class="rv" id="sv3-wf-size-l">1,200</span></div><input type="range" class="rng" id="sv3-wf-size" min="500" max="4000" step="50" value="1200"></div>
@@ -4419,6 +4407,46 @@ function chainFitCopySafe() {
 
 function refreshSpotVestV3Money() { /* values are rebuilt with the Money tab; kept for compatibility */ }
 
+async function generateClientDecisionReport() {
+  const response = await fetch("/api/client-memo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ zip: state.zip, business: state.business })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok && result.memo) return { memo: result.memo, warning: result.error || "" };
+  if (!response.ok) throw new Error(result.error || "Decision report failed");
+  return { memo: result.memo || "No decision report returned.", warning: "" };
+}
+
+function renderSv3GeneratedDecisionReport(memo, warning = "") {
+  const overview = document.getElementById("sv3-tab-overview");
+  if (!overview) return;
+  let panel = document.getElementById("sv3-generated-decision-report");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "sv3-generated-decision-report";
+    panel.className = "card accent generated-decision-report";
+    const actions = overview.querySelector(".actions");
+    if (actions) actions.insertAdjacentElement("afterend", panel);
+    else overview.appendChild(panel);
+  }
+  const paragraphs = String(memo || "")
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 12)
+    .map((part) => `<p>${escapeText(part).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  panel.innerHTML = `
+    <div class="sub">Generated decision report</div>
+    <h3>Client-ready summary</h3>
+    <div class="generated-report-copy">${paragraphs || "<p>No report text returned.</p>"}</div>
+    ${warning ? `<div class="src">Service note: ${escapeText(warning)}</div>` : '<div class="src">Generated from SpotVest market signals</div>'}
+  `;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 /* ---------- what-if slider (self-contained, like v3) ---------- */
 function sv3InitWhatIf() {
   const rent = document.getElementById("sv3-wf-rent");
@@ -4452,7 +4480,6 @@ function sv3BindActions() {
     "export-pdf": "#export-pdf-button",
     "save": "#save-report-button",
     "copy": "#copy-link-button",
-    "generate": "#export-pdf-button",
     "new": "#new-search-button"
   };
   const flash = (btn, text) => {
@@ -4473,13 +4500,35 @@ function sv3BindActions() {
         sv3ShowMain("compare");
         return;
       }
+      if (action === "generate") {
+        if (btn.disabled) return;
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "Generating…";
+        generateClientDecisionReport()
+          .then(({ memo, warning }) => {
+            renderSv3GeneratedDecisionReport(memo, warning);
+            btn.innerHTML = "Report ready ✓";
+          })
+          .catch(() => {
+            renderSv3GeneratedDecisionReport("Could not generate the decision report right now. Check that the decision report service is connected, then try again.");
+            btn.innerHTML = "Try again";
+          })
+          .finally(() => {
+            window.setTimeout(() => {
+              btn.disabled = false;
+              btn.innerHTML = original;
+            }, 1400);
+          });
+        return;
+      }
       const sel = map[action];
       if (sel) document.querySelector(sel)?.click();
       // Visible confirmation in the redesigned UI (the underlying handlers
       // live on hidden legacy buttons, so without this the actions look dead).
       if (action === "copy") flash(btn, "Link copied ✓");
       else if (action === "save") flash(btn, (document.querySelector("#save-report-button")?.textContent || "").includes("Saved") ? "Saved ✓" : "Removed");
-      else if (action === "export-pdf" || action === "generate") flash(btn, "Opening print…");
+      else if (action === "export-pdf") flash(btn, "Opening print…");
     });
   });
 }
@@ -6479,19 +6528,8 @@ elements.memoButton.addEventListener("click", async () => {
   elements.memoCopy.textContent = "Generating memo...";
 
   try {
-    const response = await fetch("/api/client-memo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ zip: state.zip, business: state.business })
-    });
-
-    const result = await response.json();
-    if (!response.ok && result.memo) {
-      elements.memoCopy.textContent = `${result.memo} ${result.error?.includes("quota") ? "The decision report service says this key is out of quota or billing is not enabled." : ""}`;
-      return;
-    }
-    if (!response.ok) throw new Error("Memo failed");
-    elements.memoCopy.textContent = result.memo || "No memo returned.";
+    const result = await generateClientDecisionReport();
+    elements.memoCopy.textContent = `${result.memo}${result.warning?.includes("quota") ? " The decision report service says this key is out of quota or billing is not enabled." : ""}`;
   } catch {
     elements.memoCopy.textContent = "Could not generate the report. Check that the decision report service is connected and the server is running.";
   }

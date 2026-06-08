@@ -26,6 +26,25 @@ const allowedKeyNames = [
   "OPENAI_API_KEY"
 ];
 
+const envAliases = {
+  CENSUS_API_KEY: ["SPOTVEST_CENSUS_API_KEY", "AREAINTEL_CENSUS_API_KEY"],
+  GOOGLE_PLACES_API_KEY: ["SPOTVEST_GOOGLE_PLACES_API_KEY", "AREAINTEL_GOOGLE_PLACES_API_KEY"],
+  NYC_OPEN_DATA_APP_TOKEN: ["SPOTVEST_NYC_OPEN_DATA_APP_TOKEN", "AREAINTEL_NYC_OPEN_DATA_APP_TOKEN"],
+  OPENAI_API_KEY: ["SPOTVEST_OPENAI_API_KEY", "AREAINTEL_OPENAI_API_KEY"],
+  OPENAI_MODEL: ["SPOTVEST_OPENAI_MODEL", "AREAINTEL_OPENAI_MODEL"],
+  STRIPE_SECRET_KEY: ["SPOTVEST_STRIPE_SECRET_KEY", "AREAINTEL_STRIPE_SECRET_KEY"],
+  RESEND_API_KEY: ["SPOTVEST_RESEND_API_KEY", "AREAINTEL_RESEND_API_KEY"],
+  ADMIN_TOKEN: ["SPOTVEST_ADMIN_TOKEN", "AREAINTEL_ADMIN_TOKEN"]
+};
+
+function applyEnvAliases() {
+  Object.entries(envAliases).forEach(([canonical, aliases]) => {
+    if (process.env[canonical]) return;
+    const match = aliases.find((alias) => process.env[alias]);
+    if (match) process.env[canonical] = process.env[match];
+  });
+}
+
 const productAgents = [
   {
     id: "product-manager",
@@ -193,7 +212,10 @@ const knownChains = [
 
 function loadEnv() {
   const envPath = join(root, ".env");
-  if (!existsSync(envPath)) return;
+  if (!existsSync(envPath)) {
+    applyEnvAliases();
+    return;
+  }
 
   const lines = readFileSync(envPath, "utf8").split(/\r?\n/);
   lines.forEach((line) => {
@@ -207,6 +229,7 @@ function loadEnv() {
     const value = trimmed.slice(splitAt + 1).trim().replace(/^["']|["']$/g, "");
     if (key) process.env[key] = value;
   });
+  applyEnvAliases();
 }
 
 function readRequestJson(request) {
@@ -2753,11 +2776,23 @@ createServer(async (request, response) => {
         return;
       }
 
+      let census;
+      try {
+        census = await fetchCensusProfile(zip);
+      } catch (error) {
+        console.warn(`[AreaIntel] Census profile failed for ${zip}: ${error?.message || error}`);
+        census = {
+          zip,
+          unavailable: true,
+          error: "Market demographics are temporarily unavailable for this ZIP."
+        };
+      }
+
       sendJson(response, 200, {
         zip,
-        mode: "live",
+        mode: census.unavailable ? "partial" : "live",
         keyStatus: keyStatus(),
-        census: await fetchCensusProfile(zip)
+        census
       });
       return;
     }
