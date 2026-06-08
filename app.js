@@ -3075,7 +3075,15 @@ function successScoreForBusinessHere(business, businessResult, profile) {
 }
 async function computeRealAlternatives(profile, currentScore) {
   const cur = normalizeBusiness(state.business);
-  const cands = buildRecommendations(profile).filter((r) => normalizeBusiness(r.business) !== cur).slice(0, 6);
+  // Exclude the current business by BOTH model id and display name (they can
+  // normalize differently), and de-duplicate candidates by name.
+  const seen = new Set([cur]);
+  const cands = buildRecommendations(profile).filter((r) => {
+    const byId = normalizeBusiness(r.business), byName = normalizeBusiness(r.name);
+    if (byId === cur || byName === cur || seen.has(byName)) return false;
+    seen.add(byName);
+    return true;
+  }).slice(0, 6);
   const scored = await Promise.all(cands.map(async (c) => {
     const br = await candidateCompetition(c.name);
     return { name: c.name, note: c.note || "", score: successScoreForBusinessHere(c.name, br, profile) };
