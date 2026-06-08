@@ -3016,6 +3016,38 @@ function hydrateSignalBundle() {
   // stable inputs). Same logic as reconcile.
   reconcileSignalsFromCache();
 }
+// Required score-moving signals are "real" when they're live responses (not a
+// transient timeout fallback) for the current location. A genuine empty
+// response counts as real (fallback flag is false) — only fetch failures retry.
+function requiredSignalsReal() {
+  const b = state.lastBusinessResult, c = state.lastCivicResult, s = state.lastSiteIntelResult;
+  return Boolean(
+    b && contextMatches(b) && !b.fallback && !b.loading &&
+    c && contextMatches(c) && !c.fallback &&
+    s && contextMatches(s) && !s.fallback
+  );
+}
+// Close the cold-start gap: don't commit/show the score until every required
+// signal has actually arrived. Retry loaders (the server caches a slow first
+// fetch, so a later attempt succeeds) within a time budget, then render once.
+// Result: a brand-new address scores the same on run 1 as run 2.
+async function commitScoreWhenReady(zip, fireSignals) {
+  const deadline = Date.now() + 80000; // generous budget — prefer slow over wrong
+  for (;;) {
+    await fireSignals();
+    if (state.zip !== zip) return; // superseded by a newer analysis
+    persistSignalBundle();
+    reconcileSignalsFromCache();
+    if (requiredSignalsReal() || Date.now() > deadline) break;
+    await new Promise((r) => setTimeout(r, 1500)); // brief pause lets the server cache warm
+  }
+  if (state.zip !== zip) return;
+  persistSignalBundle();
+  reconcileSignalsFromCache();
+  state.scoreReady = true;
+  const recs = buildRecommendations(profileForZip(state.zip));
+  safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
+}
 
 function decisionCopyFor(decision, successProbability, confidenceScore, riskScore) {
   if (decision === "OPEN") {
@@ -3803,9 +3835,11 @@ function sv3OverviewHTML(ctx) {
       return sv3StepCard(i + 1, title, copy);
     }).join("");
   return `
-    <div class="banner ${m.cls}" style="--p:${sv3Pct(ctx.score)}%">
-      <div class="ring"><span class="num">${ctx.score}</span><span class="of">/100</span></div>
-      <div><div class="vl">${escapeText(m.word)}</div><h2>${escapeText(sv3BannerHeadline(ctx.decision, ctx.business))}</h2><div class="vsub">${escapeText(ctx.decisionCopy)}</div></div>
+    <div class="banner ${ctx.scoreReady ? m.cls : ""}" style="--p:${ctx.scoreReady ? sv3Pct(ctx.score) : 0}%">
+      <div class="ring"><span class="num">${ctx.scoreReady ? ctx.score : "···"}</span><span class="of">${ctx.scoreReady ? "/100" : ""}</span></div>
+      <div>${ctx.scoreReady
+        ? `<div class="vl">${escapeText(m.word)}</div><h2>${escapeText(sv3BannerHeadline(ctx.decision, ctx.business))}</h2><div class="vsub">${escapeText(ctx.decisionCopy)}</div>`
+        : `<div class="vl">Analyzing…</div><h2>Loading live signals</h2><div class="vsub">The score finalizes once all market signals arrive — this keeps the result stable and accurate.</div>`}</div>
     </div>
     <div class="card">
       <div class="gauge-wrap">
@@ -3816,7 +3850,7 @@ function sv3OverviewHTML(ctx) {
             <path d="M14 100 A86 86 0 0 1 186 100" fill="none" stroke="url(#sv3gg)" stroke-width="16" stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="${offset}"/>
             <circle cx="${needle.cx}" cy="${needle.cy}" r="9" fill="#0c1120" stroke="${arcStroke}" stroke-width="4"/>
           </svg>
-          <div class="gnum"><div class="v">${ctx.score}</div><div class="l ${m.lcls}">${escapeText(m.word)}</div></div>
+          <div class="gnum"><div class="v">${ctx.scoreReady ? ctx.score : "··"}</div><div class="l ${m.lcls}">${ctx.scoreReady ? escapeText(m.word) : "Loading"}</div></div>
         </div>
         <div class="gauge-ticks"><span>0 · Avoid</span><span>50</span><span>100 · Go</span></div>
       </div>
@@ -4462,6 +4496,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
 
   const ctx = {
     pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
+    scoreReady: state.scoreReady !== false, // false only while live signals are still loading
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
     confidenceLabel: analysis.confidenceScore >= 80 ? "HIGH" : analysis.confidenceScore >= 60 ? "GOOD" : "REVIEW",
@@ -5608,6 +5643,10 @@ function render(zip, options = {}) {
 
   state.zip = zip;
   state.mapRetryCount = 0;
+  // Score is "not ready" until every required live signal has arrived — the UI
+  // shows a loading state until then so a brand-new address never displays a
+  // premature (and therefore different) first-run score.
+  if (!options.preserveLiveSignals) state.scoreReady = false;
   document.body.classList.remove("landing-mode");
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
@@ -5659,23 +5698,15 @@ function render(zip, options = {}) {
   if (!options.preserveLiveSignals) {
     // Seed last-known-good signals for this exact location before firing loaders.
     hydrateSignalBundle();
-    const loaders = [
+    // Fire all signal loaders once; returns a promise that settles when this
+    // round is done.
+    const fireSignals = () => Promise.allSettled([
       safeUiUpdate("business signal loader", () => renderBusinessCheck()),
       safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit()),
       safeUiUpdate("risk signal loader", () => renderCivicCheck()),
       safeUiUpdate("site signal loader", () => renderSiteIntelCheck())
-    ];
-    // Authoritative, deterministic score: compute ONCE after every signal has
-    // settled. Accumulate any real signals obtained this run, then substitute
-    // cached real values for any signal that flapped/timed out — so identical
-    // input → identical score, even when an upstream intermittently fails.
-    Promise.allSettled(loaders.filter((p) => p && typeof p.then === "function")).then(() => {
-      if (state.zip !== zip) return; // a newer analysis superseded this one
-      persistSignalBundle();
-      reconcileSignalsFromCache();
-      const recs = buildRecommendations(profileForZip(state.zip));
-      safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
-    });
+    ].filter((p) => p && typeof p.then === "function"));
+    commitScoreWhenReady(zip, fireSignals);
   }
   safeUiUpdate("lease options", () => renderLeases());
   safeUiUpdate("market map", () => renderMarketMap());
