@@ -2189,7 +2189,7 @@ async function renderCivicCheck() {
   try {
     const data = await fetchJsonWithTimeout(`/api/civic-signals?${params.toString()}`, {
       source: "risk and development signals",
-      timeoutMs: 16000,
+      timeoutMs: 26000,
       retries: 1
     });
     if (requestId !== state.civicRequestId) return;
@@ -2374,7 +2374,7 @@ async function renderRestaurantConceptFit() {
   try {
     const data = await fetchJsonWithTimeout(`/api/restaurant-concepts?${params.toString()}`, {
       source: "food concept intelligence",
-      timeoutMs: 16000,
+      timeoutMs: 26000,
       retries: 1
     });
     if (requestId !== state.conceptRequestId) return;
@@ -2890,7 +2890,7 @@ async function renderSiteIntelCheck() {
   try {
     const data = await fetchJsonWithTimeout(`/api/site-intelligence?${params.toString()}`, {
       source: "mobility and commercial mix",
-      timeoutMs: 16000,
+      timeoutMs: 26000,
       retries: 1
     });
     if (requestId !== state.siteIntelRequestId) return;
@@ -3584,6 +3584,7 @@ function spotvestScoreBreakdown(analysis, profile) {
     confidenceScore: clampScore(analysis.confidenceScore),
     confidenceMeans: "completeness/reliability of available evidence — NOT odds of success",
     decision: analysis.decision,
+    alternatives: (analysis.alternatives || []).slice(0, 5),
     dataSourcesUsed,
     missingData: (analysis.validation && analysis.validation.missing) || [],
     fallbackDataUsed
@@ -5408,7 +5409,7 @@ async function renderBusinessCheck() {
 
     const result = await fetchJsonWithTimeout(`/api/business-count?${params.toString()}`, {
       source: "business competition signals",
-      timeoutMs: 18000,
+      timeoutMs: 26000,
       retries: 1
     });
     if (requestId !== state.businessRequestId) return;

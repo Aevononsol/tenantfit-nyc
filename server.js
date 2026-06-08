@@ -1185,7 +1185,9 @@ async function socrataJson(resource, params) {
 
   const result = await cachedJsonFetch(url, {
     headers,
-    timeoutMs: 12000,
+    // Generous so a slow first fetch completes and caches (20 min), keeping the
+    // signal reliably present on later loads → deterministic score.
+    timeoutMs: 22000,
     ttlMs: cacheTtl.openData,
     cacheSuffix: process.env.NYC_OPEN_DATA_APP_TOKEN ? ":token" : ":public"
   });
@@ -1200,7 +1202,7 @@ async function dataNyJson(resource, params) {
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
   const result = await cachedJsonFetch(url, {
-    timeoutMs: 10000,
+    timeoutMs: 20000,
     ttlMs: cacheTtl.openData
   });
   if (!result.ok) {
