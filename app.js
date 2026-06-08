@@ -3036,6 +3036,54 @@ function requiredSignalsReal() {
 // signal has actually arrived. Retry loaders (the server caches a slow first
 // fetch, so a later attempt succeeds) within a time budget, then render once.
 // Result: a brand-new address scores the same on run 1 as run 2.
+// ---- Better Alternatives: ONE source of truth ----------------------------
+// Alternatives are scored with the SAME engine as the main report
+// (buildInstitutionalAnalysis → successProbability), using each candidate's own
+// live competition — so an alternative's shown score equals what the user gets
+// running that business directly, and "stronger" means a genuinely higher score.
+const altCompCache = new Map();
+async function candidateCompetition(business) {
+  const key = `${state.zip}|${normalizeBusiness(business)}|${state.location?.lat || ""}|${state.location?.lng || ""}|${state.location?.radiusMiles || ""}`;
+  if (altCompCache.has(key)) return altCompCache.get(key);
+  let res = null;
+  try {
+    const params = new URLSearchParams({ zip: state.zip, business });
+    if (state.location) {
+      params.set("lat", state.location.lat); params.set("lng", state.location.lng);
+      params.set("radius", state.location.radiusMiles); params.set("address", state.location.address);
+    }
+    const r = await fetchJsonWithTimeout(`/api/business-count?${params.toString()}`, { source: "alternative competition", timeoutMs: 26000, retries: 1 });
+    if (r && typeof r.count === "number") res = r;
+  } catch (e) { res = null; }
+  altCompCache.set(key, res);
+  return res;
+}
+// Run the real engine for a hypothetical business at the current location.
+// Synchronous swap of the business inputs (civic/site/demographics are
+// location-level and reused); restores globals immediately. No await inside.
+function successScoreForBusinessHere(business, businessResult, profile) {
+  const savedBiz = state.business, savedBr = state.lastBusinessResult;
+  try {
+    state.business = business;
+    state.lastBusinessResult = businessResult;
+    const a = buildInstitutionalAnalysis(profile, buildRecommendations(profile));
+    return clampScore(a.successProbability);
+  } finally {
+    state.business = savedBiz;
+    state.lastBusinessResult = savedBr;
+  }
+}
+async function computeRealAlternatives(profile, currentScore) {
+  const cur = normalizeBusiness(state.business);
+  const cands = buildRecommendations(profile).filter((r) => normalizeBusiness(r.business) !== cur).slice(0, 6);
+  const scored = await Promise.all(cands.map(async (c) => {
+    const br = await candidateCompetition(c.name);
+    return { name: c.name, note: c.note || "", score: successScoreForBusinessHere(c.name, br, profile) };
+  }));
+  // Only genuinely-stronger options (real score strictly higher), best first.
+  return scored.filter((x) => x.score > currentScore).sort((a, b) => b.score - a.score).slice(0, 5);
+}
+
 async function commitScoreWhenReady(zip) {
   const deadline = Date.now() + 120000; // generous budget — prefer slow over wrong
   const notReal = (r, isBiz) => !(r && contextMatches(r) && !r.fallback && (!isBiz || !r.loading));
@@ -3058,6 +3106,14 @@ async function commitScoreWhenReady(zip) {
   if (state.zip !== zip) return;
   persistSignalBundle();
   reconcileSignalsFromCache();
+  // Score Better Alternatives with the SAME engine + each candidate's live
+  // competition, so the displayed alternative scores match running them directly.
+  try {
+    const profile = profileForZip(state.zip);
+    const mainAnalysis = buildInstitutionalAnalysis(profile, buildRecommendations(profile));
+    state.realAlternatives = await computeRealAlternatives(profile, clampScore(mainAnalysis.successProbability));
+  } catch (e) { state.realAlternatives = []; }
+  if (state.zip !== zip) return;
   state.scoreReady = true;
   const recs = buildRecommendations(profileForZip(state.zip));
   safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
@@ -3630,7 +3686,7 @@ function spotvestScoreBreakdown(analysis, profile) {
     confidenceScore: clampScore(analysis.confidenceScore),
     confidenceMeans: "completeness/reliability of available evidence — NOT odds of success",
     decision: analysis.decision,
-    alternatives: (analysis.alternatives || []).slice(0, 5),
+    alternatives: (Array.isArray(state.realAlternatives) ? state.realAlternatives : []).map((a) => `${a.name} (${a.score}/100)`),
     dataSourcesUsed,
     missingData: (analysis.validation && analysis.validation.missing) || [],
     fallbackDataUsed
@@ -4358,10 +4414,12 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   if (refs.zip) refs.zip.value = state.zip || refs.zip.value;
   if (refs.address && state.location?.address) refs.address.value = state.location.address;
 
-  // Bottom line for the owner (composed from real signals)
-  const altTop = recommendations.find((r) => r.business !== normalizeBusiness(state.business));
+  // Bottom line for the owner (composed from real signals). The "stronger fit"
+  // claim uses the SAME engine: altTop only exists if its real success score is
+  // higher than the current business (computed in computeRealAlternatives).
+  const altTop = (Array.isArray(state.realAlternatives) && state.realAlternatives[0]) || null;
   const revRange = sv3ElText("revenue-projection") || elements.revenueProjection?.textContent || "";
-  const bottomLine = `${escapeText(decision.copy)} ${competitionCount > 0 ? `There are about <b>${formatInteger(competitionCount)}</b> directly comparable operators nearby, so differentiation and site economics decide the outcome.` : "Competitive density is light, so demand proof and the exact block decide the outcome."}${altTop ? ` If the numbers don't hold, <b>${escapeText(altTop.name.toLowerCase())}</b> is a stronger fit here — see Better alternatives.` : ""}`;
+  const bottomLine = `${escapeText(decision.copy)} ${competitionCount > 0 ? `There are about <b>${formatInteger(competitionCount)}</b> directly comparable operators nearby, so differentiation and site economics decide the outcome.` : "Competitive density is light, so demand proof and the exact block decide the outcome."}${altTop ? ` If the numbers don't hold, <b>${escapeText(altTop.name.toLowerCase())}</b> screens higher here (${altTop.score}/100 vs ${Number(score)}/100) — see Better alternatives.` : ""}`;
 
   // signal pills
   const signalPills = [
@@ -4393,14 +4451,14 @@ function renderSpotVestV3(profile, recommendations, analysis) {
       }).join("")
     : `<div class="demo-row"><span class="dl">${escapeText(business)}</span><div class="dtrack"><div class="dfill" style="width:${pressure}%;background:linear-gradient(90deg,#FF6B6B,#F5B544)"></div></div><span class="dv" style="color:var(--amber)">${escapeText(pressureLabel)}</span></div>`;
 
-  // alternatives gap cards (risk) — analysis.alternatives are "Name (score): note"
-  const alternativeCards = (analysis.alternatives || []).slice(0, 5).map((line, i) => {
-    const mt = line.match(/^(.*?)\s*\((\d+)\):\s*(.*)$/);
-    const name = mt ? mt[1] : line;
-    const sc = mt ? Number(mt[2]) : 60;
-    const note = mt ? mt[3] : "";
-    return sv3GapCard(sc, i === 0 ? "Best alternative" : "Alternative", name, note);
-  }).join("") || `<div class="card"><div class="desc" style="margin-top:0">No stronger alternative has been identified yet.</div></div>`;
+  // alternatives gap cards (risk) — REAL engine scores (successProbability),
+  // only options that genuinely outscore the current business. Same source of
+  // truth as the headline score; the number shown == running that business.
+  const realAlts = Array.isArray(state.realAlternatives) ? state.realAlternatives : [];
+  const alternativeCards = realAlts.length
+    ? realAlts.map((alt, i) => sv3GapCard(alt.score, i === 0 ? "Stronger option" : "Alternative", `${alt.name} · ${alt.score}/100`, alt.note)).join("")
+      + `<div class="card"><div class="desc" style="margin-top:0">Scores use the same engine as the headline (success probability at this exact location). A higher score can still be a high-risk, conditional bet — it's just the stronger relative option here.</div></div>`
+    : `<div class="card"><div class="desc" style="margin-top:0">No other business type scored higher than <b>${escapeText(business)}</b> (${Number(score)}/100) at this location — it's the strongest screened option here.</div></div>`;
 
   // method: score breakdown (contribution per driver)
   const weightByName = {
@@ -5660,7 +5718,7 @@ function render(zip, options = {}) {
   // Score is "not ready" until every required live signal has arrived — the UI
   // shows a loading state until then so a brand-new address never displays a
   // premature (and therefore different) first-run score.
-  if (!options.preserveLiveSignals) state.scoreReady = false;
+  if (!options.preserveLiveSignals) { state.scoreReady = false; state.realAlternatives = null; }
   document.body.classList.remove("landing-mode");
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
@@ -5973,7 +6031,7 @@ function renderExecSummary() {
 
       <section class="rd-section">
         <h2>Alternative Concepts</h2>
-        <ul class="rd-list">${li(analysis.alternatives, "No stronger alternative stood out in this area screen.")}</ul>
+        <ul class="rd-list">${li((Array.isArray(state.realAlternatives) ? state.realAlternatives : []).map((a) => `${a.name} — ${a.score}/100 success score (same engine as the headline)`), `No other business type scored higher than ${business} (${score}/100) at this location.`)}</ul>
       </section>
 
       <section class="rd-section">
