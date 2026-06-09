@@ -3286,7 +3286,7 @@ function calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, s
   else if (risk < 45) adjustment -= 6;
   if (demand < 42) adjustment -= 8;
   if (customerFit < 42) adjustment -= 6;
-  if (civicResult?.complaints?.level === "High" || !civicResult || civicResult.fallback) adjustment -= 5; // unknown risk = worst-case
+  if (civicResult?.complaints?.level === "High") adjustment -= 5;
   if (successModel?.competitionPressure >= 90) adjustment -= 6;
   if (weakSignals >= 3) adjustment -= 5;
 
@@ -3338,14 +3338,15 @@ function buildBusinessSuccessModel(profile, recommendations) {
     ? clampScore(Math.min(100, Math.log10(googleReviews + 1) * 24 + googleRating * 7))
     : 45;
   const categoryFit = categoryFitForBusiness(business, profile);
-  // If the risk signal is unavailable we treat it as WORST-CASE (High), so a
-  // missing/timed-out 311 fetch can never inflate the score above a location
-  // where it loaded. This makes the score deterministic (unknown == High) and
-  // conservative — never optimistic about unknown risk. (Civic loads reliably
-  // within the commit budget; this only guards the rare outage.)
+  // Missing civic/risk data should reduce confidence, not collapse every score
+  // into the same high-risk bucket. Treat unknown as a mild/moderate penalty:
+  // conservative enough to avoid optimism, but not so harsh that a timeout makes
+  // unrelated businesses and neighborhoods all screen as 46 / high risk.
   const civicUnknown = !civicResult || civicResult.fallback;
-  const civicHigh = civicResult?.complaints?.level === "High" || civicUnknown;
-  const civicPenalty = civicHigh ? 9 : civicResult?.complaints?.level === "Moderate" ? 4 : 0;
+  const civicPenalty = civicResult?.complaints?.level === "High" ? 9
+    : civicResult?.complaints?.level === "Moderate" ? 4
+    : civicUnknown ? 3
+    : 0;
   const permitBoost = civicResult?.permits?.level === "Heavy" ? 10 : civicResult?.permits?.level === "Active" ? 6 : 2;
   const propertyBoost = siteIntelResult?.pluto?.retailArea > 500000 ? 6 : siteIntelResult?.pluto?.retailArea > 150000 ? 3 : 0;
   const transitBoost = siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000 ? 8 : 0;
@@ -3470,9 +3471,12 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const successModel = buildBusinessSuccessModel(profile, recommendations);
   const scores = successModel.scores;
   const riskScoreItem = scores.find((item) => item.name === "Risk");
-  if (civicResult?.complaints?.level === "High" || !civicResult || civicResult.fallback) {
+  if (civicResult?.complaints?.level === "High") {
     riskScoreItem.value = Math.max(0, riskScoreItem.value - 8);
-    riskScoreItem.why = `${riskScoreItem.why} ${civicResult && !civicResult.fallback ? "Verified Signals: local friction is high in the selected area." : "Risk signal unavailable — scored conservatively (worst-case)."}`;
+    riskScoreItem.why = `${riskScoreItem.why} Verified Signals: local friction is high in the selected area.`;
+  } else if (!civicResult || civicResult.fallback) {
+    riskScoreItem.value = Math.max(0, riskScoreItem.value - 2);
+    riskScoreItem.why = `${riskScoreItem.why} Local risk signal is still resolving, so confidence is reduced until it verifies.`;
   }
   if (siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000) {
     const demand = scores.find((item) => item.name === "Demand");
