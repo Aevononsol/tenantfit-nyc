@@ -6273,90 +6273,24 @@ function addToCompare() {
   // is always the left-most "Top Pick" column.
   state.compareList.sort((a, b) => safeNumber(b.successProbability, 0) - safeNumber(a.successProbability, 0));
   saveCompare();
-  renderCompare();
+  sv3RenderCompare();
   updateActionGuards();
 }
 
 function removeFromCompare(id) {
   state.compareList = state.compareList.filter((item) => item.id !== id);
   saveCompare();
-  renderCompare();
+  sv3RenderCompare();
   updateActionGuards();
 }
 
 function clearCompare() {
   state.compareList = [];
   saveCompare();
-  renderCompare();
+  sv3RenderCompare();
   updateActionGuards();
 }
 
-function renderCompare() {
-  if (!elements.comparePanel || !elements.compareBody) return;
-  if (!state.compareList.length) {
-    elements.comparePanel.hidden = true;
-    elements.compareBody.innerHTML = "";
-    return;
-  }
-  elements.comparePanel.hidden = false;
-
-  const ranked = state.compareList.slice().sort((a, b) => b.successProbability - a.successProbability);
-  const bestProb = Math.max(...ranked.map((item) => item.successProbability));
-  const bestConf = Math.max(...ranked.map((item) => item.confidenceScore));
-  const bestFoot = Math.max(...ranked.map((item) => compareScoreNumber(item.footTraffic) ?? -1));
-
-  // Dedicated rank/status row — keeps badges out of the column-header string.
-  const rankRow = ranked
-    .map((item, index) => `
-      <th scope="col">
-        <div class="compare-rank-cell">
-          ${index === 0
-            ? '<span class="compare-top">Top Pick</span>'
-            : `<span class="compare-rank-num">#${index + 1}</span>`}
-          <button class="compare-remove" type="button" data-id="${escapeText(item.id)}" aria-label="Remove ${escapeText(item.business)}">Remove</button>
-        </div>
-      </th>
-    `)
-    .join("");
-
-  // Column headers: strictly the business type + a clean, concise address.
-  // Full address is available on hover/tap via the title attribute.
-  const optionRow = ranked
-    .map((item) => `
-      <th scope="col">
-        <div class="compare-col-head">
-          <strong>${escapeText(item.business)}</strong>
-          <span class="compare-addr" title="${escapeText(item.address || item.area)}">${escapeText(conciseAddress(item))}</span>
-        </div>
-      </th>
-    `)
-    .join("");
-
-  const row = (label, cellFn) =>
-    `<tr><th scope="row">${label}</th>${ranked.map(cellFn).join("")}</tr>`;
-
-  elements.compareBody.innerHTML = `
-    <div class="compare-table-wrap">
-      <table class="compare-table">
-        <thead>
-          <tr class="compare-rank-row"><th scope="col">Rank</th>${rankRow}</tr>
-          <tr><th scope="col">Option</th>${optionRow}</tr>
-        </thead>
-        <tbody>
-          ${row("Decision", (i) => `<td><span class="compare-badge decision-${i.decisionSlug}">${escapeText(i.decision)}</span></td>`)}
-          ${row("Viability score", (i) => `<td class="${i.successProbability === bestProb ? "compare-best" : ""}">${formatScore(i.successProbability)}</td>`)}
-          ${row("Confidence", (i) => `<td class="${i.confidenceScore === bestConf ? "compare-best" : ""}">${escapeText(i.confidenceLabel)} · ${formatScore(i.confidenceScore)}</td>`)}
-          ${row("Competition", (i) => `<td>${escapeText(i.competition)}</td>`)}
-          ${row("Population density", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "density", ranked))}</td>`)}
-          ${row("Income strength", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "income", ranked))}</td>`)}
-          ${row("Transit access", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "transit", ranked))}</td>`)}
-          ${row("Cost pressure", (i) => `<td>${escapeText(getLocationMetricForColumn(i, "costPressure", ranked))}</td>`)}
-          ${row("Foot traffic", (i) => { const v = getLocationMetricForColumn(i, "footTraffic", ranked, true); return `<td class="${(compareScoreNumber(v) ?? -1) === bestFoot ? "compare-best" : ""}">${escapeText(v)}</td>`; })}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
 
 // --- Save / share -------------------------------------------------------
 // Encode the current report into a shareable URL so a recipient lands on the
@@ -6854,7 +6788,7 @@ renderZipOptions();
 state.leases = loadLeases();
 state.compareList = loadCompare();
 state.savedReports = loadSaved();
-renderCompare();
+sv3RenderCompare();
 renderSaved();
 updateActionGuards();
 updateSaveButton();
