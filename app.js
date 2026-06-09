@@ -3092,18 +3092,26 @@ async function commitScoreWhenReady(zip) {
   }
   if (state.zip !== zip) return;
   persistSignalBundle();
-  // Score Better Alternatives with the SAME engine + each candidate's live
-  // competition, so the displayed alternative scores match running them directly.
-  try {
-    const profile = profileForZip(state.zip);
-    const mainAnalysis = buildInstitutionalAnalysis(profile, buildRecommendations(profile));
-    state.realAlternatives = await computeRealAlternatives(profile, clampScore(mainAnalysis.successProbability));
-  } catch (e) { state.realAlternatives = []; }
-  if (state.zip !== zip) return;
+  // Commit and SHOW the score immediately — do NOT block the loading screen on
+  // the alternative-scoring network calls.
   state.scoreReady = true;
   const recs = buildRecommendations(profileForZip(state.zip));
   safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
   updateActionGuards();
+  // Better Alternatives are scored with the same engine in the BACKGROUND and
+  // patched in when ready, so they never delay the headline score.
+  computeAlternativesInBackground(zip);
+}
+
+async function computeAlternativesInBackground(zip) {
+  try {
+    const profile = profileForZip(state.zip);
+    const mainAnalysis = buildInstitutionalAnalysis(profile, buildRecommendations(profile));
+    const alts = await computeRealAlternatives(profile, clampScore(mainAnalysis.successProbability));
+    if (state.zip !== zip || !state.scoreReady) return; // superseded — discard stale work
+    state.realAlternatives = alts;
+    safeUiUpdate("alternatives (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), buildRecommendations(profileForZip(state.zip))));
+  } catch (e) { /* leave alternatives as-is; never blocks the score */ }
 }
 
 function decisionCopyFor(decision, successProbability, confidenceScore, riskScore) {
