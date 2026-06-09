@@ -3093,7 +3093,7 @@ async function computeRealAlternatives(profile, currentScore) {
 }
 
 async function commitScoreWhenReady(zip) {
-  const deadline = Date.now() + 120000; // generous budget — prefer slow over wrong
+  const deadline = Date.now() + 180000; // generous budget — prefer slow over wrong (risk signal must load)
   const notReal = (r, isBiz) => !(r && contextMatches(r) && !r.fallback && (!isBiz || !r.loading));
   // Concept-fit doesn't gate the score (it's flavor) — fire once.
   safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit());
@@ -3359,7 +3359,15 @@ function buildBusinessSuccessModel(profile, recommendations) {
     ? clampScore(Math.min(100, Math.log10(googleReviews + 1) * 24 + googleRating * 7))
     : 45;
   const categoryFit = categoryFitForBusiness(business, profile);
-  const civicPenalty = civicResult?.complaints?.level === "High" ? 9 : civicResult?.complaints?.level === "Moderate" ? 4 : 0;
+  // Conservative when the risk signal is unavailable: an unknown/unloaded civic
+  // result must NEVER drop the penalty to 0 (that INFLATES the score — the
+  // dangerous direction seen as 74 vs 46). Treat unknown as Moderate so missing
+  // risk data can't make a location look safer than one where it loaded.
+  const civicUnknown = !civicResult || civicResult.fallback;
+  const civicPenalty = civicResult?.complaints?.level === "High" ? 9
+    : civicResult?.complaints?.level === "Moderate" ? 4
+    : civicUnknown ? 4
+    : 0;
   const permitBoost = civicResult?.permits?.level === "Heavy" ? 10 : civicResult?.permits?.level === "Active" ? 6 : 2;
   const propertyBoost = siteIntelResult?.pluto?.retailArea > 500000 ? 6 : siteIntelResult?.pluto?.retailArea > 150000 ? 3 : 0;
   const transitBoost = siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000 ? 8 : 0;
