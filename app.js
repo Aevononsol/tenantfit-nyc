@@ -3084,10 +3084,16 @@ async function commitScoreWhenReady(zip) {
     if (notReal(state.lastCivicResult)) jobs.push(safeUiUpdate("risk signal loader", () => renderCivicCheck()));
     if (notReal(state.lastSiteIntelResult)) jobs.push(safeUiUpdate("site signal loader", () => renderSiteIntelCheck()));
     if (!jobs.length) break; // all required signals are real
-    await Promise.allSettled(jobs.filter((p) => p && typeof p.then === "function"));
+    // HARD cap: race the loaders against the remaining budget so a signal that
+    // never settles (hung fetch) can't freeze the loading screen forever.
+    const remaining = Math.max(0, deadline - Date.now());
+    await Promise.race([
+      Promise.allSettled(jobs.filter((p) => p && typeof p.then === "function")),
+      new Promise((r) => setTimeout(r, remaining))
+    ]);
     if (state.zip !== zip) return; // superseded by a newer analysis
     persistSignalBundle();
-    if (requiredSignalsReal() || Date.now() > deadline) break;
+    if (requiredSignalsReal() || Date.now() >= deadline) break;
     await new Promise((r) => setTimeout(r, 1200)); // brief pause; lets the server cache warm
   }
   if (state.zip !== zip) return;
