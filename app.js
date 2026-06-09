@@ -3073,10 +3073,12 @@ async function computeRealAlternatives(profile, currentScore) {
 }
 
 async function commitScoreWhenReady(zip) {
-  const deadline = Date.now() + 25000; // keep the UI stable; avoid minutes of score changes
+  const deadline = Date.now() + 12000; // hard cap on the loading screen
   const notReal = (r, isBiz) => !(r && contextMatches(r) && !r.fallback && (!isBiz || !r.loading));
+  const resolved = (r) => Boolean(r && contextMatches(r)); // returned at all (real OR fallback)
   // Concept-fit doesn't gate the score (it's flavor) — fire once.
   safeUiUpdate("concept signal loader", () => renderRestaurantConceptFit());
+  let round = 0;
   for (;;) {
     reconcileSignalsFromCache();
     const jobs = [];
@@ -3084,8 +3086,9 @@ async function commitScoreWhenReady(zip) {
     if (notReal(state.lastCivicResult)) jobs.push(safeUiUpdate("risk signal loader", () => renderCivicCheck()));
     if (notReal(state.lastSiteIntelResult)) jobs.push(safeUiUpdate("site signal loader", () => renderSiteIntelCheck()));
     if (!jobs.length) break; // all required signals are real
+    round++;
     // HARD cap: race the loaders against the remaining budget so a signal that
-    // never settles (hung fetch) can't freeze the loading screen forever.
+    // never settles (hung fetch) can't freeze the loading screen.
     const remaining = Math.max(0, deadline - Date.now());
     await Promise.race([
       Promise.allSettled(jobs.filter((p) => p && typeof p.then === "function")),
@@ -3093,8 +3096,13 @@ async function commitScoreWhenReady(zip) {
     ]);
     if (state.zip !== zip) return; // superseded by a newer analysis
     persistSignalBundle();
-    if (requiredSignalsReal() || Date.now() >= deadline) break;
-    await new Promise((r) => setTimeout(r, 1200)); // brief pause; lets the server cache warm
+    // Commit once every signal has RESOLVED (real or a settled fallback). A
+    // signal that returns a fallback won't become real by re-fetching, so we
+    // give it one extra round to let the server cache warm, then stop waiting —
+    // this is what keeps loading from burning the full budget every time.
+    const allResolved = resolved(state.lastBusinessResult) && resolved(state.lastCivicResult) && resolved(state.lastSiteIntelResult);
+    if (requiredSignalsReal() || (allResolved && round >= 2) || Date.now() >= deadline) break;
+    await new Promise((r) => setTimeout(r, 900)); // brief pause; lets the server cache warm
   }
   if (state.zip !== zip) return;
   persistSignalBundle();
