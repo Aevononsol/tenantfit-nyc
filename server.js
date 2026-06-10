@@ -386,7 +386,9 @@ function applySecurityHeaders(response) {
   response.setHeader("X-Frame-Options", "DENY");
   response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), browsing-topics=()");
+  // geolocation=(self): the landing map centers on the visitor's own area
+  // (geolocation=() blocked the API outright — the browser never even asked).
+  response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self), browsing-topics=()");
   response.setHeader("X-DNS-Prefetch-Control", "off");
   if (isHostedProduction) {
     response.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");

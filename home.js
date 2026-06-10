@@ -97,6 +97,21 @@
       pinMarker = new maplibregl.Marker({ element: el }).setLngLat(mapCenter).addTo(map);
 
       refreshPoint(mapCenter);
+
+      // Show the visitor THEIR area instead of a fixed midtown pin: geolocate
+      // once on load; inside NYC -> fly there and analyze that point. Denied,
+      // unavailable, or outside NYC -> keep the Manhattan default silently.
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const lng = pos.coords.longitude, lat = pos.coords.latitude;
+          const inNyc = lat > 40.49 && lat < 40.93 && lng > -74.27 && lng < -73.68;
+          if (!inNyc) return;
+          map.flyTo({ center: [lng, lat], zoom: 13.5 });
+          setPin([lng, lat]);
+          const label = document.getElementById("mapLocLabel");
+          if (label) label.textContent = "Your location · live";
+        }, () => { /* permission denied — default stays */ }, { maximumAge: 300000, timeout: 8000, enableHighAccuracy: false });
+      }
     });
 
     map.on("click", (e) => { setPin([e.lngLat.lng, e.lngLat.lat]); });
