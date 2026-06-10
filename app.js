@@ -3719,6 +3719,9 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     "Site diligence: confirm frontage, signage, venting, loading, ADA, zoning/use, and commitment terms"
   ];
   const topRisks = [
+    // A quote far below NYC market isn't extra upside — it's usually a catch
+    // (short term, illegal sublease, basement, condition). Flag, don't reward.
+    successModel.rentQuote && successModel.rentQuote.monthly < 2000 && `Quoted rent ($${formatInteger(successModel.rentQuote.monthly)}/mo) is far below NYC market — verify the lease term, legal use, and space condition before treating it as real`,
     successModel.sameBlockCount >= 2 && `${successModel.sameBlockCount} direct competitors within ~0.1 mi — same-block saturation is the biggest threat here`,
     safeNumber(successModel.effectiveRent, profile.rent) >= 78 && (successModel.rentQuote
       ? `Quoted rent is heavy for modeled sales here (≈${successModel.rentQuote.ratioPct}% vs healthy ${successModel.rentQuote.healthyPct})`
