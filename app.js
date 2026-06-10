@@ -3096,12 +3096,11 @@ async function commitScoreWhenReady(zip) {
     ]);
     if (state.zip !== zip) return; // superseded by a newer analysis
     persistSignalBundle();
-    // Commit once every signal has RESOLVED (real or a settled fallback). A
-    // signal that returns a fallback won't become real by re-fetching, so we
-    // give it one extra round to let the server cache warm, then stop waiting —
-    // this is what keeps loading from burning the full budget every time.
-    const allResolved = resolved(state.lastBusinessResult) && resolved(state.lastCivicResult) && resolved(state.lastSiteIntelResult);
-    if (requiredSignalsReal() || (allResolved && round >= 2) || Date.now() >= deadline) break;
+    // Wait for the REAL signals before committing, so the first analysis uses
+    // complete data (no early 56-then-46). The server now locks each location's
+    // signals for 7 days, so after the first fetch this resolves instantly and
+    // identically for every device/session. Hard 12s cap prevents any hang.
+    if (requiredSignalsReal() || Date.now() >= deadline) break;
     await new Promise((r) => setTimeout(r, 900)); // brief pause; lets the server cache warm
   }
   if (state.zip !== zip) return;

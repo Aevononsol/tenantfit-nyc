@@ -98,13 +98,58 @@ const productAgents = [
 
 const isHostedProduction = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
 const responseCache = new Map();
+// Score-driving signals are locked for 7 days so the SAME location returns the
+// SAME inputs to every device and every session — this is what makes the score
+// deterministic (no more 56 on one run, 46 on the next). The cache is also
+// persisted to disk (see signal-cache.json) so it survives a Render spin-down /
+// cold start. Narrative-only data (openaiSearch) keeps a short TTL.
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const cacheTtl = {
-  census: 24 * 60 * 60 * 1000,
-  openData: 20 * 60 * 1000,
-  google: 20 * 60 * 1000,
-  geocode: 24 * 60 * 60 * 1000,
+  census: SEVEN_DAYS_MS,
+  openData: SEVEN_DAYS_MS,
+  google: SEVEN_DAYS_MS,
+  geocode: SEVEN_DAYS_MS,
   openaiSearch: 6 * 60 * 60 * 1000
 };
+
+// --- Durable cache: persist responseCache to disk so a Render cold start /
+// spin-down doesn't lose the locked signals (which would let the score drift on
+// the next request). Keys are already API-key-redacted, so nothing secret is
+// written. Best-effort; never throws into request handling.
+const SIGNAL_CACHE_FILE = join(dataRoot, "signal-cache.json");
+let signalCacheSaveTimer = null;
+function loadResponseCacheFromDisk() {
+  try {
+    if (!existsSync(SIGNAL_CACHE_FILE)) return;
+    const raw = JSON.parse(readFileSync(SIGNAL_CACHE_FILE, "utf8"));
+    const now = Date.now();
+    let loaded = 0;
+    for (const [key, entry] of Object.entries(raw || {})) {
+      if (entry && typeof entry.expiresAt === "number" && entry.expiresAt > now) {
+        responseCache.set(key, entry);
+        loaded += 1;
+      }
+    }
+    if (loaded) console.log(`Loaded ${loaded} cached signals from disk (durable score cache)`);
+  } catch (e) { /* corrupt/missing cache file is non-fatal */ }
+}
+function scheduleSignalCacheSave() {
+  if (signalCacheSaveTimer) return;
+  signalCacheSaveTimer = setTimeout(async () => {
+    signalCacheSaveTimer = null;
+    try {
+      const now = Date.now();
+      const obj = {};
+      for (const [key, entry] of responseCache) {
+        if (entry && entry.expiresAt > now) obj[key] = entry;
+      }
+      await mkdir(dataRoot, { recursive: true });
+      await writeFile(SIGNAL_CACHE_FILE, JSON.stringify(obj));
+    } catch (e) { /* disk may be read-only in some envs; non-fatal */ }
+  }, 4000);
+  if (signalCacheSaveTimer.unref) signalCacheSaveTimer.unref();
+}
+loadResponseCacheFromDisk();
 
 const restaurantTerms = {
   deli: ["DELI", "DELICATESSEN", "BODEGA"],
@@ -1120,6 +1165,7 @@ function writeCache(key, value, ttlMs) {
     expiresAt: Date.now() + ttlMs,
     value: structuredClone(value)
   });
+  scheduleSignalCacheSave(); // persist the locked signal so it survives a cold start
 }
 
 async function cachedJsonFetch(url, { headers = {}, timeoutMs = 5000, ttlMs = 0, cacheSuffix = "" } = {}) {
