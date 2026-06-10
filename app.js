@@ -2105,11 +2105,7 @@ function renderRevenueEstimator(profile) {
   // (category fit), FOOT TRAFFIC, and INCOME (spending power). Rent is NOT here —
   // it drives break-even & rent% (computed below). This replaces the old narrow
   // demand/income/rent lifts that left revenue nearly location-flat.
-  // Prefer the committed foot value (set deterministically at score commit, with
-  // site-intel/MTA loaded) so revenue is identical run-to-run regardless of which
-  // render pass fires; fall back to the computed value only pre-commit.
-  const committedFoot = window.__spotvestScoreBreakdown?.components?.footTrafficEstimateScore;
-  const footForRev = Number.isFinite(committedFoot) ? committedFoot : footTrafficScoreFor(profile);
+  const footForRev = footTrafficScoreFor(profile); // freshly computed deterministic foot (not the stale DOM/breakdown value)
   const locationFactor = Math.max(0.55, Math.min(1.5, (clampScore(demandScore) * 0.45 + footForRev * 0.35 + safeNumber(profile.income, 50) * 0.20) / 60));
 
   // Safe parsing + fallbacks: config/defaults fields can be missing (e.g. the
@@ -3772,7 +3768,7 @@ function spotvestScoreBreakdown(analysis, profile) {
   const br = currentBusinessResult();
   const site = currentSiteIntelResult();
   const civic = currentCivicResult();
-  const ftNum = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [null])[0]);
+  const ftNum = footTrafficScoreFor(profile); // deterministic computed foot, not the (possibly stale) DOM text
   const dataSourcesUsed = [
     "U.S. Census ACS (demographics)",
     br && br.googlePlaces && "Google Places (competition)",
