@@ -3436,8 +3436,26 @@ function buildBusinessSuccessModel(profile, recommendations) {
   // borough model only as a last resort.
   const googleVisible = Number(businessResult?.googleVisibleCount || 0);
   const competitionSource = businessResult?.registryExact ? "registry" : (googleVisible > 0 ? "google" : "model");
+  // Distance-weighted competition: a same-category operator on the SAME BLOCK
+  // is a far bigger threat than one half a mile away — pizza next to two other
+  // pizzerias should screen worse than three spread across the radius. Each
+  // registry record within ~0.1 mi adds +2 pressure on top of its flat count;
+  // within ~0.25 mi adds +0.75. Deterministic: the registry records and the
+  // analysis point are both locked signals. Applies only when we have a real
+  // address + record coordinates (ZIP-mode and Google-count categories keep
+  // the flat count — no coordinates to weight).
+  let proximityBoost = 0, sameBlockCount = 0;
+  if (state.location?.lat && state.location?.lng) {
+    for (const rec of (Array.isArray(businessResult?.mapRecords) ? businessResult.mapRecords : [])) {
+      const lat = Number(rec?.lat), lng = Number(rec?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const mi = milesBetweenPts(state.location.lat, state.location.lng, lat, lng);
+      if (mi <= 0.1) { proximityBoost += 2; sameBlockCount += 1; }
+      else if (mi <= 0.25) proximityBoost += 0.75;
+    }
+  }
   const competitionPressure = competitionSource === "registry"
-    ? saturationFromCount(businessResult.count, profile)
+    ? saturationFromCount(safeNumber(businessResult.count, 0) + proximityBoost, profile)
     : competitionSource === "google"
       ? saturationFromCount(googleVisible, profile)
       : profile.competition;
@@ -3483,6 +3501,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
     business,
     config,
     competitionPressure,
+    sameBlockCount,
     condition: competitionCondition(competitionScore),
     successProbability,
     scores: [
@@ -3631,6 +3650,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     "Site diligence: confirm frontage, signage, venting, loading, ADA, zoning/use, and commitment terms"
   ];
   const topRisks = [
+    successModel.sameBlockCount >= 2 && `${successModel.sameBlockCount} direct competitors within ~0.1 mi — same-block saturation is the biggest threat here`,
     profile.rent >= 78 && "High cost pressure can erase demand advantage",
     successModel.competitionPressure >= 78 && `Direct competition is ${successModel.condition}; saturation is elevated`,
     !address && "ZIP-level view may hide weak side-street conditions",
