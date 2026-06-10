@@ -4072,6 +4072,32 @@ function sv3ConstructionCard(ctx) {
   </div>`;
 }
 
+/* ---------- "What's around" — OpenStreetMap surroundings (facts only, display only) ---------- */
+function sv3WhatsAroundCard(ctx) {
+  if (!ctx.spaceAddressMode || !ctx.point) {
+    return `<div class="card"><div class="sub">What's around</div><div class="desc" style="margin-top:6px">Enter an exact storefront address to map what's within a 3-minute walk.</div></div>`;
+  }
+  if (ctx.whatsAroundLoading) {
+    return `<div class="card"><div class="sub">What's around</div><div class="desc" style="margin-top:6px">Scanning surroundings within 0.3 mi…</div></div>`;
+  }
+  const w = ctx.whatsAround;
+  if (!w || !w.available || !(w.categories || []).some((c) => c.count > 0)) {
+    return `<div class="card"><div class="sub">What's around</div><div class="desc" style="margin-top:6px">Surroundings data unavailable.</div><div class="src">OpenStreetMap</div></div>`;
+  }
+  const cells = (w.categories || []).filter((c) => c.count > 0).map((c) => {
+    const near = (c.nearest || [])[0];
+    return `<div class="wa-item">
+      <div class="wa-top"><span class="wa-count">${c.count}</span><span class="wa-label">${escapeText(c.label)}</span></div>
+      ${near ? `<div class="wa-near">${escapeText(near.name)} · ${near.distanceMi} mi</div>` : ""}
+    </div>`;
+  }).join("");
+  return `<div class="card">
+    <div class="sub">What's around · within 0.3 mi</div>
+    <div class="wa-grid">${cells}</div>
+    <div class="src">Counts of places mapped in OpenStreetMap within 0.3 mi (a ~6-minute walk); not exhaustive. Facts only — figures shown, no conclusions drawn. Display only — not used in the score.</div>
+  </div>`;
+}
+
 /* ---------- tab builders ---------- */
 function sv3OverviewHTML(ctx) {
   const m = sv3DecisionMeta(ctx.decision);
@@ -4176,6 +4202,19 @@ async function sv3LoadNearbyConstruction(lat, lng, key) {
   }
   if (state.location?.lat && state.location?.lng && `${state.location.lat},${state.location.lng}` === key) {
     try { safeUiUpdate("nearby construction (loaded)", () => renderInstitutionalAnalysis(profileForZip(state.zip), buildRecommendations(profileForZip(state.zip)))); } catch (e) { /* non-fatal */ }
+  }
+}
+let sv3WhatsAround = null; // { key, loading, data }
+async function sv3LoadWhatsAround(lat, lng, key) {
+  sv3WhatsAround = { key, loading: true, data: null };
+  try {
+    const d = await (await fetch(`/api/whats-around?lat=${lat}&lng=${lng}`)).json();
+    sv3WhatsAround = { key, loading: false, data: d };
+  } catch (e) {
+    sv3WhatsAround = { key, loading: false, data: { available: false } };
+  }
+  if (state.location?.lat && state.location?.lng && `${state.location.lat},${state.location.lng}` === key) {
+    try { safeUiUpdate("what's around (loaded)", () => renderInstitutionalAnalysis(profileForZip(state.zip), buildRecommendations(profileForZip(state.zip)))); } catch (e) { /* non-fatal */ }
   }
 }
 
@@ -4437,6 +4476,7 @@ function sv3MarketHTML(ctx) {
     <div class="section-label"><span class="n">09</span> Foot traffic intelligence</div>
     ${sv3NearestTransitCard(ctx)}
     ${sv3ConstructionCard(ctx)}
+    ${sv3WhatsAroundCard(ctx)}
     <div class="card accent"><div class="sub">${ctx.ftReal ? "Live signal · MTA ridership near this point" : "Modeled estimate · SpotVest location model"}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. ${ctx.ftReal ? "Derived from MTA subway ridership near this location." : "Modeled from area density, transit, and commercial activity."}</div></div>
     <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div><div class="src" style="margin-top:4px">${escapeText(ctx.ftVisitorsTag || "MODELED RANGE")}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span> <span class="src" style="display:inline">MODELED</span></div></div></div>
     <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · SpotVest mobility model (peak hours &amp; split)</div></div>
@@ -4790,6 +4830,8 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     transitLoading: Boolean(sv3NearbyTransit && sv3NearbyTransit.loading && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`),
     construction: (sv3NearbyConstruction && state.location && sv3NearbyConstruction.key === `${state.location.lat},${state.location.lng}`) ? sv3NearbyConstruction.data : null,
     constructionLoading: Boolean(sv3NearbyConstruction && sv3NearbyConstruction.loading && state.location && sv3NearbyConstruction.key === `${state.location.lat},${state.location.lng}`),
+    whatsAround: (sv3WhatsAround && state.location && sv3WhatsAround.key === `${state.location.lat},${state.location.lng}`) ? sv3WhatsAround.data : null,
+    whatsAroundLoading: Boolean(sv3WhatsAround && sv3WhatsAround.loading && state.location && sv3WhatsAround.key === `${state.location.lat},${state.location.lng}`),
     point: state.location?.lat && state.location?.lng ? { lat: state.location.lat, lng: state.location.lng } : null,
     scoreReady: state.scoreReady !== false, // false only while live signals are still loading
     scoreUnavailable: state.scoreUnavailable === true, // real signals couldn't be confirmed
@@ -4876,6 +4918,9 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     }
     if (!sv3NearbyConstruction || sv3NearbyConstruction.key !== tKey) {
       sv3LoadNearbyConstruction(state.location.lat, state.location.lng, tKey);
+    }
+    if (!sv3WhatsAround || sv3WhatsAround.key !== tKey) {
+      sv3LoadWhatsAround(state.location.lat, state.location.lng, tKey);
     }
   }
 }

@@ -2063,6 +2063,77 @@ async function nearbyConstruction(lat, lng) {
   };
 }
 
+// "What's around" — walk-in-traffic generators within ~0.3 mi from OpenStreetMap
+// (Overpass, no key). Display only. Routed through the durable responseCache
+// (7-day) so we never hammer the free shared API per request. Facts only.
+async function whatsAround(lat, lng) {
+  const rLat = Math.round(lat * 1e4) / 1e4, rLng = Math.round(lng * 1e4) / 1e4; // ~11m round → cache sharing + good citizen
+  const r = 483; // 0.3 mi
+  const q = `[out:json][timeout:25];(`
+    + `nwr(around:${r},${rLat},${rLng})[leisure~"^(park|playground|fitness_centre|sports_centre)$"];`
+    + `nwr(around:${r},${rLat},${rLng})[amenity~"^(school|university|college|pharmacy|bank|parking|coworking_space)$"];`
+    + `nwr(around:${r},${rLat},${rLng})[shop~"^(supermarket|grocery|convenience)$"];`
+    + `nwr(around:${r},${rLat},${rLng})[tourism=hotel];`
+    + `nwr(around:${r},${rLat},${rLng})[office];`
+    + `nwr(around:${r},${rLat},${rLng})[highway=bus_stop];`
+    + `);out center tags;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`;
+  const result = await cachedJsonFetch(url, {
+    headers: { "User-Agent": "SpotVest/1.0 (NYC location analysis; https://spotvest.ai)" },
+    timeoutMs: 30000,
+    ttlMs: SEVEN_DAYS_MS
+  });
+  if (!result.ok) throw new Error(`Overpass returned ${result.status}`);
+  const els = (result.data && result.data.elements) || [];
+
+  const milesBetween = (a1, o1, a2, o2) => {
+    const R = 6371000 / 1609.344, toRad = Math.PI / 180;
+    const x = (o2 - o1) * toRad * Math.cos(((a1 + a2) / 2) * toRad);
+    const y = (a2 - a1) * toRad;
+    return Math.sqrt(x * x + y * y) * R;
+  };
+  const catOf = (t) => {
+    const L = t.leisure, A = t.amenity, S = t.shop;
+    if (L === "park" || L === "playground") return "parks";
+    if (L === "fitness_centre" || L === "sports_centre") return "gyms";
+    if (A === "school" || A === "university" || A === "college") return "schools";
+    if (S === "supermarket" || S === "grocery" || S === "convenience") return "grocery";
+    if (A === "pharmacy") return "pharmacy";
+    if (A === "bank") return "banks";
+    if (t.tourism === "hotel") return "hotels";
+    if (A === "coworking_space" || t.office) return "offices";
+    if (t.highway === "bus_stop") return "bus_stops";
+    if (A === "parking") return "parking";
+    return null;
+  };
+  const order = [
+    ["parks", "Parks & playgrounds"], ["schools", "Schools & universities"], ["gyms", "Gyms & fitness"],
+    ["grocery", "Grocery & convenience"], ["pharmacy", "Pharmacies"], ["banks", "Banks"],
+    ["hotels", "Hotels"], ["offices", "Offices & coworking"], ["bus_stops", "Bus stops"], ["parking", "Parking"]
+  ];
+  const buckets = {}; order.forEach(([k]) => { buckets[k] = new Map(); });
+  for (const e of els) {
+    const t = e.tags || {}; const c = catOf(t); if (!c) continue;
+    const la = e.lat != null ? e.lat : (e.center && e.center.lat);
+    const lo = e.lon != null ? e.lon : (e.center && e.center.lon);
+    if (la == null || lo == null) continue;
+    const name = (t.name || "").trim();
+    // De-dupe by name (collapses both-direction bus stops + node/way duplicates);
+    // unnamed entries de-dupe by rounded coordinate.
+    const key = name ? name.toLowerCase() : `${la.toFixed(5)},${lo.toFixed(5)}`;
+    const dist = milesBetween(rLat, rLng, la, lo);
+    const prev = buckets[c].get(key);
+    if (!prev || dist < prev.dist) buckets[c].set(key, { name: name || null, dist });
+  }
+  const categories = order.map(([k, label]) => {
+    const items = [...buckets[k].values()].sort((a, b) => a.dist - b.dist);
+    const nearest = items.filter((i) => i.name).slice(0, 2).map((i) => ({ name: i.name, distanceMi: Math.round(i.dist * 100) / 100 }));
+    return { key: k, label, count: items.length, nearest };
+  });
+  const totalPoints = categories.reduce((s, c) => s + c.count, 0);
+  return { available: totalPoints > 0, radiusMiles: 0.3, categories, source: "OpenStreetMap" };
+}
+
 async function siteIntelligence(zip, location = null) {
   const liquorWhere = location?.lat && location?.lng
     ? `within_circle(georeference, ${location.lat}, ${location.lng}, ${location.radiusMeters || 805})`
@@ -3197,6 +3268,21 @@ createServer(async (request, response) => {
       }
       try {
         sendJson(response, 200, await nearbyConstruction(lat, lng));
+      } catch (error) {
+        sendJson(response, 200, { available: false, unavailable: true });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/whats-around") {
+      const lat = Number(url.searchParams.get("lat"));
+      const lng = Number(url.searchParams.get("lng"));
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        sendJson(response, 400, { error: "lat/lng required" });
+        return;
+      }
+      try {
+        sendJson(response, 200, await whatsAround(lat, lng));
       } catch (error) {
         sendJson(response, 200, { available: false, unavailable: true });
       }
