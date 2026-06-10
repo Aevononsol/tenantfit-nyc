@@ -4393,7 +4393,6 @@ function sv3OverviewHTML(ctx) {
     <div class="actions">
       <button class="btn" type="button" data-sv3-action="generate">Generate decision report</button>
       <button class="btn ghost sm btn-ico" type="button" data-sv3-action="export-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export PDF</button>
-      <button class="btn ghost sm btn-ico" type="button" data-sv3-action="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H8a2 2 0 01-2-2V7a2 2 0 012-2h7l4 4v10a2 2 0 01-2 2z"/></svg>Save report</button>
       <button class="btn ghost sm btn-ico" type="button" data-sv3-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1m-2 8a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>Copy link</button>
       <button class="btn ghost sm btn-ico" type="button" data-sv3-action="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>Add to compare</button>
       <button class="btn ghost sm btn-ico" type="button" data-sv3-action="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.5M3 4v4h4"/></svg>New search</button>
@@ -5304,17 +5303,33 @@ function renderSv3GeneratedDecisionReport(memo, warning = "") {
     if (actions) actions.insertAdjacentElement("afterend", panel);
     else overview.appendChild(panel);
   }
-  const paragraphs = String(memo || "")
+  // Lead paragraph stays visible; every other section collapses to a tappable
+  // headline (native <details>, no JS) — a wall of 12 paragraphs read as
+  // "nobody will read this", and the headlines alone carry the decision.
+  const parts = String(memo || "")
     .split(/\n{2,}/)
     .map((part) => part.trim())
     .filter(Boolean)
-    .slice(0, 12)
-    .map((part) => `<p>${escapeText(part).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+    .slice(0, 14);
+  const lead = parts.shift() || "";
+  const headlineFor = (text) => {
+    const labeled = text.match(/^[#*\s]*([A-Z][^:.\n]{2,60})[*\s]*:\s*([\s\S]*)$/);
+    if (labeled) return [labeled[1].trim(), labeled[2].trim() || text];
+    const sentence = (text.split(/(?<=[.!?])\s/)[0] || text).replace(/^[#*\s]+/, "");
+    return [sentence.length > 72 ? sentence.slice(0, 69).replace(/\s+\S*$/, "") + "…" : sentence, text];
+  };
+  const sections = parts.map((part) => {
+    const [title, body] = headlineFor(part);
+    return `<details><summary>${escapeText(title)}</summary><p>${escapeText(body).replace(/\n/g, "<br>")}</p></details>`;
+  }).join("");
   panel.innerHTML = `
     <div class="sub">Generated decision report</div>
     <h3>Client-ready summary</h3>
-    <div class="generated-report-copy">${paragraphs || "<p>No report text returned.</p>"}</div>
+    <div class="generated-report-copy">
+      ${lead ? `<p class="grc-lead">${escapeText(lead).replace(/\n/g, "<br>")}</p>` : "<p>No report text returned.</p>"}
+      ${sections}
+      ${sections ? `<div class="grc-hint">Tap a point to read the detail.</div>` : ""}
+    </div>
     ${warning ? `<div class="src">Service note: ${escapeText(warning)}</div>` : '<div class="src">Generated from SpotVest market signals</div>'}
   `;
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -6686,17 +6701,39 @@ function renderExecSummary() {
   `;
 }
 
-// Default Export PDF: the concise 1-2 page executive summary.
+// Default Export PDF: the concise 1-2 page executive summary. Opens the white
+// report document in its OWN tab and triggers print there. The old in-page
+// window.print() approach silently failed on phones: iOS doesn't reliably
+// fire afterprint (stuck print-exec state) and the hidden-element CSS tricks
+// printed blank for some users. A real tab always shows the document, and
+// share -> Print / Save as PDF works from it on every device.
 function exportExecPdf() {
   setPrintMeta();
   renderExecSummary();
-  document.body.classList.add("print-exec");
-  const restore = () => {
-    document.body.classList.remove("print-exec");
-    window.removeEventListener("afterprint", restore);
-  };
-  window.addEventListener("afterprint", restore);
-  window.print();
+  const doc = elements.execSummary?.innerHTML;
+  if (!doc) return;
+  const win = window.open("", "_blank");
+  if (!win) { // popup blocked — fall back to the legacy in-page print
+    document.body.classList.add("print-exec");
+    const restore = () => { document.body.classList.remove("print-exec"); window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    window.print();
+    return;
+  }
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SpotVest report · ${escapeText(state.zip || "")}</title>
+    <link rel="stylesheet" href="${window.location.origin}/styles.css">
+    <style>
+      body{background:#fff;margin:0;padding:18px}
+      #exec-summary{display:block !important}
+      .print-actions{display:flex;gap:10px;margin:0 0 16px}
+      .print-actions button{border:0;border-radius:999px;background:#0E7490;color:#fff;font-weight:700;padding:10px 18px;font-size:14px;cursor:pointer}
+      @media print{.print-actions{display:none}}
+    </style></head>
+    <body><div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button></div>
+    <div id="exec-summary">${doc}</div>
+    <script>setTimeout(function(){ try { window.print(); } catch (e) {} }, 350);</scr${""}ipt></body></html>`);
+  win.document.close();
 }
 
 // Secondary export: the full multi-section report.
