@@ -2,6 +2,9 @@ if (window.location.protocol === "file:") {
   window.location.replace("http://localhost:5174/");
 }
 
+// Version marker for support: lets us confirm which build a browser is running.
+console.info("SpotVest app build: 20260610-zipwait");
+
 // Silence benign third-party noise: when the Market map is recreated on a
 // re-render, MapLibre tears down the old map and its in-flight tile/glyph
 // fetches abort — surfacing as "signal is aborted without reason" and
@@ -5467,7 +5470,9 @@ function initSpotVestV3Controls() {
     // can be misread); the result is the ZIP's center point.
     if (elements.addressInput) elements.addressInput.value = `${zip}, New York, NY`;
     if (refs.stepnote) refs.stepnote.textContent = "Analyzing the area…";
-    sv3ShowMain("report");
+    // Stay on the search screen until the location resolves — the submit
+    // handler switches to the report on success. Switching first left a dead
+    // blank report whenever the geocode hung or failed.
     elements.addressForm?.requestSubmit();
   };
   const runAddress = () => {
@@ -7046,6 +7051,9 @@ elements.addressForm.addEventListener("submit", async (event) => {
     };
     elements.addressInput.value = result.address;
     elements.addressMessage.textContent = `Using ${result.address} within ${state.location.radiusMiles} mile.`;
+    // Location resolved — NOW show the report (idempotent for the address flow,
+    // which already switched; required for the ZIP flow, which waits here).
+    try { sv3ShowMain("report"); } catch (e) { /* legacy UI */ }
     render(result.zip);
   } catch (error) {
     logIntegrationError("address geocoding fallback", error, { address });
