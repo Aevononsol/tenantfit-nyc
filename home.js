@@ -115,10 +115,19 @@
           setPin([lng, lat]);
           if (label) label.textContent = inNyc ? "Your location · live" : "Your location — live data covers NYC only";
         }, (err) => {
-          if (fromTap && label) label.textContent = err && err.code === 1
-            ? "Location blocked — allow it for spotvest.ai in browser settings"
-            : "Couldn't get a location fix — try again";
-        }, { maximumAge: 300000, timeout: 8000, enableHighAccuracy: false });
+          if (!fromTap || !label) return;
+          // Spell out WHICH layer refused — "not working" hides three
+          // different problems (site permission vs OS Location Services vs
+          // no GPS fix) with three different fixes.
+          const code = err && err.code;
+          label.textContent = code === 1
+            ? "Blocked by browser site permission (aA → Website Settings → Location → Allow)"
+            : code === 2
+              ? "Phone location unavailable — check Settings → Privacy → Location Services (on, + Safari Websites: While Using)"
+              : code === 3
+                ? "Timed out getting a GPS fix — try again near a window"
+                : `Location error: ${(err && err.message) || "unknown"}`;
+        }, { maximumAge: 0, timeout: 12000, enableHighAccuracy: false });
       };
       const mapWrap = document.getElementById("home-map")?.parentElement;
       if (mapWrap) {
