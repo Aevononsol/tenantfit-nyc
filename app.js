@@ -11,7 +11,7 @@ console.info("SpotVest app build: 20260610-zipall");
 window.sv3Debug = (() => {
   if (!/[?&]debug=1\b/.test(window.location.search)) return () => {};
   const box = document.createElement("div");
-  box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:92vw;max-height:45vh;overflow:auto;background:rgba(8,12,22,.96);color:#9fe8ff;font:11px/1.6 ui-monospace,monospace;padding:10px 12px;border:1px solid #39C2D6;border-radius:10px;white-space:pre-wrap;pointer-events:auto";
+  box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:92vw;max-height:45vh;overflow:auto;background:rgba(8,12,22,.96);color:#9fe8ff;font:11px/1.6 ui-monospace,monospace;padding:10px 12px;border:1px solid #39C2D6;border-radius:10px;white-space:pre-wrap;pointer-events:none;opacity:.92";
   const add = (m) => { box.textContent += m + "\n"; box.scrollTop = box.scrollHeight; };
   const attach = () => { try { document.body.appendChild(box); } catch (e) { /* retry on ready */ } };
   if (document.body) attach(); else document.addEventListener("DOMContentLoaded", attach);
