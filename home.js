@@ -109,12 +109,15 @@
         navigator.geolocation.getCurrentPosition((pos) => {
           const lng = pos.coords.longitude, lat = pos.coords.latitude;
           const inNyc = lat > 40.49 && lat < 40.93 && lng > -74.27 && lng < -73.68;
-          if (!inNyc) { if (fromTap && label) label.textContent = "You're outside NYC — explore the map instead"; return; }
-          map.flyTo({ center: [lng, lat], zoom: 13.5 });
+          // Always show the visitor where THEY are — refusing to move outside
+          // NYC read as "broken". Outside coverage, the label says so.
+          map.flyTo({ center: [lng, lat], zoom: inNyc ? 13.5 : 11 });
           setPin([lng, lat]);
-          if (label) label.textContent = "Your location · live";
-        }, () => {
-          if (fromTap && label) label.textContent = "Location blocked — allow it in browser settings";
+          if (label) label.textContent = inNyc ? "Your location · live" : "Your location — live data covers NYC only";
+        }, (err) => {
+          if (fromTap && label) label.textContent = err && err.code === 1
+            ? "Location blocked — allow it for spotvest.ai in browser settings"
+            : "Couldn't get a location fix — try again";
         }, { maximumAge: 300000, timeout: 8000, enableHighAccuracy: false });
       };
       const mapWrap = document.getElementById("home-map")?.parentElement;
