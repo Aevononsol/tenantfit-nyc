@@ -1894,6 +1894,18 @@ function renderTopPlaces(result) {
     .join("");
 }
 
+// Real office presence (replaces the hand-set borough template). Derived from
+// PLUTO office floor area for the area (already in the gated site-intelligence),
+// log-scaled to 0-100 (~200k sq ft -> 0, ~35M -> 100). Falls back to the template
+// only if PLUTO office area is unavailable. The template badly mislabeled e.g.
+// East Village as office=78 when its real office area is the lowest in the set.
+function effectiveOffice(p) {
+  const area = currentSiteIntelResult()?.pluto?.officeArea;
+  if (Number.isFinite(area) && area > 0) {
+    return Math.max(0, Math.min(100, Math.round(((Math.log10(area) - 5.3) / 2.25) * 100)));
+  }
+  return safeNumber(p && p.office, 50);
+}
 function saturationFromCount(count, profile) {
   const tolerance = profile.density >= 80 ? 24 : profile.density >= 65 ? 18 : 12;
   return Math.max(8, Math.min(98, Math.round((count / tolerance) * 82)));
@@ -1914,8 +1926,8 @@ function pulseLabel(score, labelsForRange) {
 }
 
 function renderMarketPulse(profile) {
-  const footScore = Math.round(profile.density * 0.45 + profile.transit * 0.35 + profile.office * 0.2);
-  const spendScore = Math.round(profile.income * 0.74 + profile.tourist * 0.12 + profile.office * 0.14);
+  const footScore = Math.round(profile.density * 0.45 + profile.transit * 0.35 + effectiveOffice(profile) * 0.2);
+  const spendScore = Math.round(profile.income * 0.74 + profile.tourist * 0.12 + effectiveOffice(profile) * 0.14);
   const riskScore = Math.round(profile.rent * 0.55 + profile.competition * 0.35 + (100 - profile.localPreference) * 0.1);
 
   elements.pulseFoot.textContent = pulseLabel(footScore, ["Thin", "Uneven", "Strong", "Very strong"]);
@@ -1932,7 +1944,7 @@ function activityLabel(score) {
 function modeledVisitorRange(score, profile) {
   const baseLow = score >= 74 ? 4500 : score >= 48 ? 1800 : 600;
   const baseHigh = score >= 74 ? 12000 : score >= 48 ? 5200 : 1800;
-  const officeLift = safeNumber(profile.office, 50) >= 75 ? 1.18 : 1;
+  const officeLift = safeNumber(effectiveOffice(profile), 50) >= 75 ? 1.18 : 1;
   const touristLift = safeNumber(profile.tourist, 50) >= 72 ? 1.12 : 1;
   const locationLift = state.location ? 0.82 : 1;
   const low = Math.round(baseLow * officeLift * touristLift * locationLift / 100) * 100;
@@ -1942,14 +1954,14 @@ function modeledVisitorRange(score, profile) {
 
 function peakHoursFor(profile) {
   const peaks = [];
-  if (safeNumber(profile.office, 0) >= 58 || safeNumber(profile.transit, 0) >= 72) peaks.push("morning");
+  if (safeNumber(effectiveOffice(profile), 0) >= 58 || safeNumber(profile.transit, 0) >= 72) peaks.push("morning");
   peaks.push("lunch");
   if (safeNumber(profile.nightlife, 0) >= 58 || safeNumber(profile.tourist, 0) >= 62) peaks.push("evening");
   return [...new Set(peaks)].join(" / ");
 }
 
 function weekdayWeekendSplit(profile) {
-  const weekday = clampScore(50 + safeNumber(profile.office, 50) * 0.18 + safeNumber(profile.transit, 50) * 0.1 - safeNumber(profile.nightlife, 50) * 0.08 - safeNumber(profile.tourist, 50) * 0.05);
+  const weekday = clampScore(50 + safeNumber(effectiveOffice(profile), 50) * 0.18 + safeNumber(profile.transit, 50) * 0.1 - safeNumber(profile.nightlife, 50) * 0.08 - safeNumber(profile.tourist, 50) * 0.05);
   const weekend = 100 - weekday;
   return `Weekday ${weekday}% / weekend ${weekend}% modeled split.`;
 }
@@ -1974,7 +1986,7 @@ function renderFootTrafficIntelligence(profile) {
     ? 88
     : siteIntel?.pluto?.retailArea > 150000
       ? 68
-      : safeNumber(profile.office, 50);
+      : safeNumber(effectiveOffice(profile), 50);
   const restaurantConcentration = businessResult?.registryExact
     ? saturationFromCount(safeNumber(businessResult.count, 0), profile)
     : safeNumber(competitorCounts[state.zip]?.restaurant, 0)
@@ -1984,7 +1996,7 @@ function renderFootTrafficIntelligence(profile) {
     safeNumber(profile.density, 50) * 0.24 +
       safeNumber(profile.transit, 50) * 0.2 +
       mobilityScore * 0.14 +
-      safeNumber(profile.office, 50) * 0.12 +
+      safeNumber(effectiveOffice(profile), 50) * 0.12 +
       safeNumber(profile.nightlife, 50) * 0.1 +
       safeNumber(profile.tourist, 50) * 0.08 +
       commercialMixScore * 0.07 +
@@ -2016,7 +2028,7 @@ function renderFootTrafficIntelligence(profile) {
     "Modeled"
   );
   elements.footTrafficWhy.textContent =
-    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(profile.office)}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. Estimated using mobility, transit, density, and commercial activity signals — SpotVest's Foot Traffic Model, not a direct pedestrian counter.`;
+    `Score reflects density ${formatBadgeScore(profile.density)}, transit ${formatBadgeScore(profile.transit)}, office activity ${formatBadgeScore(effectiveOffice(profile))}, nightlife ${formatBadgeScore(profile.nightlife)}, tourism ${formatBadgeScore(profile.tourist)}, commercial mix, mobility, and restaurant concentration. Estimated using mobility, transit, density, and commercial activity signals — SpotVest's Foot Traffic Model, not a direct pedestrian counter.`;
 }
 
 function revenueCategoryDefaults(category) {
@@ -3419,12 +3431,12 @@ function buildBusinessSuccessModel(profile, recommendations) {
   // so it's removed from the SCORE (kept as a display-only signal) and the
   // remaining demand weights are renormalized (÷0.90) to preserve scale. This
   // removes the 39↔45 non-determinism on the same address.
-  const demandScore = clampScore((profile.density * 0.18 + profile.transit * 0.14 + profile.office * 0.09 + profile.nightlife * 0.07 + profile.tourist * 0.05 + profile.student * 0.05 + config.baseDemand * 0.18 + reviewMomentum * 0.14) / 0.9);
-  const customerFitScore = clampScore(profile.income * 0.24 + profile.families * 0.14 + profile.student * 0.08 + profile.office * 0.12 + profile.localPreference * 0.16 + profile.chainFit * 0.1 + categoryFit * 0.16);
+  const demandScore = clampScore((profile.density * 0.18 + profile.transit * 0.14 + effectiveOffice(profile) * 0.09 + profile.nightlife * 0.07 + profile.tourist * 0.05 + profile.student * 0.05 + config.baseDemand * 0.18 + reviewMomentum * 0.14) / 0.9);
+  const customerFitScore = clampScore(profile.income * 0.24 + profile.families * 0.14 + profile.student * 0.08 + effectiveOffice(profile) * 0.12 + profile.localPreference * 0.16 + profile.chainFit * 0.1 + categoryFit * 0.16);
   const competitionScore = clampScore(100 - competitionPressure * 0.78 + (businessResult?.googlePlaces?.avgRating >= 4.5 ? 4 : 0));
-  const locationScore = clampScore(profile.transit * 0.34 + profile.density * 0.22 + profile.office * 0.12 + (100 - profile.rent) * 0.1 + propertyBoost + transitBoost + (state.location ? 6 : 0));
+  const locationScore = clampScore(profile.transit * 0.34 + profile.density * 0.22 + effectiveOffice(profile) * 0.12 + (100 - profile.rent) * 0.1 + propertyBoost + transitBoost + (state.location ? 6 : 0));
   const financialScore = clampScore(profile.income * 0.3 + (100 - profile.rent) * 0.28 + (100 - config.rentSensitivity) * 0.1 + categoryFit * 0.14 + profile.chainFit * 0.1 + budgetSupport * 0.08);
-  const growthScore = clampScore(45 + permitBoost + propertyBoost + profile.office * 0.12 + profile.density * 0.1 + profile.transit * 0.08);
+  const growthScore = clampScore(45 + permitBoost + propertyBoost + effectiveOffice(profile) * 0.12 + profile.density * 0.1 + profile.transit * 0.08);
   const riskRaw = clampScore(profile.rent * 0.34 + competitionPressure * 0.32 + (100 - profile.income) * 0.1 + (100 - profile.transit) * 0.08 + civicPenalty + (!state.location ? 6 : 0));
   const riskScore = clampScore(100 - riskRaw);
   const successProbability = clampScore(weightedBusinessScore((name) => ({
@@ -3655,7 +3667,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
       `Business: ${titleCase(successModel.business)}`,
       `Location: ${state.location ? `${state.location.address} within ${state.location.radiusMiles} mi` : `ZIP ${state.zip} - ${profile.name}`}`,
       `Demographics: density ${formatScore(profile.density)}, income ${formatScore(profile.income)}, families ${formatScore(profile.families)}, student ${formatScore(profile.student)}`,
-      `Mobility/demand: transit ${formatScore(profile.transit)}, office ${formatScore(profile.office)}, nightlife ${formatScore(profile.nightlife)}, tourist ${formatScore(profile.tourist)}`,
+      `Mobility/demand: transit ${formatScore(profile.transit)}, office ${formatScore(effectiveOffice(profile))}, nightlife ${formatScore(profile.nightlife)}, tourist ${formatScore(profile.tourist)}`,
       `Competition: ${businessResult?.registryExact ? `observed ${businessResult.business} market activity connected` : `modeled area competition ${formatScore(profile.competition)}`}`,
       `Cost pressure: ${formatScore(profile.rent)}`,
       `Consumer signal: ${google ? "competitive visibility connected" : "competitive visibility confirmation needed"}`,
@@ -6031,7 +6043,7 @@ function verdictTitleFor(profile, recommendations) {
   const top = recommendations[0].name.toLowerCase();
   if (profile.income >= 82 && profile.rent >= 82) return `Strong area, but only for operators with pricing power`;
   if (profile.student >= 68) return `Strong value area with student and local demand`;
-  if (profile.office >= 76) return `Good area for routine weekday demand`;
+  if (effectiveOffice(profile) >= 76) return `Good area for routine weekday demand`;
   if (profile.density < 55) return `Selective area for neighborhood-first businesses`;
   return `Good area for ${top} and daily-use retail`;
 }
@@ -6507,12 +6519,12 @@ function locationFootTraffic(profile) {
     ? 88
     : siteIntel?.pluto?.retailArea > 150000
       ? 68
-      : safeNumber(profile.office, 50);
+      : safeNumber(effectiveOffice(profile), 50);
   const locationOnly =
     safeNumber(profile.density, 50) * 0.24 +
     safeNumber(profile.transit, 50) * 0.2 +
     mobilityScore * 0.14 +
-    safeNumber(profile.office, 50) * 0.12 +
+    safeNumber(effectiveOffice(profile), 50) * 0.12 +
     safeNumber(profile.nightlife, 50) * 0.1 +
     safeNumber(profile.tourist, 50) * 0.08 +
     commercialMixScore * 0.07;
