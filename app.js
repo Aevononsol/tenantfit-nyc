@@ -6754,10 +6754,18 @@ function exportExecPdf() {
       .report-doc .rd-subhead{font-weight:700;font-size:12.5px;color:#0b1422;margin:8px 0 4px}
       .report-doc .rd-foot{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;line-height:1.5}
     </style></head>
-    <body><div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button></div>
+    <body><div class="print-actions"><button id="sv3-print-btn" type="button">Print / Save as PDF</button></div>
     ${doc}
     </body></html>`);
   win.document.close();
+  // The new tab inherits this site's CSP (script-src without 'unsafe-inline'),
+  // which silently blocks inline onclick handlers — the button did nothing on
+  // phones. Wiring the listener from the opener context is CSP-clean.
+  try {
+    win.document.getElementById("sv3-print-btn")?.addEventListener("click", () => {
+      try { win.focus(); win.print(); } catch (e) { /* print sheet unavailable */ }
+    });
+  } catch (e) { /* cross-window access denied — user can use the browser's own share/print */ }
 }
 
 // Secondary export: the full multi-section report.
