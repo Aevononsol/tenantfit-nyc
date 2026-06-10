@@ -1289,8 +1289,14 @@ function scoreRange(value, min, max) {
 }
 
 function isoDaysAgo(days) {
+  // Anchored to the most recent Monday (UTC): a raw "now - N days" window
+  // shifts every midnight, which changes the Socrata query URL (the cache key)
+  // and the underlying counts — so two analyses of the same address on
+  // different days could disagree. Snapping to Monday keeps the window, the
+  // cache key, and the resulting risk level stable for a full week.
   const date = new Date();
-  date.setDate(date.getDate() - days);
+  const sinceMonday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - sinceMonday - days);
   return date.toISOString().slice(0, 10);
 }
 
@@ -1487,7 +1493,9 @@ async function restaurantMapRecords(zip, business, location = null) {
     $where: where,
     $group: "camis,dba,building,street,zipcode,cuisine_description,latitude,longitude",
     $limit: "300",
-    $order: "dba"
+    // camis tiebreak: duplicate DBAs near the LIMIT boundary would otherwise be
+    // truncated nondeterministically, shifting the map-record count between calls
+    $order: "dba,camis"
   });
 
   return rows
@@ -1518,7 +1526,8 @@ async function dcwpMapRecords(zip, business, location = null) {
     $where: where,
     $group: "license_nbr,business_name,dba_trade_name,business_category,detail,address_building,address_street_name,address_zip,latitude,longitude",
     $limit: "300",
-    $order: "business_name"
+    // license_nbr tiebreak: same reason as the camis tiebreak above
+    $order: "business_name,license_nbr"
   });
 
   return rows
@@ -1919,7 +1928,7 @@ async function civicSignals(zip, location = null) {
       $select: "complaint_type,count(*)",
       $where: complaintWhere,
       $group: "complaint_type",
-      $order: "count DESC",
+      $order: "count DESC,complaint_type",
       $limit: "6"
     }).catch(integrationFallback("311 complaint categories", [])),
     socrataJson("erm2-nwe9", {
@@ -1930,7 +1939,7 @@ async function civicSignals(zip, location = null) {
       $select: "permit_type,count(*)",
       $where: `zip_code='${zip}'`,
       $group: "permit_type",
-      $order: "count DESC",
+      $order: "count DESC,permit_type",
       $limit: "6"
     }).catch(integrationFallback("DOB permit categories", [])),
     socrataJson("ipu4-2q9a", {
