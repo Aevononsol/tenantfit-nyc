@@ -2058,9 +2058,13 @@ function renderRevenueEstimator(profile) {
   const defaults = revenueCategoryDefaults(category);
   const config = modeledBusinessConfig(normalizeBusiness(category));
   const demandScore = categoryFitForBusiness(normalizeBusiness(category), profile);
-  const demandLift = 0.72 + clampScore(demandScore) / 185;
-  const incomeLift = 0.82 + clampScore(profile.income) / 420;
-  const rentDrag = Math.max(0.72, 1 - clampScore(profile.rent) / 420);
+  // Location revenue factor (modeled): venue sales scale with local DEMAND
+  // (category fit), FOOT TRAFFIC, and INCOME (spending power). Rent is NOT here —
+  // it drives break-even & rent% (computed below). This replaces the old narrow
+  // demand/income/rent lifts that left revenue nearly location-flat.
+  const footMatch = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [])[0]);
+  const footForRev = Number.isFinite(footMatch) ? footMatch : safeNumber(profile.transit, 50);
+  const locationFactor = Math.max(0.55, Math.min(1.5, (clampScore(demandScore) * 0.45 + footForRev * 0.35 + safeNumber(profile.income, 50) * 0.20) / 60));
 
   // Safe parsing + fallbacks: config/defaults fields can be missing (e.g. the
   // fallback config has no operatingDifficulty), which previously produced
@@ -2074,8 +2078,8 @@ function renderRevenueEstimator(profile) {
   const opDifficulty = safeNumber(config.operatingDifficulty, 50);
   const rentSensitivity = safeNumber(config.rentSensitivity, 60);
 
-  const lowRevenue = size * salesLow * demandLift * rentDrag;
-  const highRevenue = size * salesHigh * demandLift * incomeLift;
+  const lowRevenue = size * salesLow * locationFactor;
+  const highRevenue = size * salesHigh * locationFactor;
   const avgRevenue = (lowRevenue + highRevenue) / 2;
   const targetRevenueLow = effectiveRent / rentShareHigh;
   const targetRevenueHigh = effectiveRent / rentShareLow;
@@ -3574,7 +3578,15 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     daycare: 110000,
     "smoke shop": 65000
   }[successModel.business] || 85000;
-  const demandMultiplier = Math.max(0.5, Math.min(1.35, opportunityScore / 75));
+  // Location revenue factor (modeled): venue sales scale with local DEMAND,
+  // FOOT TRAFFIC, and INCOME (spending power). Rent is intentionally NOT here —
+  // it raises break-even, not sales (handled in maxRentShare / break-even). This
+  // replaces the old flat score/75 multiplier so revenue actually moves by block.
+  const demandComp = safeNumber(scores.find((s) => s.name === "Demand")?.value, safeNumber(profile.density, 50));
+  const footMatch = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [])[0]);
+  const footComp = Number.isFinite(footMatch) ? footMatch : safeNumber(profile.transit, 50);
+  const incomeComp = safeNumber(profile.income, 50);
+  const demandMultiplier = Math.max(0.55, Math.min(1.5, (demandComp * 0.45 + footComp * 0.35 + incomeComp * 0.20) / 60));
   const maxRentShare = profile.rent >= 82 || successModel.config.rentSensitivity >= 76 ? "6-8% of projected sales" : profile.rent >= 65 ? "8-10% of projected sales" : "10-12% of projected sales";
   const requiredTraffic = profile.transit >= 80 || state.location ? "prove block-level walk-in traffic during lunch, evening, and weekend windows" : "prove repeat local customer demand because transit pull is limited";
   const marginCondition = ["restaurant", "pizza", "deli", "cafe"].includes(successModel.business)
@@ -4668,7 +4680,7 @@ function sv3MoneyHTML(ctx) {
     </div>
     <div class="card"><div class="sub">Seasonality · projected demand by month</div><div class="chart"><svg viewBox="0 0 320 110"><g>${ctx.seasonSVG}</g></svg><div style="display:flex;justify-content:space-between" class="axlab"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div></div><div class="desc">Modeled from typical seasonality for this category — plan 2–3 months of runway for the slower months.</div><div class="src">Modeled estimate · category seasonality pattern</div></div>
     <div class="section-label"><span class="n">23</span> Revenue estimator · estimate only</div>
-    <div class="card"><div class="statline"><span class="sl">Projected monthly revenue</span><span class="sv" style="color:var(--teal-bright)">${escapeText(ctx.revenueProjection)}</span></div><div class="statline"><span class="sl">Break-even estimate</span><span class="sv">${escapeText(ctx.revenueBreakeven)}</span></div><div class="statline"><span class="sl">Rent %</span><span class="sv">${escapeText(ctx.revenueRentPercent)}</span></div><div class="desc" style="margin-top:12px">${escapeText(ctx.revenueNote)}</div><div class="src">Modeled estimate · SpotVest unit-economics model (area income, rent &amp; category)</div></div>
+    <div class="card"><div class="statline"><span class="sl">Projected monthly revenue</span><span class="sv" style="color:var(--teal-bright)">${escapeText(ctx.revenueProjection)}</span></div><div class="statline"><span class="sl">Break-even estimate</span><span class="sv">${escapeText(ctx.revenueBreakeven)}</span></div><div class="statline"><span class="sl">Rent %</span><span class="sv">${escapeText(ctx.revenueRentPercent)}</span></div><div class="desc" style="margin-top:12px">${escapeText(ctx.revenueNote)}</div><div class="src">Modeled estimate · scaled by local demand, foot traffic &amp; income (not actual sales). Rent affects break-even, not revenue.</div></div>
     <div class="section-label"><span class="n">24</span> Customer profile</div>
     <div class="card">${profileCards}<div class="src">Census ACS 5-year · NYC Open Data</div></div>
     <div class="section-label"><span class="n">25</span> Market pulse</div>
