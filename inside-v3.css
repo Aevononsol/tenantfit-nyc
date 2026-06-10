@@ -110,6 +110,15 @@
 
 .sv3-app .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 .sv3-app .space-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-top:10px}
+.sv3-app .transit-list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.sv3-app .transit-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);flex-wrap:wrap}
+.sv3-app .transit-main{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.sv3-app .transit-name{font-family:'Sora';font-weight:700;font-size:15px}
+.sv3-app .transit-badges{display:inline-flex;gap:4px;flex-wrap:wrap}
+.sv3-app .mta-badge{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 5px;border-radius:50%;font-family:'Sora';font-weight:800;font-size:12px;line-height:1}
+.sv3-app .transit-meta{font-size:12.5px;color:var(--txt-3);font-weight:600;white-space:nowrap}
+.sv3-app .transit-meta .u{font-style:italic;opacity:.8}
+.sv3-app .transit-busy{color:var(--teal-bright);font-weight:800}
 .sv3-app .space-grid .metric{padding:13px 14px}
 .sv3-app .space-grid .metric .v{font-size:19px;margin-top:6px}
 .sv3-app .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}

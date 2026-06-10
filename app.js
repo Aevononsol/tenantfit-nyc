@@ -3978,6 +3978,68 @@ function sv3SpaceItselfCard(ctx) {
   </div>`;
 }
 
+/* ---------- "Nearest transit" — closest subway stations from our MTA data (display only) ---------- */
+const MTA_LINE_COLORS = {
+  "1": "#EE352E", "2": "#EE352E", "3": "#EE352E",
+  "4": "#00933C", "5": "#00933C", "6": "#00933C",
+  "7": "#B933AD",
+  "A": "#0039A6", "C": "#0039A6", "E": "#0039A6",
+  "B": "#FF6319", "D": "#FF6319", "F": "#FF6319", "M": "#FF6319",
+  "G": "#6CBE45", "J": "#996633", "Z": "#996633",
+  "L": "#A7A9AC", "N": "#FCCC0A", "Q": "#FCCC0A", "R": "#FCCC0A", "W": "#FCCC0A",
+  "S": "#808183"
+};
+function mtaLineBadge(line) {
+  const L = String(line || "").toUpperCase().trim();
+  if (!L) return "";
+  const bg = MTA_LINE_COLORS[L] || "#5A6473";
+  const darkText = ["N", "Q", "R", "W"].includes(L); // yellow lines use black glyphs
+  return `<span class="mta-badge" style="background:${bg};color:${darkText ? "#16181d" : "#fff"}">${escapeText(L)}</span>`;
+}
+function milesBetweenPts(lat1, lng1, lat2, lng2) {
+  lat1 = Number(lat1); lng1 = Number(lng1); lat2 = Number(lat2); lng2 = Number(lng2);
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLng = (lng2 - lng1) * toRad * Math.cos(((lat1 + lat2) / 2) * toRad);
+  return 3958.8 * Math.sqrt(dLat * dLat + dLng * dLng);
+}
+function sv3NearestTransitCard(ctx) {
+  if (!ctx.spaceAddressMode || !ctx.point) {
+    return `<div class="card"><div class="sub">Nearest transit</div><div class="desc" style="margin-top:6px">Enter an exact storefront address to map the closest subway stations.</div></div>`;
+  }
+  if (ctx.transitLoading) {
+    return `<div class="card"><div class="sub">Nearest transit · within 1 mile</div><div class="desc" style="margin-top:6px">Mapping the closest subway stations…</div></div>`;
+  }
+  const pt = ctx.point;
+  const near = (Array.isArray(ctx.mtaNearby) ? ctx.mtaNearby : [])
+    .map((s) => ({ ...s, mi: milesBetweenPts(pt.lat, pt.lng, s.lat, s.lng) }))
+    .filter((s) => Number.isFinite(s.mi) && s.mi <= 1.0)
+    .sort((a, b) => a.mi - b.mi)
+    .slice(0, 3);
+  if (!near.length) {
+    return `<div class="card"><div class="sub">Nearest transit</div><div class="desc" style="margin-top:6px"><b>No subway station within 1 mile.</b> Foot traffic here isn't subway-fed — weigh walk-up, bus, and vehicle access carefully. This is a real consideration, not a default.</div><div class="src">MTA subway ridership (Dec 2024)</div></div>`;
+  }
+  const maxRide = Math.max(...near.map((s) => s.ridership || 0));
+  const rows = near.map((s) => {
+    const walk = Math.max(1, Math.round((s.mi * 1609) / 80)); // ~5 km/h
+    const badges = (s.lines || []).map(mtaLineBadge).join("");
+    const distLabel = s.mi < 0.1 ? s.mi.toFixed(2) : s.mi.toFixed(1);
+    const busiest = (s.ridership || 0) === maxRide;
+    return `<div class="transit-row">
+      <div class="transit-main"><span class="transit-name">${escapeText(s.name)}</span><span class="transit-badges">${badges}</span></div>
+      <div class="transit-meta">${distLabel} mi · ${walk} min walk <span class="u">est.</span>${busiest ? ` · <span class="transit-busy">busiest nearby</span>` : ""}</div>
+    </div>`;
+  }).join("");
+  const top = near.reduce((a, b) => ((b.ridership || 0) > (a.ridership || 0) ? b : a), near[0]);
+  const topLines = (top.lines || []).join("/");
+  return `<div class="card">
+    <div class="sub">Nearest transit · within 1 mile</div>
+    <div class="transit-list">${rows}</div>
+    <div class="desc" style="margin-top:10px">This block is transit-fed: most visitors arrive via the <b>${escapeText(topLines || "subway")}</b> at <b>${escapeText(top.name)}</b>.</div>
+    <div class="src">MTA subway ridership (Dec 2024) · walk times estimated from distance</div>
+  </div>`;
+}
+
 /* ---------- tab builders ---------- */
 function sv3OverviewHTML(ctx) {
   const m = sv3DecisionMeta(ctx.decision);
@@ -4056,6 +4118,21 @@ let sv3MarketMapData = null;
 // Real foot-traffic data fetched from /api/point (MTA ridership + hourly
 // profile) for the analyzed location, keyed by rounded center coords.
 let sv3FootReal = null;
+let sv3NearbyTransit = null; // { key, loading, stations:[], unavailable }
+async function sv3LoadNearbyTransit(lat, lng, key) {
+  sv3NearbyTransit = { key, loading: true, stations: [] };
+  try {
+    const d = await (await fetch(`/api/nearby-transit?lat=${lat}&lng=${lng}`)).json();
+    sv3NearbyTransit = { key, loading: false, stations: Array.isArray(d.stations) ? d.stations : [], unavailable: Boolean(d.unavailable) };
+  } catch (e) {
+    sv3NearbyTransit = { key, loading: false, stations: [], unavailable: true };
+  }
+  // Re-render so the Nearest transit card fills in (display only; the score is
+  // already committed and unaffected).
+  if (state.location?.lat && state.location?.lng && `${state.location.lat},${state.location.lng}` === key) {
+    try { safeUiUpdate("nearest transit (loaded)", () => renderInstitutionalAnalysis(profileForZip(state.zip), buildRecommendations(profileForZip(state.zip)))); } catch (e) { /* non-fatal */ }
+  }
+}
 
 function sv3Circle(center, radiusM) {
   const pts = 64, coords = [], [lng, lat] = center;
@@ -4313,6 +4390,7 @@ function sv3MarketHTML(ctx) {
     ${competitors}
     <div class="src" style="margin:-4px 2px 8px">Google Places · Yelp Fusion API</div>
     <div class="section-label"><span class="n">09</span> Foot traffic intelligence</div>
+    ${sv3NearestTransitCard(ctx)}
     <div class="card accent"><div class="sub">${ctx.ftReal ? "Live signal · MTA ridership near this point" : "Modeled estimate · SpotVest location model"}</div><div class="k" style="margin-top:4px">Foot traffic score</div><div class="big" style="color:var(--teal-bright)">${ctx.ftScore}<span style="font-size:16px;color:var(--txt-3)">/100</span></div><div class="desc">Estimated activity: ${escapeText(ctx.ftActivity)}. ${ctx.ftReal ? "Derived from MTA subway ridership near this location." : "Modeled from area density, transit, and commercial activity."}</div></div>
     <div class="duo"><div class="metric"><div class="k">Est. daily visitors</div><div class="v" style="font-size:16px">${escapeText(ctx.ftVisitors)}</div><div class="src" style="margin-top:4px">${escapeText(ctx.ftVisitorsTag || "MODELED RANGE")}</div></div><div class="metric"><div class="k">Walkability</div><div class="v">${ctx.ftWalk}<span class="u">/100</span> <span class="src" style="display:inline">MODELED</span></div></div></div>
     <div class="card"><div class="statline"><span class="sl">Peak hours</span><span class="sv">${escapeText(ctx.ftPeak)}</span></div><div class="statline"><span class="sl">Weekday / weekend split</span><span class="sv">${escapeText(ctx.ftSplit)}</span></div><div class="src">Modeled · SpotVest mobility model (peak hours &amp; split)</div></div>
@@ -4662,6 +4740,9 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
     spaceLot: currentSiteIntelResult()?.pluto?.lot || null, // "The space itself" (display only)
     spaceAddressMode: Boolean(state.location?.lat && state.location?.lng),
+    mtaNearby: (sv3NearbyTransit && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`) ? sv3NearbyTransit.stations : [], // Nearest transit (display only)
+    transitLoading: Boolean(sv3NearbyTransit && sv3NearbyTransit.loading && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`),
+    point: state.location?.lat && state.location?.lng ? { lat: state.location.lat, lng: state.location.lng } : null,
     scoreReady: state.scoreReady !== false, // false only while live signals are still loading
     scoreUnavailable: state.scoreUnavailable === true, // real signals couldn't be confirmed
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
@@ -4737,6 +4818,14 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   // rerenders made overview numbers appear to keep changing after analysis.
   if (mapCenter && (!sv3FootReal || sv3FootReal.key !== centerKey)) {
     sv3LoadFootTraffic(mapCenter, centerKey, profile, recommendations, analysis);
+  }
+  // Nearest transit (display only): load 1-mile stations async; re-render the
+  // card when it arrives. Does NOT gate or affect the score.
+  if (state.location?.lat && state.location?.lng) {
+    const tKey = `${state.location.lat},${state.location.lng}`;
+    if (!sv3NearbyTransit || sv3NearbyTransit.key !== tKey) {
+      sv3LoadNearbyTransit(state.location.lat, state.location.lng, tKey);
+    }
   }
 }
 

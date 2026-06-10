@@ -1254,12 +1254,12 @@ async function socrataJson(resource, params) {
   return result.data;
 }
 
-async function dataNyJson(resource, params) {
+async function dataNyJson(resource, params, { timeoutMs = 20000 } = {}) {
   const url = new URL(`https://data.ny.gov/resource/${resource}.json`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
   const result = await cachedJsonFetch(url, {
-    timeoutMs: 20000,
+    timeoutMs,
     ttlMs: cacheTtl.openData
   });
   if (!result.ok) {
@@ -1963,6 +1963,36 @@ const landUseLabels = {
   "10": "Parking",
   "11": "Vacant land"
 };
+
+// Parse "50 St (C,E)" or "Broadway-Lafayette St (B,D,F,M)/Bleecker St (6)" into
+// a clean name + the full set of train lines (handles multiple paren groups).
+function parseStationName(raw) {
+  const s = String(raw || "");
+  const lines = [];
+  let m; const re = /\(([^)]*)\)/g;
+  while ((m = re.exec(s))) {
+    m[1].split(/[,/]/).forEach((x) => { const v = x.trim().toUpperCase(); if (v) lines.push(v); });
+  }
+  const name = s.replace(/\([^)]*\)/g, "").replace(/\s*\/\s*/g, " / ").replace(/\s+/g, " ").replace(/^[\s/]+|[\s/]+$/g, "").trim();
+  return { name: name || s.trim(), lines: [...new Set(lines)] };
+}
+// Stations within 1 mile, with per-station lat/lng + lines + total ridership.
+// Its own endpoint so this heavier query never delays the score gate (display only).
+async function nearbyTransit(lat, lng) {
+  const rows = await dataNyJson("wujg-7c2s", {
+    $select: "station_complex,station_complex_id,latitude,longitude,sum(ridership)",
+    $where: `within_circle(georeference, ${lat}, ${lng}, 1609) AND transit_timestamp between '2024-12-01T00:00:00' and '2025-01-01T00:00:00'`,
+    $group: "station_complex,station_complex_id,latitude,longitude",
+    $order: "sum_ridership DESC",
+    $limit: "20"
+  }, { timeoutMs: 45000 });
+  return (Array.isArray(rows) ? rows : [])
+    .map((r) => {
+      const p = parseStationName(r.station_complex);
+      return { name: p.name, lines: p.lines, ridership: Math.round(typedNumber(r.sum_ridership)), lat: Number(r.latitude), lng: Number(r.longitude) };
+    })
+    .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+}
 
 async function siteIntelligence(zip, location = null) {
   const liquorWhere = location?.lat && location?.lng
@@ -3071,6 +3101,21 @@ createServer(async (request, response) => {
         : null;
 
       sendJson(response, 200, await siteIntelligence(zip, location));
+      return;
+    }
+
+    if (url.pathname === "/api/nearby-transit") {
+      const lat = Number(url.searchParams.get("lat"));
+      const lng = Number(url.searchParams.get("lng"));
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        sendJson(response, 400, { error: "lat/lng required" });
+        return;
+      }
+      try {
+        sendJson(response, 200, { stations: await nearbyTransit(lat, lng) });
+      } catch (error) {
+        sendJson(response, 200, { stations: [], unavailable: true });
+      }
       return;
     }
 
