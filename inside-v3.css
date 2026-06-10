@@ -508,3 +508,13 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 .sv3-app .upload-zone svg{width:30px;height:30px;color:var(--teal);margin-bottom:8px}
 .sv3-app .upload-zone .ut{font-size:14px;font-weight:650}
 .sv3-app .upload-zone .us{font-size:12px;color:var(--txt-3);margin-top:4px}
+
+/* Competitor popup on the market map (dark theme to match the report) */
+.sv3-map-pop .maplibregl-popup-content{background:#101828;color:#e6edf6;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 30px 10px 12px;font:12px/1.45 Inter,system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.sv3-map-pop .maplibregl-popup-tip{border-top-color:#101828;border-bottom-color:#101828}
+.sv3-map-pop .t{font-weight:800;font-size:13px;margin-bottom:2px}
+.sv3-map-pop .m{color:#9fb3c8}
+.sv3-map-pop .a{color:#9fb3c8;margin-top:2px}
+.sv3-map-pop .d{margin-top:5px;color:#39C2D6;font-weight:650}
+.sv3-map-pop .maplibregl-popup-close-button{color:#9fb3c8;font-size:16px;padding:2px 7px}
+.sv3-map-pop .maplibregl-popup-close-button:hover{color:#fff;background:transparent}

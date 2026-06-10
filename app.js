@@ -4365,16 +4365,39 @@ function sv3RenderMarketMap() {
     map.addSource("sv3r", { type: "geojson", data: sv3Circle(center, r) });
     map.addLayer({ id: "sv3r-f", type: "fill", source: "sv3r", paint: { "fill-color": "#39C2D6", "fill-opacity": 0.06 } });
     map.addLayer({ id: "sv3r-l", type: "line", source: "sv3r", paint: { "line-color": "#39C2D6", "line-width": 1, "line-dasharray": [2, 2], "line-opacity": 0.5 } });
-    const feats = (data.competitors || []).map((c) => ({ type: "Feature", geometry: { type: "Point", coordinates: [c.lng, c.lat] }, properties: { inRadius: !!c.inRadius } }));
+    const feats = (data.competitors || []).map((c) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [c.lng, c.lat] },
+      properties: { inRadius: !!c.inRadius, name: c.name || "Competitor", address: c.address || "", meta: c.meta || "", mi: Number(c.mi) }
+    }));
     map.addSource("sv3c", { type: "geojson", data: { type: "FeatureCollection", features: feats } });
     map.addLayer({
       id: "sv3c-p", type: "circle", source: "sv3c", paint: {
-        "circle-radius": 5,
+        "circle-radius": 7,
         "circle-color": ["case", ["get", "inRadius"], "#FF6B6B", "#64748B"],
         "circle-opacity": 0.85, "circle-stroke-width": 1,
         "circle-stroke-color": ["case", ["get", "inRadius"], "#FF6B6B", "#475569"]
       }
     });
+    // Tapping a competitor dot shows who it is and how far from the analyzed spot.
+    map.on("click", "sv3c-p", (e) => {
+      const f = e.features && e.features[0];
+      if (!f) return;
+      const p = f.properties || {};
+      const mi = Number(p.mi);
+      const outside = String(p.inRadius) === "false";
+      new maplibregl.Popup({ className: "sv3-map-pop", maxWidth: "260px" })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(
+          `<div class="t">${escapeText(p.name || "Competitor")}</div>` +
+          `${p.meta ? `<div class="m">${escapeText(p.meta)}</div>` : ""}` +
+          `${p.address ? `<div class="a">${escapeText(p.address)}</div>` : ""}` +
+          `<div class="d">${Number.isFinite(mi) ? `${mi.toFixed(2)} mi from your spot` : "Nearby"}${outside ? " · outside search radius" : ""}</div>`
+        )
+        .addTo(map);
+    });
+    map.on("mouseenter", "sv3c-p", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "sv3c-p", () => { map.getCanvas().style.cursor = ""; });
     const dot = document.createElement("div");
     dot.style.cssText = "width:14px;height:14px;border-radius:50%;background:#5B8CFF;border:2px solid #fff;box-shadow:0 0 0 4px rgba(91,140,255,.25)";
     new maplibregl.Marker({ element: dot }).setLngLat(center).addTo(map);
@@ -4905,7 +4928,14 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const mapRecs = businessResult?.mapRecords || [];
   const rawPins = [...mapPlaces, ...mapRecs]
     .filter((p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
-    .map((p) => ({ lng: Number(p.lng), lat: Number(p.lat) }));
+    .map((p) => ({
+      lng: Number(p.lng),
+      lat: Number(p.lat),
+      name: p.name || "Competitor",
+      address: p.address || "",
+      meta: p.category
+        || (Number(p.rating) > 0 ? `Google · ${Number(p.rating).toFixed(1)}★${Number(p.reviews) > 0 ? ` · ${formatInteger(Number(p.reviews))} reviews` : ""}` : "Nearby competitor")
+    }));
   let mapCenter;
   if (state.location && Number.isFinite(Number(state.location.lng)) && Number.isFinite(Number(state.location.lat))) {
     mapCenter = [Number(state.location.lng), Number(state.location.lat)];
@@ -4919,7 +4949,8 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const mapComps = rawPins.slice(0, 80).map((p) => {
     const dx = (p.lng - mapCenter[0]) * 111320 * Math.cos(mapCenter[1] * Math.PI / 180);
     const dy = (p.lat - mapCenter[1]) * 110540;
-    return { lng: p.lng, lat: p.lat, inRadius: Math.hypot(dx, dy) <= mapRadiusM };
+    const meters = Math.hypot(dx, dy);
+    return { ...p, inRadius: meters <= mapRadiusM, mi: meters / 1609.344 };
   });
   sv3MarketMapData = { center: mapCenter, competitors: mapComps, radiusMeters: mapRadiusM, isArea: mapIsArea };
 
