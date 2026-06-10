@@ -6722,17 +6722,41 @@ function exportExecPdf() {
   }
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SpotVest report · ${escapeText(state.zip || "")}</title>
-    <link rel="stylesheet" href="${window.location.origin}/styles.css">
     <style>
-      body{background:#fff;margin:0;padding:18px}
-      #exec-summary{display:block !important}
+      /* Self-contained: linking the app stylesheet painted this page dark and
+         made the document unreadable. These mirror the .report-doc rules. */
+      html,body{background:#fff;margin:0}
+      body{padding:18px;font-family:system-ui,-apple-system,sans-serif}
       .print-actions{display:flex;gap:10px;margin:0 0 16px}
       .print-actions button{border:0;border-radius:999px;background:#0E7490;color:#fff;font-weight:700;padding:10px 18px;font-size:14px;cursor:pointer}
       @media print{.print-actions{display:none}}
+      .report-doc{color:#1a2230;max-width:720px;margin:0 auto;line-height:1.55}
+      .report-doc .rd-head{border-bottom:2px solid #0e2a40;padding-bottom:14px;margin-bottom:20px}
+      .report-doc .rd-brand{font-weight:800;font-size:22px;color:#0e2a40;letter-spacing:-.5px}
+      .report-doc .rd-brand span{color:#0e7490}
+      .report-doc .rd-title{font-size:26px;font-weight:800;margin-top:8px;color:#0b1422;letter-spacing:-.5px}
+      .report-doc .rd-sub{font-size:14px;color:#334155;margin-top:4px;font-weight:600}
+      .report-doc .rd-meta{font-size:10.5px;color:#64748b;margin-top:6px;text-transform:uppercase;letter-spacing:1px}
+      .report-doc .rd-section{margin:18px 0;page-break-inside:avoid}
+      .report-doc .rd-section h2{font-size:14px;font-weight:700;color:#0e2a40;text-transform:uppercase;letter-spacing:1.2px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:0 0 10px}
+      .report-doc p{font-size:13.5px;color:#1f2937;margin:0 0 8px}
+      .report-doc .rd-list{margin:0 0 6px 18px;padding:0}
+      .report-doc .rd-list li{font-size:13px;color:#334155;margin-bottom:6px;line-height:1.5}
+      .report-doc .rd-list li b{color:#0b1422}
+      .report-doc .rd-verdict{font-weight:800;font-size:18px;margin:0 0 6px}
+      .report-doc .rd-conditional,.report-doc .rd-needs-more-data{color:#b45309}
+      .report-doc .rd-open{color:#15803d}
+      .report-doc .rd-do-not-open{color:#b91c1c}
+      .report-doc .rd-twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+      .report-doc .rd-metric{font-size:34px;font-weight:800;color:#0e2a40;margin:0;line-height:1}
+      .report-doc .rd-metric span{font-size:15px;color:#94a3b8;font-weight:700}
+      .report-doc .rd-metric-note{font-size:12px;color:#475569;margin-top:4px}
+      .report-doc .rd-subhead{font-weight:700;font-size:12.5px;color:#0b1422;margin:8px 0 4px}
+      .report-doc .rd-foot{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;line-height:1.5}
     </style></head>
     <body><div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button></div>
-    <div id="exec-summary">${doc}</div>
-    <script>setTimeout(function(){ try { window.print(); } catch (e) {} }, 350);</scr${""}ipt></body></html>`);
+    ${doc}
+    </body></html>`);
   win.document.close();
 }
 
