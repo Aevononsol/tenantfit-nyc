@@ -1996,9 +1996,11 @@ function footTrafficConfidenceLabel(score) {
   return "low data backing";
 }
 
-function renderFootTrafficIntelligence(profile) {
-  if (!profile || !elements.footTrafficScore) return;
-
+// Deterministic foot-traffic score from stable signals (profile + gated
+// site-intelligence). Shared by the foot card and the revenue model so revenue
+// depends on the computed value, not on when an async render last wrote the DOM.
+function footTrafficScoreFor(profile) {
+  if (!profile) return 50;
   const siteIntel = currentSiteIntelResult();
   const businessResult = currentBusinessResult();
   const mobilityScore = siteIntel?.mta?.available
@@ -2014,7 +2016,7 @@ function renderFootTrafficIntelligence(profile) {
     : safeNumber(competitorCounts[state.zip]?.restaurant, 0)
       ? saturationFromCount(competitorCounts[state.zip].restaurant, profile)
       : safeNumber(profile.competition, 50);
-  const score = clampScore(
+  return clampScore(
     safeNumber(profile.density, 50) * 0.24 +
       safeNumber(profile.transit, 50) * 0.2 +
       mobilityScore * 0.14 +
@@ -2024,6 +2026,13 @@ function renderFootTrafficIntelligence(profile) {
       commercialMixScore * 0.07 +
       restaurantConcentration * 0.05
   );
+}
+function renderFootTrafficIntelligence(profile) {
+  if (!profile || !elements.footTrafficScore) return;
+
+  const siteIntel = currentSiteIntelResult();
+  const businessResult = currentBusinessResult();
+  const score = footTrafficScoreFor(profile);
   const confidenceScore = clampScore(
     42 +
       (siteIntel ? 18 : 0) +
@@ -2096,8 +2105,11 @@ function renderRevenueEstimator(profile) {
   // (category fit), FOOT TRAFFIC, and INCOME (spending power). Rent is NOT here —
   // it drives break-even & rent% (computed below). This replaces the old narrow
   // demand/income/rent lifts that left revenue nearly location-flat.
-  const footMatch = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [])[0]);
-  const footForRev = Number.isFinite(footMatch) ? footMatch : safeNumber(profile.transit, 50);
+  // Prefer the committed foot value (set deterministically at score commit, with
+  // site-intel/MTA loaded) so revenue is identical run-to-run regardless of which
+  // render pass fires; fall back to the computed value only pre-commit.
+  const committedFoot = window.__spotvestScoreBreakdown?.components?.footTrafficEstimateScore;
+  const footForRev = Number.isFinite(committedFoot) ? committedFoot : footTrafficScoreFor(profile);
   const locationFactor = Math.max(0.55, Math.min(1.5, (clampScore(demandScore) * 0.45 + footForRev * 0.35 + safeNumber(profile.income, 50) * 0.20) / 60));
 
   // Safe parsing + fallbacks: config/defaults fields can be missing (e.g. the
@@ -3617,8 +3629,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   // it raises break-even, not sales (handled in maxRentShare / break-even). This
   // replaces the old flat score/75 multiplier so revenue actually moves by block.
   const demandComp = safeNumber(scores.find((s) => s.name === "Demand")?.value, safeNumber(profile.density, 50));
-  const footMatch = Number((String(elements.footTrafficScore?.textContent || "").match(/\d+/) || [])[0]);
-  const footComp = Number.isFinite(footMatch) ? footMatch : safeNumber(profile.transit, 50);
+  const footComp = footTrafficScoreFor(profile); // stable computed value, not the async DOM read
   const incomeComp = safeNumber(profile.income, 50);
   const demandMultiplier = Math.max(0.55, Math.min(1.5, (demandComp * 0.45 + footComp * 0.35 + incomeComp * 0.20) / 60));
   const maxRentShare = profile.rent >= 82 || successModel.config.rentSensitivity >= 76 ? "6-8% of projected sales" : profile.rent >= 65 ? "8-10% of projected sales" : "10-12% of projected sales";
@@ -3809,6 +3820,10 @@ function logScoreBreakdown(analysis, profile) {
 function renderInstitutionalAnalysis(profile, recommendations) {
   const analysis = buildInstitutionalAnalysis(profile, recommendations);
   logScoreBreakdown(analysis, profile);
+  // Recompute revenue synchronously now that the breakdown (committed foot) is
+  // set, so the displayed revenue is always the committed-state value regardless
+  // of which async render pass fires last (fixes run-to-run revenue drift).
+  renderRevenueEstimator(profile);
   renderEvidenceCoverage(analysis);
   setStatusPill(
     elements.institutionalConfidence,
