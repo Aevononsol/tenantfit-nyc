@@ -4113,7 +4113,7 @@ function sv3CostMarketSplit(ctx) {
   const costTier = lowQuote && cost >= 65 ? { word: "MAXED", cls: "good" } : tier(cost);
   const costText = q
     ? (lowQuote
-      ? `At $${formatInteger(q.monthly)}/mo cost pressure is eliminated — a lower rent can't add more points. ⚠️ Rent this far below NYC market usually has a catch: verify lease term, legal use, and condition.`
+      ? `At $${formatInteger(q.monthly)}/mo cost pressure is eliminated — a lower rent can't add more points. Rent this far below NYC market usually has a catch: verify lease term, legal use, and condition.`
       : `Your $${formatInteger(q.monthly)}/mo rent ≈ ${q.ratioPct}% of modeled sales (healthy: ${q.healthyPct})${cost >= 65 ? " — a real advantage here." : cost >= 45 ? " — workable for this area." : " — heavy for what this spot can sell."}`)
     : (cost >= 65 ? "Area economics (rent vs income) support opening here." : cost >= 45 ? "Area cost pressure is manageable but real." : "Area cost pressure (rent vs local income) is dragging this score.");
   const marketText = market >= 65
@@ -4126,8 +4126,8 @@ function sv3CostMarketSplit(ctx) {
       : null;
   return `
     <div class="hero-split">
-      <div class="hs-row"><span class="hs-k ${costTier.cls}">💰 Cost side: ${costTier.word}</span><span class="hs-t">${escapeText(costText)}</span></div>
-      <div class="hs-row"><span class="hs-k ${tier(market).cls}">📊 Market side: ${tier(market).word}</span><span class="hs-t">${escapeText(marketText)}</span></div>
+      <div class="hs-row"><span class="hs-k ${costTier.cls}"><i class="hs-dot"></i>Cost side: ${costTier.word}</span><span class="hs-t">${escapeText(costText)}</span></div>
+      <div class="hs-row"><span class="hs-k ${tier(market).cls}"><i class="hs-dot"></i>Market side: ${tier(market).word}</span><span class="hs-t">${escapeText(marketText)}</span></div>
       ${capLine ? `<div class="hs-cap">${escapeText(capLine)}</div>` : ""}
     </div>`;
 }
