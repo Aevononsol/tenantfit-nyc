@@ -7074,6 +7074,7 @@ elements.addressForm.addEventListener("submit", async (event) => {
     });
     sv3Debug(`geocode result: zip=${result?.zip} lat=${result?.lat} lng=${result?.lng} addr=${result?.address}`);
     if (!/^\d{5}$/.test(result.zip) || !boroughForZip(result.zip)) {
+      sv3Debug(`REJECTED: geocode returned zip="${result.zip}" (not a recognized NYC ZIP) — showing coverage message`);
       elements.addressMessage.textContent = "🗽 That address isn't in a supported New York City area yet. SpotVest currently covers NYC only — try a NYC address or ZIP.";
       sv3SurfaceSearchError(elements.addressMessage.textContent);
       return;
@@ -7095,6 +7096,7 @@ elements.addressForm.addEventListener("submit", async (event) => {
     render(result.zip);
     sv3Debug("render returned (loading state should be visible)");
   } catch (error) {
+    sv3Debug(`FAILED: geocode threw — ${error?.message || error}`);
     logIntegrationError("address geocoding fallback", error, { address });
     elements.addressMessage.textContent = "Could not find that address. Try a fuller address or use ZIP-level analysis.";
     sv3SurfaceSearchError(elements.addressMessage.textContent);
