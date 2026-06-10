@@ -5779,6 +5779,9 @@ body.landing-mode .advisor-grid p{color:#64748B;font-size:13px;}
 body:not(.landing-mode) .assistant-toggle{display:none !important;}
 @media(max-width:700px){
   body.landing-mode span.nl{display:none;}
+  /* Phones keep the header to Pricing / Login / CTA; the section links are
+     reachable by scrolling and would not fit beside the CTA. */
+  body.landing-mode .nl-more{display:none;}
   body.landing-mode .navL{gap:14px;}
 }
 @media(max-width:480px){

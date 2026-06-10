@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=20260610-account" />
+    <link rel="stylesheet" href="./styles.css?v=20260610-landing" />
     <link rel="stylesheet" href="./inside-v3.css?v=20260610-report2" />
   </head>
   <body class="landing-mode">
@@ -197,9 +197,9 @@
           <nav class="nav"><div class="wrap">
             <span class="wm" style="font-size:18px">Spot<span>Vest</span></span>
             <div class="navL">
-              <span class="nl">Platform &#9662;</span>
-              <span class="nl">Solutions &#9662;</span>
-              <span class="nl">Resources &#9662;</span>
+              <button class="nl nl-more nav-button launch-scroll" type="button" data-scroll="#how">Platform</button>
+              <button class="nl nl-more nav-button launch-scroll" type="button" data-scroll="#solutions">Solutions</button>
+              <button class="nl nl-more nav-button launch-scroll" type="button" data-scroll="#inside">Inside a report</button>
               <button class="nl nav-button launch-scroll" type="button" data-scroll="#pricing">Pricing</button>
               <button class="nl nav-button" type="button" data-open-panel="#account-access">Login</button>
               <button type="button" class="ncta" data-start-analysis>Start Free Analysis</button>
@@ -303,6 +303,20 @@
             </div></div>
           </section></div></div>
 
+          <div class="wrap"><section id="inside">
+            <div class="eb">Inside a report</div>
+            <h2 class="h2">What you get for every location.</h2>
+            <p class="subh">One search produces a complete decision file &mdash; scored, mapped, and explained in plain English.</p>
+            <div class="cards3">
+              <div class="aic"><div class="bar" style="background:var(--cyan)"></div><div class="ico" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ti ti-gauge" style="font-size:18px"></i></div><h3>Viability score &amp; verdict</h3><p>A 0&ndash;100 success probability with a clear call &mdash; Open, Open with conditions, or High risk &mdash; plus an evidence meter showing how much live data backs it.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--green)"></div><div class="ico" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ti ti-scale" style="font-size:18px"></i></div><h3>Cost side vs market side</h3><p>The report names what's helping and what's capping the score. Enter your actual rent quote and the score uses your deal, not the area average.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--amber)"></div><div class="ico" style="background:rgba(245,158,11,.1);color:var(--amber)"><i class="ti ti-map-pin" style="font-size:18px"></i></div><h3>Competition, mapped</h3><p>Every direct competitor pinned on a live map &mdash; tap one for its name, rating, and exact distance. Same-block rivals weigh hardest, like real site selection.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--cyan)"></div><div class="ico" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ti ti-cash" style="font-size:18px"></i></div><h3>Revenue &amp; break-even</h3><p>Modeled monthly revenue range, rent-to-sales check against healthy category benchmarks, and a break-even window for your concept at this spot.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--amber)"></div><div class="ico" style="background:rgba(245,158,11,.1);color:var(--amber)"><i class="ti ti-shield-check" style="font-size:18px"></i></div><h3>Risks &amp; conditions</h3><p>The specific threats ranked &mdash; saturation, cost pressure, weak signals &mdash; and the conditions to verify before you sign anything.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--green)"></div><div class="ico" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ti ti-arrows-shuffle" style="font-size:18px"></i></div><h3>Better alternatives</h3><p>If another concept scores higher on your exact block, the report says so with both numbers &mdash; plus PDF export and a shareable live link for partners.</p></div>
+            </div>
+          </section></div>
+
           <div class="wrap"><section id="how">
             <div class="eb">How it works</div>
             <h2 class="h2">Not a dataset. A decision.</h2>
@@ -313,6 +327,18 @@
               <div class="aic"><div class="bar" style="background:var(--green)"></div><div class="ico" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ti ti-target" style="font-size:18px"></i></div><h3>Act with confidence</h3><p>A clear Viability Score, comparable alternatives, and a recommended next action &mdash; not a report. A verdict.</p></div>
             </div>
           </section></div>
+
+          <div class="sec-alt"><div class="wrap"><section id="solutions">
+            <div class="eb">Solutions</div>
+            <h2 class="h2">Built for every location decision.</h2>
+            <p class="subh">The same engine, pointed at different questions.</p>
+            <div class="cards3">
+              <div class="aic"><div class="bar" style="background:var(--cyan)"></div><div class="ico" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ti ti-building-store" style="font-size:18px"></i></div><h3>Owners &amp; operators</h3><p>Opening your first spot or your fifth &mdash; screen a block before you tour it, and test your real rent quote against what the location can actually sell.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--green)"></div><div class="ico" style="background:rgba(16,185,129,.1);color:var(--green)"><i class="ti ti-building-skyscraper" style="font-size:18px"></i></div><h3>Franchise buyers</h3><p>Validate a territory with data instead of the franchisor's pitch deck. Compare three candidate areas side by side before committing the fee.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--amber)"></div><div class="ico" style="background:rgba(245,158,11,.1);color:var(--amber)"><i class="ti ti-key" style="font-size:18px"></i></div><h3>Brokers &amp; CRE teams</h3><p>Walk into a pitch with a scored, client-ready report for the listing &mdash; export the PDF or send a live link your client can open on their phone.</p></div>
+              <div class="aic"><div class="bar" style="background:var(--cyan)"></div><div class="ico" style="background:rgba(6,182,212,.1);color:var(--cyan)"><i class="ti ti-chart-line" style="font-size:18px"></i></div><h3>Investors &amp; lenders</h3><p>A consistent, deterministic screen across every deal &mdash; same inputs, same score &mdash; so location risk is comparable across your whole pipeline.</p></div>
+            </div>
+          </section></div></div>
 
           <div style="background:#060B16"><div class="wrap"><section>
             <div class="metrics">
