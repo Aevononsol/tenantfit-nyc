@@ -3379,9 +3379,17 @@ function buildBusinessSuccessModel(profile, recommendations) {
   const siteIntelResult = currentSiteIntelResult();
   const business = normalizeBusiness(state.business);
   const config = modeledBusinessConfig(business);
-  const competitionPressure = businessResult?.registryExact
+  // Competition basis, best real signal first: exact NYC registry count →
+  // live Google Places nearby count (used for categories with no registry match,
+  // e.g. gyms — previously discarded, which wrongly showed 0 competitors) →
+  // borough model only as a last resort.
+  const googleVisible = Number(businessResult?.googleVisibleCount || 0);
+  const competitionSource = businessResult?.registryExact ? "registry" : (googleVisible > 0 ? "google" : "model");
+  const competitionPressure = competitionSource === "registry"
     ? saturationFromCount(businessResult.count, profile)
-    : profile.competition;
+    : competitionSource === "google"
+      ? saturationFromCount(googleVisible, profile)
+      : profile.competition;
   const googleReviews = Number(businessResult?.googlePlaces?.reviewCount || 0);
   const googleRating = Number(businessResult?.googlePlaces?.avgRating || 0);
   const demandSignalLabel = demandMomentumLabel(businessResult); // display only
@@ -3445,7 +3453,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
     {
       name: "Competition",
       value: competitionScore,
-      why: `${businessResult?.registryExact ? "Verified Signals from local activity and competitive visibility" : "Estimated Factors until live business check finishes"}; market appears ${competitionCondition(competitionScore)}.`
+      why: `${competitionSource === "registry" ? `Verified NYC city-registry records (${businessResult.count} nearby)` : competitionSource === "google" ? `Live Google Places nearby count (${googleVisible} comparable operators)` : "Modeled area competition (no live count for this category)"}; market appears ${competitionCondition(competitionScore)}.`
     },
     {
       name: "Location quality",
