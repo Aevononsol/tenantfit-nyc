@@ -3798,6 +3798,7 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     opportunityScore,
     successProbability: opportunityScore,
     confidenceScore,
+    rentQuote: successModel.rentQuote || null,
     decision,
     decisionCopy: decisionCopyFor(decision, opportunityScore, confidenceScore, riskScore),
     summary: `${titleCase(successModel.business)} has a ${formatScore(opportunityScore)} viability screen in this area. ${decisionCopyFor(decision, opportunityScore, confidenceScore, riskScore)}`,
@@ -4098,6 +4099,39 @@ function sv3IsZipCenterSearch() {
   return Boolean(state.location) && /^new york\b/i.test(String(state.location.address || "").trim());
 }
 
+// Cost side vs market side: names what's capping the score so "why didn't a
+// cheaper rent move it?" is answered on the report itself. Display only.
+function sv3CostMarketSplit(ctx) {
+  const val = (n) => safeNumber((ctx.scores || []).find((s) => s.name === n)?.value, 50);
+  const cost = Math.round((val("Financial viability") + val("Risk")) / 2);
+  const marketParts = [["Demand", val("Demand")], ["Customer fit", val("Customer fit")], ["Competition", val("Competition")]];
+  const market = Math.round(marketParts.reduce((s, [, v]) => s + v, 0) / marketParts.length);
+  const weakest = marketParts.slice().sort((a, b) => a[1] - b[1])[0];
+  const tier = (v) => v >= 65 ? { word: "STRONG", cls: "good" } : v >= 45 ? { word: "OK", cls: "mid" } : { word: "WEAK", cls: "bad" };
+  const q = ctx.rentQuote;
+  const lowQuote = q && q.monthly < 2000;
+  const costTier = lowQuote && cost >= 65 ? { word: "MAXED", cls: "good" } : tier(cost);
+  const costText = q
+    ? (lowQuote
+      ? `At $${formatInteger(q.monthly)}/mo cost pressure is eliminated — a lower rent can't add more points. ⚠️ Rent this far below NYC market usually has a catch: verify lease term, legal use, and condition.`
+      : `Your $${formatInteger(q.monthly)}/mo rent ≈ ${q.ratioPct}% of modeled sales (healthy: ${q.healthyPct})${cost >= 65 ? " — a real advantage here." : cost >= 45 ? " — workable for this area." : " — heavy for what this spot can sell."}`)
+    : (cost >= 65 ? "Area economics (rent vs income) support opening here." : cost >= 45 ? "Area cost pressure is manageable but real." : "Area cost pressure (rent vs local income) is dragging this score.");
+  const marketText = market >= 65
+    ? "Demand, customer fit, and competition support this business here."
+    : `${weakest[0]} is what's capping this score${weakest[0] === "Competition" ? " — direct rivals are thick on this block" : ""}.`;
+  const capLine = cost >= 65 && market < 65
+    ? "Cheap costs remove a reason to fail — demand and competition decide the upside."
+    : market >= 65 && cost < 65
+      ? "The market wants this here — the economics are what need negotiating."
+      : null;
+  return `
+    <div class="hero-split">
+      <div class="hs-row"><span class="hs-k ${costTier.cls}">💰 Cost side: ${costTier.word}</span><span class="hs-t">${escapeText(costText)}</span></div>
+      <div class="hs-row"><span class="hs-k ${tier(market).cls}">📊 Market side: ${tier(market).word}</span><span class="hs-t">${escapeText(marketText)}</span></div>
+      ${capLine ? `<div class="hs-cap">${escapeText(capLine)}</div>` : ""}
+    </div>`;
+}
+
 function sv3SpaceItselfCard(ctx) {
   const sqft = (v) => Number.isFinite(v) && v > 0 ? `${formatInteger(v)}<span class="u"> sq ft</span>` : null;
   if (!ctx.spaceAddressMode) {
@@ -4306,8 +4340,8 @@ function sv3OverviewHTML(ctx) {
            <div class="hero-sub">Success probability · ${escapeText(ctx.business)}</div>
            <div class="hero-ev"><span class="k">Evidence</span><span class="bar"><i style="width:${sv3Pct(ctx.confidence)}%"></i></span><span class="v">${ctx.confidence}/100 · ${escapeText(ctx.confidenceLabel)}</span></div>
            <div class="vsub">${escapeText(ctx.decisionCopy)}</div>
-           ${sv3IsZipCenterSearch() ? `<div class="vsub" style="margin-top:7px">Area-level result for the whole ZIP. An exact address can score differently — a busy area can contain quiet blocks (and the other way around). Run a street address for a block-level verdict.</div>` : ""}
-           ${state.actualRentMonthly > 0 ? `<div class="vsub" style="margin-top:7px">Your quoted rent of $${formatInteger(state.actualRentMonthly)}/mo is factored into this score (in place of the area's average rent pressure).</div>` : ""}`
+           ${sv3CostMarketSplit(ctx)}
+           ${sv3IsZipCenterSearch() ? `<div class="vsub" style="margin-top:7px">Area-level result for the whole ZIP. An exact address can score differently — a busy area can contain quiet blocks (and the other way around). Run a street address for a block-level verdict.</div>` : ""}`
         : ctx.scoreUnavailable
           ? `<div class="hero-status"><span class="hdot"></span>Data unavailable</div>
              <div class="hero-score">—<span class="of"></span></div>
@@ -5091,6 +5125,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     scoreUnavailable: state.scoreUnavailable === true, // real signals couldn't be confirmed
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
+    rentQuote: analysis.rentQuote || null,
     confidenceLabel: analysis.confidenceScore >= 80 ? "HIGH" : analysis.confidenceScore >= 60 ? "GOOD" : "REVIEW",
     bottomLine, signalPills, summary: analysis.summary,
     whyHeadline: strongScores.length ? `${strongScores[0].name} is the strongest signal here.` : "Use this as a first-pass screen.",
