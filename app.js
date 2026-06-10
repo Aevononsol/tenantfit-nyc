@@ -2202,6 +2202,9 @@ async function renderCivicCheck() {
   } catch (error) {
     if (requestId !== state.civicRequestId) return;
     logIntegrationError("risk and development fallback", error, { zip: state.zip });
+    // Keep the last confirmed risk signal rather than downgrading to a neutral
+    // fallback (a slow refresh must not drop the real 311 risk and flip the verdict).
+    if (state.lastCivicResult && contextMatches(state.lastCivicResult) && !state.lastCivicResult.fallback) return;
     renderCivicSignals(fallbackCivicSignals());
     elements.complaintLevel.textContent = "Estimated local risk";
     elements.complaintCopy.textContent = "Risk signal did not return in time. SpotVest is using a neutral fallback until retry.";
@@ -2903,6 +2906,8 @@ async function renderSiteIntelCheck() {
   } catch (error) {
     if (requestId !== state.siteIntelRequestId) return;
     logIntegrationError("mobility and commercial fallback", error, { zip: state.zip });
+    // Keep the last confirmed site/mobility signal rather than a neutral fallback.
+    if (state.lastSiteIntelResult && contextMatches(state.lastSiteIntelResult) && !state.lastSiteIntelResult.fallback) return;
     renderSiteIntelligence(fallbackSiteIntelligence());
     elements.sidewalkLevel.textContent = "Estimated outdoor activity";
     elements.sidewalkCopy.textContent = "Outdoor activity did not return in time. SpotVest is using a neutral fallback until retry.";
@@ -3078,7 +3083,8 @@ async function computeRealAlternatives(profile, currentScore) {
 }
 
 async function commitScoreWhenReady(zip) {
-  const deadline = Date.now() + 12000; // hard cap on the loading screen
+  // Budget covers a slow cache-bypassed fetch (refresh re-pulls take ~22-26s).
+  const deadline = Date.now() + (state.forceRefresh ? 38000 : 30000);
   const notReal = (r, isBiz) => !(r && contextMatches(r) && !r.fallback && (!isBiz || !r.loading));
   const resolved = (r) => Boolean(r && contextMatches(r)); // returned at all (real OR fallback)
   // Concept-fit doesn't gate the score (it's flavor) — fire once.
@@ -3110,8 +3116,18 @@ async function commitScoreWhenReady(zip) {
   }
   if (state.zip !== zip) return;
   persistSignalBundle();
-  // Commit and SHOW the score immediately — do NOT block the loading screen on
-  // the alternative-scoring network calls.
+  // HARD RULE: never commit a score built on fallback/guessed data. If the real
+  // Competition + Risk + Site signals didn't all arrive, show "data unavailable"
+  // instead of a number — a missing signal must never set or flip the verdict.
+  if (!requiredSignalsReal()) {
+    state.scoreReady = false;
+    state.scoreUnavailable = true;
+    const recs = buildRecommendations(profileForZip(state.zip));
+    safeUiUpdate("score withheld (data unavailable)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
+    updateActionGuards();
+    return;
+  }
+  state.scoreUnavailable = false;
   state.scoreReady = true;
   const recs = buildRecommendations(profileForZip(state.zip));
   safeUiUpdate("final score (settled)", () => renderInstitutionalAnalysis(profileForZip(state.zip), recs));
@@ -3934,10 +3950,12 @@ function sv3OverviewHTML(ctx) {
     }).join("");
   return `
     <div class="banner ${ctx.scoreReady ? m.cls : ""}" style="--p:${ctx.scoreReady ? sv3Pct(ctx.score) : 0}%">
-      <div class="ring"><span class="num">${ctx.scoreReady ? ctx.score : "···"}</span><span class="of">${ctx.scoreReady ? "/100" : ""}</span></div>
+      <div class="ring"><span class="num">${ctx.scoreReady ? ctx.score : (ctx.scoreUnavailable ? "—" : "···")}</span><span class="of">${ctx.scoreReady ? "/100" : ""}</span></div>
       <div>${ctx.scoreReady
         ? `<div class="vl">${escapeText(m.word)}</div><h2>${escapeText(sv3BannerHeadline(ctx.decision, ctx.business))}</h2><div class="vsub">${escapeText(ctx.decisionCopy)}</div>`
-        : `<div class="vl">Analyzing…</div><h2>Loading live signals</h2><div class="vsub">The score finalizes once all market signals arrive — this keeps the result stable and accurate.</div>`}</div>
+        : ctx.scoreUnavailable
+          ? `<div class="vl">Data unavailable</div><h2>Live data didn't confirm in time</h2><div class="vsub">SpotVest won't show a score built on guessed data. The Competition or Risk signal didn't return — tap <b>Refresh data</b> to retry. No verdict is shown until real signals confirm.</div>`
+          : `<div class="vl">Analyzing…</div><h2>Loading live signals</h2><div class="vsub">The score finalizes once all market signals arrive — this keeps the result stable and accurate.</div>`}</div>
     </div>
     <div class="card">
       <div class="gauge-wrap">
@@ -4598,6 +4616,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const ctx = {
     pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
     scoreReady: state.scoreReady !== false, // false only while live signals are still loading
+    scoreUnavailable: state.scoreUnavailable === true, // real signals couldn't be confirmed
     profile, scores: analysis.scores, strongScores, decision: analysis.decision, decisionCopy: decision.copy,
     decisionNext: decision.next, business, score: Number(score), confidence: Number(confidence),
     confidenceLabel: analysis.confidenceScore >= 80 ? "HIGH" : analysis.confidenceScore >= 60 ? "GOOD" : "REVIEW",
@@ -5622,6 +5641,9 @@ async function renderBusinessCheck() {
   } catch (error) {
     if (requestId !== state.businessRequestId) return;
     logIntegrationError("business competition fallback", error, { zip: state.zip, business: state.business });
+    // Never downgrade a real signal to a fallback (e.g., a slow refresh that
+    // timed out) — keep the last confirmed value so the score stays real.
+    if (state.lastBusinessResult && contextMatches(state.lastBusinessResult) && state.lastBusinessResult.registryExact) return;
     state.lastBusinessResult = {
       zip: state.zip,
       business,
@@ -5765,7 +5787,7 @@ function render(zip, options = {}) {
   // Score is "not ready" until every required live signal has arrived — the UI
   // shows a loading state until then so a brand-new address never displays a
   // premature (and therefore different) first-run score.
-  if (!options.preserveLiveSignals) { state.scoreReady = false; state.realAlternatives = null; }
+  if (!options.preserveLiveSignals) { state.scoreReady = false; state.scoreUnavailable = false; state.realAlternatives = null; }
   document.body.classList.remove("landing-mode");
   elements.startScreen.hidden = true;
   elements.results.hidden = false;
