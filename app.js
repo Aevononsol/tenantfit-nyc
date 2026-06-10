@@ -7784,6 +7784,26 @@ document.querySelectorAll("[data-open-panel]").forEach((button) => {
   });
 });
 
+// Account panel: one form at a time (Sign in | Create account tabs); the
+// reset form only appears via "Forgot password?" and emails a reset link —
+// it must never sit on the page as a third visible form.
+(function initAccountViews() {
+  const views = {
+    login: document.querySelector("#login-form"),
+    signup: document.querySelector("#signup-form"),
+    reset: document.querySelector("#password-reset-request-form")
+  };
+  const tabs = document.querySelectorAll(".account-tab");
+  if (!views.login || !tabs.length) return;
+  const show = (name) => {
+    Object.entries(views).forEach(([key, form]) => { if (form) form.hidden = key !== name; });
+    tabs.forEach((tab) => tab.classList.toggle("on", tab.dataset.accountView === name));
+  };
+  tabs.forEach((tab) => tab.addEventListener("click", () => show(tab.dataset.accountView)));
+  document.querySelector("#forgot-password-link")?.addEventListener("click", () => show("reset"));
+  document.querySelector("#back-to-login-link")?.addEventListener("click", () => show("login"));
+})();
+
 document.querySelectorAll("[data-start-analysis]").forEach((button) => {
   button.addEventListener("click", () => {
     closePublicActionPanels();

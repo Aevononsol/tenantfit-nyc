@@ -8762,3 +8762,11 @@ body.print-exec .print-header,body.print-exec .print-footer{display:none !import
 @media (max-width: 860px){
   .assistant-toggle .chat-online{top:2px;right:2px}
 }
+
+/* Account panel: tabbed single-form layout (Sign in | Create account). */
+body.landing-mode .account-grid{grid-template-columns:1fr;max-width:460px;margin:0 auto;}
+.account-tabs{display:flex;gap:10px;justify-content:center;margin:0 0 20px;}
+.account-tabs .account-tab{border:1px solid rgba(127,150,170,.4);background:transparent;border-radius:999px;padding:10px 26px;font-weight:700;font-size:14px;cursor:pointer;color:#9fb3c8;}
+.account-tabs .account-tab.on{background:#0E7490;border-color:#0E7490;color:#fff;}
+.account-link{border:0;background:none;color:#39C2D6;font-size:13px;cursor:pointer;text-align:left;padding:6px 0 0;text-decoration:underline;text-underline-offset:3px;}
+.account-hint{font-size:13px;color:#9fb3c8;margin:0 0 4px;line-height:1.5;}

@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=20260610-chat" />
+    <link rel="stylesheet" href="./styles.css?v=20260610-account" />
     <link rel="stylesheet" href="./inside-v3.css?v=20260610-report2" />
   </head>
   <body class="landing-mode">
@@ -335,12 +335,24 @@
 
           <section id="account-access" class="launch-section account-section public-action-section" hidden>
             <div class="launch-section-header">
-              <p class="section-label">Account access</p>
-              <h3>Create a SpotVest account</h3>
-              <p>Save customer details, report requests, and launch workflow records in the SpotVest data store.</p>
+              <p class="section-label">Account</p>
+              <h3>Sign in to SpotVest</h3>
+              <p>Access your reports, requests, and account settings.</p>
+            </div>
+            <div class="account-tabs">
+              <button type="button" class="account-tab on" data-account-view="login">Sign in</button>
+              <button type="button" class="account-tab" data-account-view="signup">Create account</button>
             </div>
             <div class="account-grid">
-              <form id="signup-form" class="launch-form">
+              <form id="login-form" class="launch-form">
+                <strong>Sign in</strong>
+                <input name="email" type="email" placeholder="Email" autocomplete="email" required />
+                <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+                <button type="submit">Sign in</button>
+                <button type="button" id="forgot-password-link" class="account-link">Forgot password? We'll email you a reset link.</button>
+                <p id="login-status" class="launch-status" role="status"></p>
+              </form>
+              <form id="signup-form" class="launch-form" hidden>
                 <strong>Create account</strong>
                 <input name="name" placeholder="Your name" autocomplete="name" />
                 <input name="email" type="email" placeholder="Email" autocomplete="email" required />
@@ -362,17 +374,12 @@
                 <button type="submit">Create account</button>
                 <p id="signup-status" class="launch-status" role="status"></p>
               </form>
-              <form id="login-form" class="launch-form">
-                <strong>Sign in</strong>
-                <input name="email" type="email" placeholder="Email" autocomplete="email" required />
-                <input name="password" type="password" placeholder="Password" autocomplete="current-password" required />
-                <button type="submit">Sign in</button>
-                <p id="login-status" class="launch-status" role="status"></p>
-              </form>
-              <form id="password-reset-request-form" class="launch-form">
+              <form id="password-reset-request-form" class="launch-form" hidden>
                 <strong>Reset password</strong>
+                <p class="account-hint">Enter your account email and we'll send you a secure reset link.</p>
                 <input name="email" type="email" placeholder="Account email" autocomplete="email" required />
-                <button type="submit">Send reset link</button>
+                <button type="submit">Email me a reset link</button>
+                <button type="button" id="back-to-login-link" class="account-link">← Back to sign in</button>
                 <p id="password-reset-request-status" class="launch-status" role="status"></p>
               </form>
               <form id="password-reset-complete-form" class="launch-form" hidden>
@@ -1428,7 +1435,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260610-printbtn"></script>
+    <script defer src="./app.js?v=20260610-account"></script>
     <script defer src="./home.js?v=20260610-ziptrace"></script>
   </body>
 </html>
