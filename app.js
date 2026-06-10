@@ -4213,7 +4213,10 @@ function sv3OverviewHTML(ctx) {
   return `
     <div class="banner hero ${ctx.scoreReady ? m.cls : ""}">
       <div class="hero-chip">${state.location
-        ? `BLOCK · ${escapeText(String(state.location.address || "").split(",")[0] || "Selected address")} · ${escapeText(state.zip || "")} · ${escapeText(ctx.radiusLabel)}`
+        ? (/^new york\b/i.test(String(state.location.address || "").trim())
+          // ZIP searches geocode to the ZIP's center — label honestly, not as a block.
+          ? `ZIP ${escapeText(state.zip || "")} · AREA CENTER · ${escapeText(ctx.radiusLabel)}`
+          : `BLOCK · ${escapeText(String(state.location.address || "").split(",")[0] || "Selected address")} · ${escapeText(state.zip || "")} · ${escapeText(ctx.radiusLabel)}`)
         : `ZIP AREA · ${escapeText(state.zip || "")}`}</div>
       ${ctx.scoreReady
         ? `<div class="hero-status"><span class="hdot"></span>${escapeText(sv3HeroStatus(ctx.decision))}</div>
@@ -5455,11 +5458,15 @@ function initSpotVestV3Controls() {
       refs.zip?.focus();
       return;
     }
+    // ZIP searches run through the SAME pipeline as address searches, centered
+    // on the ZIP's geographic center (geocoded) with the default radius.
+    // ZIP-only mode had its own heavier whole-ZIP queries and a separate code
+    // path that kept breaking; one path means one behavior and one calibration.
     if (elements.input) elements.input.value = zip;
+    if (elements.addressInput) elements.addressInput.value = zip;
     if (refs.stepnote) refs.stepnote.textContent = "Analyzing the area…";
-    state.location = null;
     sv3ShowMain("report");
-    elements.form?.requestSubmit();
+    elements.addressForm?.requestSubmit();
   };
   const runAddress = () => {
     const refs = sv3Refs();
@@ -7052,9 +7059,9 @@ elements.clearAddress.addEventListener("click", () => {
 
 elements.presets.forEach((button) => {
   button.addEventListener("click", () => {
-    state.location = null;
-    elements.addressInput.value = "";
-    render(button.dataset.zip);
+    // Presets are ZIPs — route them through the address pipeline too (ZIP center).
+    elements.addressInput.value = button.dataset.zip;
+    elements.addressForm?.requestSubmit();
   });
 });
 
