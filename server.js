@@ -1916,9 +1916,27 @@ async function geocodeAddressWithPlaces(address) {
 
 async function civicSignals(zip, location = null) {
   const since = `${isoDaysAgo(180)}T00:00:00`;
+  // The 311 level breakpoints are calibrated for a 0.5-mi circle. ZIP-only
+  // searches used to count the WHOLE ZIP against those circle breakpoints,
+  // which read "High" for nearly every NYC ZIP and sank every ZIP-mode score
+  // to "DO NOT OPEN". Resolve the ZIP to its center point and use the same
+  // 0.5-mi circle, so both search modes share one calibration. Raw ZIP-wide
+  // counting survives only as a labeled fallback (no Google key / geocode
+  // outage) with ZIP-scale breakpoints.
+  let circle = location?.lat && location?.lng
+    ? { lat: location.lat, lng: location.lng, radiusMeters: location.radiusMeters || 805 }
+    : null;
+  if (!circle) {
+    try {
+      const center = await geocodeAddress(`${zip}, New York, NY`);
+      if (Number.isFinite(Number(center?.lat)) && Number.isFinite(Number(center?.lng))) {
+        circle = { lat: Number(center.lat), lng: Number(center.lng), radiusMeters: 805 };
+      }
+    } catch { /* fall through to ZIP-wide */ }
+  }
   const complaintWhere = [
-    location?.lat && location?.lng
-      ? `within_circle(location, ${location.lat}, ${location.lng}, ${location.radiusMeters || 805})`
+    circle
+      ? `within_circle(location, ${circle.lat}, ${circle.lng}, ${circle.radiusMeters})`
       : `incident_zip='${zip}'`,
     `created_date > '${since}'`
   ].join(" AND ");
@@ -1959,7 +1977,7 @@ async function civicSignals(zip, location = null) {
           address: location.address,
           radiusMiles: location.radiusMiles
         }
-      : { mode: "zip" },
+      : { mode: circle ? "zip-center-radius" : "zip" },
     complaints: {
       total180Days: complaintTotal,
       // Percentile-calibrated across NYC (16-point sample, 2026-06): in a 0.5-mi
@@ -1967,8 +1985,14 @@ async function civicSignals(zip, location = null) {
       // 6,000 / 14,000 split quiet-residential / mid / dense-high-friction so the
       // label discriminates. Raw count (total180Days) stays visible. NOTE: raw
       // count scales with density — per-capita normalization is a future refinement.
-      level: complaintTotal >= 14000 ? "High" : complaintTotal >= 6000 ? "Moderate" : "Lower",
-      levelBasis: "Percentile-calibrated across NYC (0.5 mi · 180 days; calibrated 2026-06)",
+      // The ZIP-wide fallback uses ~3x breakpoints (a NYC ZIP is roughly 2-3 sq mi
+      // vs the 0.785 sq mi circle); approximate, and labeled as such.
+      level: circle
+        ? (complaintTotal >= 14000 ? "High" : complaintTotal >= 6000 ? "Moderate" : "Lower")
+        : (complaintTotal >= 42000 ? "High" : complaintTotal >= 18000 ? "Moderate" : "Lower"),
+      levelBasis: circle
+        ? "Percentile-calibrated across NYC (0.5 mi · 180 days; calibrated 2026-06)"
+        : "ZIP-wide approximation (geocoding unavailable; ZIP-scale breakpoints)",
       topTypes: complaintRows.map((row) => ({
         type: row.complaint_type || "Unknown",
         count: typedCount(row)
