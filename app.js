@@ -5535,7 +5535,6 @@ function initSpotVestV3Controls() {
   const syncFields = () => {
     const refs = sv3Refs();
     if (refs.biztype?.value && elements.businessInput) { elements.businessInput.value = refs.biztype.value; syncBusinessInput(); }
-    if (refs.budget?.value && elements.budgetInput) elements.budgetInput.value = refs.budget.value;
     // Quoted monthly rent (optional): replaces the area's modeled rent
     // pressure in the score with the user's actual deal.
     const rentVal = Number(String(refs.rent?.value || "").replace(/[^\d.]/g, ""));

@@ -638,8 +638,7 @@
               <div class="section-label"><span class="n">3</span> Exact address</div>
               <div class="field"><label for="sv3-address">Address</label><input class="input" id="sv3-address" autocomplete="off" placeholder=""></div>
               <div class="fieldnote">An exact address analyzes <b>that block</b> — most accurate for a specific storefront. Scores can differ from the ZIP result: a busy area can contain quiet blocks, and the other way around.</div>
-              <div class="field"><div class="row2"><input class="input" id="sv3-budget" placeholder="Budget ($) optional" inputmode="numeric"><select class="input" id="sv3-radius"><option value="0.5">0.5 mi</option><option value="1">1 mi</option><option value="2">2 mi</option></select></div></div>
-              <div class="field"><input class="input" id="sv3-rent" placeholder="Monthly rent ($) optional — adjusts the score" inputmode="numeric"></div>
+              <div class="field"><div class="row2"><input class="input" id="sv3-rent" placeholder="Monthly rent ($) optional — adjusts the score" inputmode="numeric"><select class="input" id="sv3-radius"><option value="0.5">0.5 mi</option><option value="1">1 mi</option><option value="2">2 mi</option></select></div></div>
               <div class="fieldnote">Got a real rent quote? Enter it and the score uses <b>your deal</b> instead of the area's average rent — a below-market rent raises the score, an expensive one lowers it.</div>
               <button class="btn" type="button" id="sv3-analyze-address">Analyze address →</button>
               <button class="btn" type="button" id="sv3-analyze-area" style="margin-top:10px">Analyze ZIP area →</button>
@@ -1429,7 +1428,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260610-rentquote"></script>
+    <script defer src="./app.js?v=20260610-rentonly"></script>
     <script defer src="./home.js?v=20260610-ziptrace"></script>
   </body>
 </html>
