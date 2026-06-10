@@ -3,7 +3,7 @@ if (window.location.protocol === "file:") {
 }
 
 // Version marker for support: lets us confirm which build a browser is running.
-console.info("SpotVest app build: 20260610-zipall");
+console.info("SpotVest app build: 20260610-zipui");
 
 // On-page debug trail (open the site with ?debug=1): shows each search step
 // and any swallowed error directly on the page, so failures can be diagnosed
@@ -15,7 +15,7 @@ window.sv3Debug = (() => {
   const add = (m) => { box.textContent += m + "\n"; box.scrollTop = box.scrollHeight; };
   const attach = () => { try { document.body.appendChild(box); } catch (e) { /* retry on ready */ } };
   if (document.body) attach(); else document.addEventListener("DOMContentLoaded", attach);
-  add("SpotVest debug · build 20260610-zipall");
+  add("SpotVest debug · build 20260610-zipui");
   window.addEventListener("error", (e) => add(`✗ error: ${e.message || e.type} @ ${(e.filename || "").split("/").pop()}:${e.lineno || "?"}`));
   window.addEventListener("unhandledrejection", (e) => add(`✗ promise: ${e.reason?.message || String(e.reason)}`));
   const origWarn = console.warn;
@@ -5456,7 +5456,20 @@ function initSpotVestV3Controls() {
     button.addEventListener("click", () => { sv3ShowMain("report"); sv3ShowTab(button.dataset.sv3Tab); });
   });
   app.querySelectorAll("[data-sv3-nav]").forEach((button) => {
-    button.addEventListener("click", () => { sv3ShowMain(button.dataset.sv3Nav); if (button.dataset.sv3Nav === "report") sv3ShowTab("overview"); });
+    button.addEventListener("click", () => {
+      const dest = button.dataset.sv3Nav;
+      // An empty report is a dead end — without an analysis, the Report tab
+      // showed a blank screen that read as "broken". Send the user to search.
+      if (dest === "report" && !state.zip) {
+        sv3Debug("Report nav tapped with no analysis yet → redirecting to search");
+        const refs = sv3Refs();
+        if (refs.stepnote) refs.stepnote.textContent = "Run a search first — pick a business, then a ZIP or address, and tap Analyze.";
+        sv3ShowMain("input");
+        return;
+      }
+      sv3ShowMain(dest);
+      if (dest === "report") sv3ShowTab("overview");
+    });
   });
   document.querySelector("#sv3-close")?.addEventListener("click", () => sv3ShowMain("input"));
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
@@ -5510,6 +5523,14 @@ function initSpotVestV3Controls() {
   };
   document.querySelector("#sv3-analyze-address")?.addEventListener("click", runAddress);
   document.querySelector("#sv3-analyze-area")?.addEventListener("click", runArea);
+  // Enter / mobile "go" must run the search — these inputs sit outside any
+  // form, so without this the keypress did nothing and the search never ran.
+  document.querySelector("#sv3-zip")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); runArea(); }
+  });
+  document.querySelector("#sv3-address")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); runAddress(); }
+  });
 }
 initSpotVestV3Controls();
 
