@@ -4567,6 +4567,12 @@ function sv3RiskHTML(ctx) {
   const permitRows = p.steps.map((step, i) => `<div class="permit"><div class="pnum">${i + 1}</div><div class="pmid"><div class="pname">${escapeText(step[0])}</div><div class="pmeta"><span><b>${escapeText(step[1])}</b></span><span><b>${escapeText(step[2])}</b></span></div></div></div>`).join("");
   return `
     <div class="section-label" style="margin-top:20px"><span class="n">11</span> Risk register</div>
+    ${(function () {
+      const c = ctx.civic311 || {};
+      if (c.fallback || c.level == null) return "";
+      const cls = c.level === "High" ? "reno" : c.level === "Moderate" ? "" : "nb";
+      return `<div class="card"><div class="sub">Local 311 activity</div><div class="transit-meta" style="margin-top:6px;font-size:13px"><span class="cx-tag ${cls}">${escapeText(c.level)}</span> ${Number.isFinite(c.total) ? formatInteger(c.total) + " complaints" : "count unavailable"} <span class="u">· 0.5 mi · last 180 days</span></div><div class="src" style="margin-top:8px">Percentile-calibrated across NYC (Lower &lt;6k · Moderate 6–14k · High ≥14k). Raw count shown; reflects density as well as friction.</div></div>`;
+    })()}
     ${risks}
     <div class="src" style="margin:-4px 2px 8px">NYC 311 complaints · DOB permits · Health inspections</div>
     <div class="section-label"><span class="n">12</span> Why this may succeed</div>
@@ -4872,6 +4878,7 @@ function renderSpotVestV3(profile, recommendations, analysis) {
 
   const ctx = {
     pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
+    civic311: (function () { const c = currentCivicResult(); const cp = (c && c.complaints) || {}; return { level: cp.level || null, total: cp.total180Days, fallback: !!(c && c.fallback) }; })(),
     spaceLot: currentSiteIntelResult()?.pluto?.lot || null, // "The space itself" (display only)
     spaceAddressMode: Boolean(state.location?.lat && state.location?.lng),
     mtaNearby: (sv3NearbyTransit && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`) ? sv3NearbyTransit.stations : [], // Nearest transit (display only)

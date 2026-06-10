@@ -1931,7 +1931,13 @@ async function civicSignals(zip, location = null) {
       : { mode: "zip" },
     complaints: {
       total180Days: complaintTotal,
-      level: complaintTotal >= 900 ? "High" : complaintTotal >= 350 ? "Moderate" : "Lower",
+      // Percentile-calibrated across NYC (16-point sample, 2026-06): in a 0.5-mi
+      // circle the old >=900 cutoff put every block at "High". Breakpoints
+      // 6,000 / 14,000 split quiet-residential / mid / dense-high-friction so the
+      // label discriminates. Raw count (total180Days) stays visible. NOTE: raw
+      // count scales with density — per-capita normalization is a future refinement.
+      level: complaintTotal >= 14000 ? "High" : complaintTotal >= 6000 ? "Moderate" : "Lower",
+      levelBasis: "Percentile-calibrated across NYC (0.5 mi · 180 days; calibrated 2026-06)",
       topTypes: complaintRows.map((row) => ({
         type: row.complaint_type || "Unknown",
         count: typedCount(row)
