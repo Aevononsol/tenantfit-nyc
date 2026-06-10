@@ -3363,7 +3363,7 @@ function weightedBusinessScore(scoreValue) {
     scoreValue("Risk") * businessSuccessWeights.risk;
 }
 
-function calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, successModel, civicResult }) {
+function calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, successModel }) {
   const demand = scoreValue("Demand");
   const customerFit = scoreValue("Customer fit");
   const competition = scoreValue("Competition");
@@ -3383,7 +3383,6 @@ function calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, s
   else if (risk < 45) adjustment -= 6;
   if (demand < 42) adjustment -= 8;
   if (customerFit < 42) adjustment -= 6;
-  if (civicResult?.complaints?.level === "High") adjustment -= 5;
   if (successModel?.competitionPressure >= 90) adjustment -= 6;
   if (weakSignals >= 3) adjustment -= 5;
 
@@ -3443,15 +3442,10 @@ function buildBusinessSuccessModel(profile, recommendations) {
     ? clampScore(Math.min(100, Math.log10(googleReviews + 1) * 24 + googleRating * 7))
     : 45;
   const categoryFit = categoryFitForBusiness(business, profile);
-  // Missing civic/risk data should reduce confidence, not collapse every score
-  // into the same high-risk bucket. Treat unknown as a mild/moderate penalty:
-  // conservative enough to avoid optimism, but not so harsh that a timeout makes
-  // unrelated businesses and neighborhoods all screen as 46 / high risk.
-  const civicUnknown = !civicResult || civicResult.fallback;
-  const civicPenalty = civicResult?.complaints?.level === "High" ? 9
-    : civicResult?.complaints?.level === "Moderate" ? 4
-    : civicUnknown ? 3
-    : 0;
+  // 311 complaint volume is context, NOT a scoring input. Raw complaint counts
+  // track population density more than business risk (busy areas file more of
+  // everything), so scoring them penalized every dense neighborhood. The 311
+  // card stays on the report as display-only; permits still feed growth below.
   const permitBoost = civicResult?.permits?.level === "Heavy" ? 10 : civicResult?.permits?.level === "Active" ? 6 : 2;
   const propertyBoost = siteIntelResult?.pluto?.retailArea > 500000 ? 6 : siteIntelResult?.pluto?.retailArea > 150000 ? 3 : 0;
   const transitBoost = siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000 ? 8 : 0;
@@ -3467,7 +3461,7 @@ function buildBusinessSuccessModel(profile, recommendations) {
   const locationScore = clampScore(profile.transit * 0.34 + profile.density * 0.22 + effectiveOffice(profile) * 0.12 + (100 - profile.rent) * 0.1 + propertyBoost + transitBoost + (state.location ? 6 : 0));
   const financialScore = clampScore(profile.income * 0.3 + (100 - profile.rent) * 0.28 + (100 - config.rentSensitivity) * 0.1 + categoryFit * 0.14 + profile.chainFit * 0.1 + budgetSupport * 0.08);
   const growthScore = clampScore(45 + permitBoost + propertyBoost + effectiveOffice(profile) * 0.12 + profile.density * 0.1 + profile.transit * 0.08);
-  const riskRaw = clampScore(profile.rent * 0.34 + competitionPressure * 0.32 + (100 - profile.income) * 0.1 + (100 - profile.transit) * 0.08 + civicPenalty + (!state.location ? 6 : 0));
+  const riskRaw = clampScore(profile.rent * 0.34 + competitionPressure * 0.32 + (100 - profile.income) * 0.1 + (100 - profile.transit) * 0.08 + (!state.location ? 6 : 0));
   const riskScore = clampScore(100 - riskRaw);
   const successProbability = clampScore(weightedBusinessScore((name) => ({
     Demand: demandScore,
@@ -3564,10 +3558,6 @@ function buildInstitutionalAnalysis(profile, recommendations) {
     const ratio = Math.max(businessResult.openDataCount, businessResult.googleVisibleCount) / Math.max(1, Math.min(businessResult.openDataCount, businessResult.googleVisibleCount));
     if (ratio >= 4) conflicts.push("Competition intensity is directional because public records and visible search results measure different parts of the market.");
   }
-  if (civicResult?.complaints?.level === "High" && profile.rent >= 78) {
-    conflicts.push("High local friction plus high cost pressure may raise execution risk.");
-  }
-
   const completeness = Math.max(20, Math.min(96, 28 + sources.length * 9 + (address ? 7 : 0) - conflicts.length * 7));
   const freshness = Math.max(35, Math.min(95, 44 + (liveProfile ? 10 : 0) + (liveBusiness ? 11 : 0) + (google ? 9 : 0) + (demandSignal ? 5 : 0) + (civic ? 9 : 0) + (siteIntel ? 9 : 0) + (concepts ? 7 : 0)));
   const sourceQuality = Math.max(25, Math.min(95, 30 + sources.length * 9 - conflicts.length * 8));
@@ -3575,14 +3565,6 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   const confidenceScore = clampScore(Math.max(20, completeness * 0.34 + freshness * 0.28 + sourceQuality * 0.38 - demandPenalty));
   const successModel = buildBusinessSuccessModel(profile, recommendations);
   const scores = successModel.scores;
-  const riskScoreItem = scores.find((item) => item.name === "Risk");
-  if (civicResult?.complaints?.level === "High") {
-    riskScoreItem.value = Math.max(0, riskScoreItem.value - 8);
-    riskScoreItem.why = `${riskScoreItem.why} Verified Signals: local friction is high in the selected area.`;
-  } else if (!civicResult || civicResult.fallback) {
-    riskScoreItem.value = Math.max(0, riskScoreItem.value - 2);
-    riskScoreItem.why = `${riskScoreItem.why} Local risk signal is still resolving, so confidence is reduced until it verifies.`;
-  }
   if (siteIntelResult?.mta?.available && siteIntelResult.mta.totalDecember2024Ridership > 250000) {
     const demand = scores.find((item) => item.name === "Demand");
     demand.value = Math.min(100, demand.value + 6);
@@ -3595,13 +3577,12 @@ function buildInstitutionalAnalysis(profile, recommendations) {
   }
   const scoreValue = (name) => safeNumber(scores.find((item) => item.name === name)?.value, 50);
   const weightedScore = weightedBusinessScore(scoreValue);
-  const opportunityScore = calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, successModel, civicResult });
+  const opportunityScore = calibratedDecisionScore({ weightedScore, scoreValue, confidenceScore, successModel });
   const riskScore = scoreValue("Risk");
   const financialScore = scoreValue("Financial viability");
   const severeRisk =
     riskScore < 25 ||
-    (riskScore < 35 && financialScore < 45 && opportunityScore < 62) ||
-    (civicResult?.complaints?.level === "High" && successModel.competitionPressure >= 92 && financialScore < 45);
+    (riskScore < 35 && financialScore < 45 && opportunityScore < 62);
   const decision = confidenceScore < 45
     ? "NEEDS MORE DATA"
     : opportunityScore < 55 || severeRisk
@@ -4628,7 +4609,7 @@ function sv3RiskHTML(ctx) {
       const c = ctx.civic311 || {};
       if (c.fallback || c.level == null) return "";
       const cls = c.level === "High" ? "reno" : c.level === "Moderate" ? "" : "nb";
-      return `<div class="card"><div class="sub">Local 311 activity</div><div class="transit-meta" style="margin-top:6px;font-size:13px"><span class="cx-tag ${cls}">${escapeText(c.level)}</span> ${Number.isFinite(c.total) ? formatInteger(c.total) + " complaints" : "count unavailable"} <span class="u">· 0.5 mi · last 180 days</span></div><div class="src" style="margin-top:8px">Percentile-calibrated across NYC (Lower &lt;6k · Moderate 6–14k · High ≥14k). Raw count shown; reflects density as well as friction.</div></div>`;
+      return `<div class="card"><div class="sub">Local 311 activity</div><div class="transit-meta" style="margin-top:6px;font-size:13px"><span class="cx-tag ${cls}">${escapeText(c.level)}</span> ${Number.isFinite(c.total) ? formatInteger(c.total) + " complaints" : "count unavailable"} <span class="u">· 0.5 mi · last 180 days</span></div><div class="src" style="margin-top:8px">Context only — does not affect the score. Percentile-calibrated across NYC (Lower &lt;6k · Moderate 6–14k · High ≥14k); raw count reflects density as well as friction.</div></div>`;
     })()}
     ${risks}
     <div class="src" style="margin:-4px 2px 8px">NYC 311 complaints · DOB permits · Health inspections</div>
