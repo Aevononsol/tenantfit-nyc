@@ -3,7 +3,7 @@ if (window.location.protocol === "file:") {
 }
 
 // Version marker for support: lets us confirm which build a browser is running.
-console.info("SpotVest app build: 20260610-zipdebug");
+console.info("SpotVest app build: 20260610-zipall");
 
 // On-page debug trail (open the site with ?debug=1): shows each search step
 // and any swallowed error directly on the page, so failures can be diagnosed
@@ -15,7 +15,7 @@ window.sv3Debug = (() => {
   const add = (m) => { box.textContent += m + "\n"; box.scrollTop = box.scrollHeight; };
   const attach = () => { try { document.body.appendChild(box); } catch (e) { /* retry on ready */ } };
   if (document.body) attach(); else document.addEventListener("DOMContentLoaded", attach);
-  add("SpotVest debug · build 20260610-zipdebug");
+  add("SpotVest debug · build 20260610-zipall");
   window.addEventListener("error", (e) => add(`✗ error: ${e.message || e.type} @ ${(e.filename || "").split("/").pop()}:${e.lineno || "?"}`));
   window.addEventListener("unhandledrejection", (e) => add(`✗ promise: ${e.reason?.message || String(e.reason)}`));
   const origWarn = console.warn;
@@ -7037,9 +7037,21 @@ elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   updateBudgetFromInput();
   syncBusinessInput();
+  const zip = elements.input.value.trim();
+  sv3Debug(`zip form: "${zip}" → routing through address pipeline (ZIP center)`);
+  // EVERY ZIP entry point routes through the address pipeline (ZIP center +
+  // default radius) — the old state.location=null ZIP-mode path is retired.
+  // A non-ZIP / non-NYC value still gets the clear coverage message from the
+  // geocode flow.
+  if (/^\d{5}$/.test(zip)) {
+    if (elements.addressInput) elements.addressInput.value = `${zip}, New York, NY`;
+    elements.addressMessage.textContent = "";
+    elements.addressForm?.requestSubmit();
+    return;
+  }
   state.location = null;
   elements.addressMessage.textContent = "";
-  render(elements.input.value.trim());
+  render(zip); // non-ZIP input: render() shows the "enter a 5-digit ZIP" message
 });
 
 elements.addressForm.addEventListener("submit", async (event) => {
