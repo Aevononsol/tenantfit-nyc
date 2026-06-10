@@ -199,7 +199,18 @@
   async function resolveLocation(value) {
     if (mode === "area") {
       const zip = (value.match(/\b\d{5}\b/) || [value])[0];
-      const hit = ZIP_CENTROIDS[zip] || NYC_DEFAULT;
+      // The hardcoded centroid table only covered 5 ZIPs — every other ZIP
+      // pinned the map to midtown. Geocode the real ZIP center (the server
+      // caches it for 7 days); the table and NYC default are fallbacks only.
+      let hit = ZIP_CENTROIDS[zip] || null;
+      try {
+        const g = await fetchJson(`/api/geocode?address=${encodeURIComponent(`${zip}, New York, NY`)}`);
+        const lng = Number(g.lng), lat = Number(g.lat);
+        if (Number.isFinite(lng) && Number.isFinite(lat)) {
+          hit = { c: [lng, lat], city: g.borough || (hit && hit.city) || "New York, NY" };
+        }
+      } catch (err) { console.warn("[home] ZIP geocode failed, using fallback center", err); }
+      hit = hit || NYC_DEFAULT;
       return { zip, center: hit.c, label: `ZIP ${zip} · ${hit.city}`, scope: `AREA · ZIP ${zip}`, isArea: true };
     }
     let center = NYC_DEFAULT.c, zip = "10001";
