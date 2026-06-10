@@ -7201,9 +7201,6 @@ function applyUrlState() {
   const params = new URLSearchParams(location.search);
   const zip = params.get("zip");
   if (!zip) return false;
-  // Pre-fill the picker from a shared/old link, but NEVER auto-run the report.
-  // Every page load (incl. refresh) lands on the business picker so the user
-  // can choose. We also clean the URL so subsequent refreshes start fresh.
   const business = params.get("business");
   const address = params.get("address");
   const radius = params.get("radius");
@@ -7216,7 +7213,23 @@ function applyUrlState() {
     if (elements.input) elements.input.value = zip;
   } catch { /* pre-fill is best-effort */ }
   try { history.replaceState(null, "", `${location.origin}${location.pathname}`); } catch { /* ignore */ }
-  return false; // show the start/picker screen, never the old report
+  // Shared links open the actual report. Scores are deterministic and locked
+  // server-side now, so the recipient sees the SAME numbers the sender saw —
+  // the old "never auto-run, show the picker" behavior predates that and left
+  // link recipients on a search form wondering where the report went.
+  try {
+    sv3Debug(`shared link: zip=${zip} business=${business || "(default)"} address=${address || "(zip center)"} → auto-running`);
+    if (elements.addressInput) elements.addressInput.value = address || `${zip}, New York, NY`;
+    elements.startScreen.hidden = true;
+    elements.results.hidden = false;
+    document.body.classList.remove("landing-mode");
+    try { sv3ShowMain("report"); } catch (e) { /* legacy UI */ }
+    elements.addressForm?.requestSubmit();
+    return true;
+  } catch (e) {
+    logIntegrationError("shared link auto-run", e, { zip });
+    return false; // fall back to the picker with fields pre-filled
+  }
 }
 
 elements.form.addEventListener("submit", (event) => {
