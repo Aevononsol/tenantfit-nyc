@@ -2190,7 +2190,8 @@ async function siteIntelligence(zip, location = null) {
     mtaRows,
     plutoSummaryRows,
     plutoLandUseRows,
-    plutoLotRows
+    plutoLotRows,
+    plutoHotelRows
   ] = await Promise.all([
     socrataJson("qcdj-rwhu", {
       $select: "lic_status,count(*)",
@@ -2244,7 +2245,19 @@ async function siteIntelligence(zip, location = null) {
           $where: `latitude > ${location.lat - 0.0007} AND latitude < ${location.lat + 0.0007} AND longitude > ${location.lng - 0.0009} AND longitude < ${location.lng + 0.0009}`,
           $limit: "40"
         }).catch(integrationFallback("PLUTO lot lookup", []))
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    // Hotel presence (tourist signal): count PLUTO hotel-class lots (bldgclass
+    // H*) within ~0.5 mi (bounding box) or the ZIP. Gated; tourist score scales
+    // with this instead of the old hand-set template.
+    location?.lat && location?.lng
+      ? socrataJson("64uk-42ks", {
+          $select: "count(*)",
+          $where: `latitude::number between ${location.lat - 0.0075} and ${location.lat + 0.0075} and longitude::number between ${location.lng - 0.0098} and ${location.lng + 0.0098} and starts_with(bldgclass,'H')`
+        }).catch(integrationFallback("PLUTO hotels", []))
+      : socrataJson("64uk-42ks", {
+          $select: "count(*)",
+          $where: `zipcode='${zip}' and starts_with(bldgclass,'H')`
+        }).catch(integrationFallback("PLUTO hotels", []))
   ]);
 
   const sidewalkActive = sidewalkRows
@@ -2344,6 +2357,7 @@ async function siteIntelligence(zip, location = null) {
     },
     pluto: {
       summaryAvailable: plutoSummaryAvailable,
+      hotelLots: firstCount(plutoHotelRows[0]), // hotel-class buildings nearby — tourist signal
       taxLots: typedNumber(plutoSummary.count),
       // null (not 0) when the summary call failed, so a missing signal can't
       // silently enter the score as zero — the client gates on summaryAvailable.
