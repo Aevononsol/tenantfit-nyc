@@ -4040,6 +4040,13 @@ function sv3CovCard(title, desc, statusText, statusClass) {
 }
 
 /* ---------- "The space itself" — address-specific PLUTO record (display only) ---------- */
+// A ZIP search geocodes to the ZIP's center — Google labels that bare result
+// "New York, NY <zip>, USA" (a street address always starts with its number
+// and street). Coordinates exist but no specific building was chosen.
+function sv3IsZipCenterSearch() {
+  return Boolean(state.location) && /^new york\b/i.test(String(state.location.address || "").trim());
+}
+
 function sv3SpaceItselfCard(ctx) {
   const sqft = (v) => Number.isFinite(v) && v > 0 ? `${formatInteger(v)}<span class="u"> sq ft</span>` : null;
   if (!ctx.spaceAddressMode) {
@@ -4237,7 +4244,7 @@ function sv3OverviewHTML(ctx) {
   return `
     <div class="banner hero ${ctx.scoreReady ? m.cls : ""}">
       <div class="hero-chip">${state.location
-        ? (/^new york\b/i.test(String(state.location.address || "").trim())
+        ? (sv3IsZipCenterSearch()
           // ZIP searches geocode to the ZIP's center — label honestly, not as a block.
           ? `ZIP ${escapeText(state.zip || "")} · AREA CENTER · ${escapeText(ctx.radiusLabel)}`
           : `BLOCK · ${escapeText(String(state.location.address || "").split(",")[0] || "Selected address")} · ${escapeText(state.zip || "")} · ${escapeText(ctx.radiusLabel)}`)
@@ -5013,7 +5020,10 @@ function renderSpotVestV3(profile, recommendations, analysis) {
     pnl, cashOpen, scenarios, wtbt, dining, survival, permit,
     civic311: (function () { const c = currentCivicResult(); const cp = (c && c.complaints) || {}; return { level: cp.level || null, total: cp.total180Days, fallback: !!(c && c.fallback) }; })(),
     spaceLot: currentSiteIntelResult()?.pluto?.lot || null, // "The space itself" (display only)
-    spaceAddressMode: Boolean(state.location?.lat && state.location?.lng),
+    // ZIP-center searches carry coordinates but no chosen building — showing
+    // "the space itself" for whatever lot sits at the ZIP's center implied
+    // the user was evaluating that specific building. Address searches only.
+    spaceAddressMode: Boolean(state.location?.lat && state.location?.lng) && !sv3IsZipCenterSearch(),
     mtaNearby: (sv3NearbyTransit && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`) ? sv3NearbyTransit.stations : [], // Nearest transit (display only)
     transitLoading: Boolean(sv3NearbyTransit && sv3NearbyTransit.loading && state.location && sv3NearbyTransit.key === `${state.location.lat},${state.location.lng}`),
     construction: (sv3NearbyConstruction && state.location && sv3NearbyConstruction.key === `${state.location.lat},${state.location.lng}`) ? sv3NearbyConstruction.data : null,
