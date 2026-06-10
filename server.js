@@ -4,7 +4,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { fetchDemandMomentum } from "./services/googleTrends.js";
+
+// Request-scoped context so a "Refresh data" request (?refresh=1) can bypass the
+// durable cache for that one analysis, without threading a flag through every
+// builder/fetcher.
+const requestContext = new AsyncLocalStorage();
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 5174);
@@ -1170,8 +1176,13 @@ function writeCache(key, value, ttlMs) {
 
 async function cachedJsonFetch(url, { headers = {}, timeoutMs = 5000, ttlMs = 0, cacheSuffix = "" } = {}) {
   const key = redactedCacheKey(url, cacheSuffix);
-  const cached = readCache(key);
-  if (cached) return cached;
+  // "Refresh data" requests skip the cache READ (force a fresh fetch) but still
+  // WRITE the fresh value back under the same key, re-locking it for everyone.
+  const forceRefresh = requestContext.getStore()?.forceRefresh === true;
+  if (!forceRefresh) {
+    const cached = readCache(key);
+    if (cached) return cached;
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -2376,7 +2387,9 @@ startAgentAutopilot();
 createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
   applySecurityHeaders(response);
+  const forceRefresh = url.searchParams.get("refresh") === "1";
 
+  await requestContext.run({ forceRefresh }, async () => {
   try {
     if (url.pathname === "/api/key-status") {
       sendJson(response, 200, keyStatus());
@@ -3097,6 +3110,7 @@ createServer(async (request, response) => {
     response.writeHead(statusCode, { "Content-Type": "text/plain; charset=utf-8" });
     response.end(statusCode === 404 ? "Not found" : "Server error");
   }
+  }); // end requestContext.run
 }).listen(port, () => {
   console.log(`AreaIntel running at http://localhost:${port}`);
 });
