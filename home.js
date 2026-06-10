@@ -98,20 +98,36 @@
 
       refreshPoint(mapCenter);
 
-      // Show the visitor THEIR area instead of a fixed midtown pin: geolocate
-      // once on load; inside NYC -> fly there and analyze that point. Denied,
-      // unavailable, or outside NYC -> keep the Manhattan default silently.
-      if (navigator.geolocation) {
+      // Show the visitor THEIR area instead of a fixed midtown pin. iOS
+      // Safari often ignores geolocation requests that don't come from a
+      // user tap, so the silent attempt on load is best-effort and the
+      // "Near me" button (a real tap) is the reliable path.
+      const locateVisitor = (fromTap) => {
+        if (!navigator.geolocation) return;
+        const label = document.getElementById("mapLocLabel");
+        if (fromTap && label) label.textContent = "Locating you…";
         navigator.geolocation.getCurrentPosition((pos) => {
           const lng = pos.coords.longitude, lat = pos.coords.latitude;
           const inNyc = lat > 40.49 && lat < 40.93 && lng > -74.27 && lng < -73.68;
-          if (!inNyc) return;
+          if (!inNyc) { if (fromTap && label) label.textContent = "You're outside NYC — explore the map instead"; return; }
           map.flyTo({ center: [lng, lat], zoom: 13.5 });
           setPin([lng, lat]);
-          const label = document.getElementById("mapLocLabel");
           if (label) label.textContent = "Your location · live";
-        }, () => { /* permission denied — default stays */ }, { maximumAge: 300000, timeout: 8000, enableHighAccuracy: false });
+        }, () => {
+          if (fromTap && label) label.textContent = "Location blocked — allow it in browser settings";
+        }, { maximumAge: 300000, timeout: 8000, enableHighAccuracy: false });
+      };
+      const mapWrap = document.getElementById("home-map")?.parentElement;
+      if (mapWrap) {
+        const geoBtn = document.createElement("button");
+        geoBtn.type = "button";
+        geoBtn.textContent = "◎ Near me";
+        geoBtn.style.cssText = "position:absolute;top:10px;right:10px;z-index:5;border:1px solid rgba(6,182,212,.5);background:rgba(7,17,31,.85);color:#06B6D4;font-weight:700;font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer";
+        geoBtn.addEventListener("click", () => locateVisitor(true));
+        mapWrap.style.position = mapWrap.style.position || "relative";
+        mapWrap.appendChild(geoBtn);
       }
+      locateVisitor(false);
     });
 
     map.on("click", (e) => { setPin([e.lngLat.lng, e.lngLat.lat]); });
