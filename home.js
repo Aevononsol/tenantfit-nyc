@@ -228,6 +228,13 @@
 
   function submitForm(form) {
     if (!form) return;
+    window.sv3Debug?.(`home: submitting #${form.id}`);
+    // The legacy forms are hidden while the landing is shown; requestSubmit()
+    // runs constraint validation, and an invalid+hidden control makes Chrome
+    // abort the submit SILENTLY (it can't show the bubble on a hidden field) —
+    // a dead click with no error anywhere. Skip native validation; the app's
+    // submit handlers do their own.
+    form.noValidate = true;
     if (typeof form.requestSubmit === "function") {
       form.requestSubmit();
       return;
@@ -291,7 +298,7 @@
         <p style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#1E3A5F;margin:0">Powered by the live SpotVest decision engine</p>
         <button type="button" id="homeFullReportBtn" style="border:0;border-radius:999px;background:#0E7490;color:#fff;font-weight:800;padding:10px 14px;box-shadow:0 10px 24px rgba(14,116,144,.22);cursor:pointer">View full report</button>
       </div>`;
-    document.getElementById("homeFullReportBtn")?.addEventListener("click", () => openFullReport(r));
+    document.getElementById("homeFullReportBtn")?.addEventListener("click", () => { window.sv3Debug?.(`home: View full report clicked (zip=${r.zip} address="${r.address}")`); openFullReport(r); });
   }
   function renderError(msg) {
     document.getElementById("resultPanel").innerHTML = `
@@ -301,6 +308,7 @@
   }
 
   async function runAnalysis() {
+    window.sv3Debug?.(`home: runAnalysis mode=${mode}`);
     const panel = document.getElementById("resultPanel");
     const value = mode === "area"
       ? ((document.getElementById("zipInput") || {}).value || selZip).trim()

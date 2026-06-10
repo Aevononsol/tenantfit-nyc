@@ -5420,6 +5420,7 @@ function sv3RenderPortfolio() {
 function sv3ShowMain(name) {
   const refs = sv3Refs();
   if (!refs.app) return;
+  sv3Debug(`screen → ${name}`);
   const target = new Set(["input", "report", "compare", "portfolio"]).has(name) ? name : "input";
   [["input", refs.screenInput], ["report", refs.screenReport], ["compare", refs.screenCompare], ["portfolio", refs.screenPortfolio]].forEach(([key, el]) => {
     if (!el) return;
@@ -5473,9 +5474,11 @@ function initSpotVestV3Controls() {
     const refs = sv3Refs();
     syncFields();
     const zip = (refs.zip?.value || "").trim();
+    sv3Debug(`runArea entered: zip="${zip}"`);
     // Validate before switching to the report so a non-NYC ZIP shows a clear
     // message on the search screen instead of an empty report.
     if (!/^\d{5}$/.test(zip) || !boroughForZip(zip)) {
+      sv3Debug(`runArea rejected: "${zip}" failed NYC ZIP validation`);
       if (refs.stepnote) refs.stepnote.textContent = /^\d{5}$/.test(zip)
         ? "🗽 SpotVest currently covers New York City only. Try a NYC ZIP like 10003, 11201, or 10458."
         : "Enter a 5-digit NYC ZIP code (for example 10003).";
