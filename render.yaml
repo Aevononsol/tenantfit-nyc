@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: tenantfit-nyc
+    name: spotvest
     runtime: node
     plan: pro
     buildCommand: npm install
