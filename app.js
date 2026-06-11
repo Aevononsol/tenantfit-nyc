@@ -8534,7 +8534,7 @@ function sv3WrapLockedGroups(groups) {
     // One quiet lock per section — the full price CTA lives once in the top
     // banner. The whole overlay is tappable and goes straight to checkout
     // (or spends a credit when one is available).
-    overlay.setAttribute("data-paywall-action", sv3CreditsLeft() > 0 ? "use-credit" : "buy-single");
+    overlay.setAttribute("data-paywall-action", sv3CreditsLeft() > 0 ? "use-credit" : "buy-sub");
     overlay.setAttribute("role", "button");
     overlay.setAttribute("tabindex", "0");
     overlay.setAttribute("aria-label", "Unlock the full report");
@@ -8565,9 +8565,8 @@ function sv3LockTabContent(el) {
 }
 
 // Overview keeps its free head — hero score, gauge, and the "Bottom line for
-// the owner" card — and locks everything after it. The action buttons stay
-// outside the lock so New search / Add to compare keep working (Generate and
-// PDF export gate themselves on click).
+// the owner" card — and locks everything after it, action buttons included
+// (New search stays reachable via the ✕ and the bottom nav).
 function sv3LockOverviewContent(el) {
   const cutoff = el.querySelector(".bottomline");
   if (!cutoff) return; // loading / no-score state: nothing below to sell yet
@@ -8579,7 +8578,7 @@ function sv3LockOverviewContent(el) {
       pastCutoff = child === cutoff;
       return;
     }
-    if (child.classList.contains("section-label") || child.classList.contains("actions")) {
+    if (child.classList.contains("section-label")) {
       current = null;
       return;
     }
