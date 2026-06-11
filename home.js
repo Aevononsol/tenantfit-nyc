@@ -300,6 +300,15 @@
   }
 
   function openFullReport(r) {
+    // Account gate: the demo is public, the full app is not. This path
+    // submits the analysis forms directly, so it must enforce the same
+    // verified-account rule as the in-app Analyze button.
+    let account = null;
+    try { account = JSON.parse(localStorage.getItem("areaIntelAccount") || "null"); } catch { /* treat as signed out */ }
+    if (!account?.emailVerified) {
+      window.location.href = "/account?intent=analyze";
+      return;
+    }
     const businessInput = document.getElementById("business-input");
     const zipInput = document.getElementById("zip-input");
     const zipForm = document.getElementById("zip-form");
