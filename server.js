@@ -3646,6 +3646,12 @@ createServer(async (request, response) => {
       const reviews = await readJsonStore("reviews", []);
       const approved = reviews
         .filter((review) => review.status === "approved")
+        // Faces sell: photo reviews lead, newest first within each group.
+        // Photo-less reviews still show, just after.
+        .sort((a, b) =>
+          ((b.picture ? 1 : 0) - (a.picture ? 1 : 0)) ||
+          (Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))
+        )
         .slice(0, 24)
         .map((review) => ({
           id: review.id,
