@@ -5406,6 +5406,13 @@ function sv3BindActions() {
         return;
       }
       if (action === "generate") {
+        // The AI memo is full-report value (and a real OpenAI cost per
+        // click) — free visitors get sent to the unlock wall instead.
+        if (!sv3ReportUnlocked()) {
+          sv3ShowTab("market");
+          sv3PaywallToast("The written decision report is part of the full report — unlock it first.");
+          return;
+        }
         if (btn.disabled) return;
         const original = btn.innerHTML;
         btn.disabled = true;
