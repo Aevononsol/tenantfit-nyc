@@ -8775,3 +8775,46 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
     sv3PaywallToast(`${error.message || "Could not confirm the payment."} If you were charged, your code is in the receipt email and your account restores it automatically — refresh and run your search.`, true);
   }
 })();
+
+/* ---------- Business type dropdown ---------- */
+// iOS Safari never renders <datalist> suggestions — the field behaved like a
+// bare text box on phones. This replaces it with a styled in-app menu fed by
+// the same option list: opens on tap, filters as you type, free text still
+// allowed.
+(function initBizTypeMenu() {
+  const input = document.querySelector("#sv3-biztype");
+  const datalist = document.querySelector("#sv3-biz-options");
+  if (!input || !datalist) return;
+  input.removeAttribute("list");
+  const field = input.closest(".field") || input.parentElement;
+  field.classList.add("biz-field");
+  const menu = document.createElement("div");
+  menu.className = "sv3-biz-menu";
+  menu.hidden = true;
+  field.appendChild(menu);
+  const options = Array.from(datalist.querySelectorAll("option")).map((option) => option.value);
+
+  function renderMenu(filterText) {
+    const filter = String(filterText || "").trim().toLowerCase();
+    const matches = filter ? options.filter((value) => value.toLowerCase().includes(filter)) : options;
+    menu.innerHTML = matches.length
+      ? matches.map((value) => `<button type="button" data-biz="${escapeText(value)}">${escapeText(value)}</button>`).join("")
+      : '<div class="biz-none">No match — your own wording works too, just keep typing.</div>';
+    menu.hidden = false;
+    menu.scrollTop = 0;
+  }
+
+  input.addEventListener("focus", () => renderMenu(input.value));
+  input.addEventListener("input", () => renderMenu(input.value));
+  // pointerdown (not click) so the choice lands before the input blurs on iOS
+  menu.addEventListener("pointerdown", (event) => {
+    const choice = event.target.closest("[data-biz]");
+    if (!choice) return;
+    event.preventDefault();
+    input.value = choice.dataset.biz;
+    menu.hidden = true;
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!field.contains(event.target)) menu.hidden = true;
+  });
+})();

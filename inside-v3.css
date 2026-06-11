@@ -565,3 +565,16 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 #sv3-paywall-toast.err{border-color:rgba(248,113,113,.55)}
 #sv3-account-foot:empty{display:none}
 #sv3-account-foot button{background:none;border:0;color:var(--teal);cursor:pointer;font:inherit;text-decoration:underline;text-underline-offset:3px;padding:0}
+
+/* business type dropdown */
+.sv3-app .biz-field{position:relative}
+.sv3-app .biz-field .input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2339C2D6' stroke-width='2'%3E%3Cpath d='M3 5l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:42px}
+.sv3-app .sv3-biz-menu{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:45;background:#0E1525;border:1px solid rgba(57,194,214,.3);border-radius:14px;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 20px 50px rgba(0,0,0,.6);overscroll-behavior:contain}
+/* !important: the legacy `.results button` rule in styles.css paints every
+   bare button cyan; menu rows must stay flat list items. */
+body:not(.landing-mode) .sv3-app .sv3-biz-menu button,
+.sv3-app .sv3-biz-menu button{display:block;width:100%;min-height:0;text-align:left;background:none!important;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:13px 16px;color:var(--txt-2)!important;font-family:'Inter';font-size:14.5px;font-weight:400;cursor:pointer;box-shadow:none!important}
+.sv3-app .sv3-biz-menu button:last-child{border-bottom:0}
+body:not(.landing-mode) .sv3-app .sv3-biz-menu button:active,
+body:not(.landing-mode) .sv3-app .sv3-biz-menu button:hover{background:rgba(57,194,214,.10)!important;color:var(--txt)!important;transform:none}
+.sv3-app .sv3-biz-menu .biz-none{padding:13px 16px;color:var(--txt-3);font-size:13px}
