@@ -446,3 +446,42 @@
   buildLoc();
   initMap();
 })();
+
+// "What is SpotVest" — scroll-reveal + count-up stats. CSS handles the
+// motion; this only flips the .in class and animates the numbers once.
+(function animateWhatIsSpotvest() {
+  const section = document.querySelector("#what-is-spotvest");
+  if (!section) return;
+  const reveals = section.querySelectorAll(".reveal");
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || !("IntersectionObserver" in window)) {
+    reveals.forEach((el) => el.classList.add("in"));
+    return;
+  }
+  let counted = false;
+  const runCounters = () => {
+    if (counted) return;
+    counted = true;
+    section.querySelectorAll("[data-count]").forEach((el) => {
+      const target = Number(el.dataset.count) || 0;
+      const suffix = el.dataset.suffix || "";
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / 1200);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = `${Math.round(target * eased)}${suffix}`;
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  };
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("in");
+      if (entry.target.classList.contains("ws-stats")) runCounters();
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: 0.2 });
+  reveals.forEach((el) => observer.observe(el));
+})();
