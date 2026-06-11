@@ -5644,6 +5644,7 @@ function initSpotVestV3Controls() {
     state.actualRentMonthly = Number.isFinite(rentVal) && rentVal > 0 ? rentVal : null;
   };
   const runArea = () => {
+    if (!sv3RequireAccount()) return;
     const refs = sv3Refs();
     syncFields();
     const zip = (refs.zip?.value || "").trim();
@@ -5674,6 +5675,7 @@ function initSpotVestV3Controls() {
     elements.addressForm?.requestSubmit();
   };
   const runAddress = () => {
+    if (!sv3RequireAccount()) return;
     const refs = sv3Refs();
     syncFields();
     if (refs.address?.value?.trim() && elements.addressInput) elements.addressInput.value = refs.address.value.trim();
@@ -7748,6 +7750,8 @@ async function postSecurityForm(endpoint, form, statusEl, successCopy) {
     if (result.account) {
       saveAccountSession(result);
       renderAccountStatus(result.account);
+      // If sign-in was forced by the analysis gate, continue where they left off.
+      sv3ResumeAfterAuth();
     }
     statusEl.classList.add("launch-status-ok");
     statusEl.textContent = result.message || successCopy;
@@ -7848,16 +7852,47 @@ document.querySelectorAll("[data-open-panel]").forEach((button) => {
   document.querySelector("#back-to-login-link")?.addEventListener("click", () => show("login"));
 })();
 
+// Running analyses requires a (free) account: not signed in → the account
+// panel opens instead, and the analysis continues automatically after a
+// successful sign-in/sign-up (sv3ResumeAfterAuth).
+let sv3PendingStartAnalysis = false;
+// One-shot bypass: the post-payment resume re-runs the customer's search and
+// must never bounce a paying customer into the signup wall.
+let sv3AuthBypassOnce = false;
+
+function sv3RequireAccount(message) {
+  if (storedAccount()) return true;
+  if (sv3AuthBypassOnce) {
+    sv3AuthBypassOnce = false;
+    return true;
+  }
+  sv3PendingStartAnalysis = true;
+  openPublicActionPanel("#account-access");
+  sv3PaywallToast(message || "Create a free account or sign in to run an analysis.");
+  return false;
+}
+
+function sv3EnterAnalysisApp() {
+  closePublicActionPanels();
+  document.body.classList.remove("landing-mode");
+  if (elements.startScreen) elements.startScreen.hidden = true;
+  if (elements.results) elements.results.hidden = false;
+  const sv3App = document.querySelector("#sv3-app");
+  if (typeof sv3ShowMain === "function") sv3ShowMain("input");
+  document.querySelector("#sv3-biztype")?.focus({ preventScroll: true });
+  sv3App?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sv3ResumeAfterAuth() {
+  if (!sv3PendingStartAnalysis || !storedAccount()) return;
+  sv3PendingStartAnalysis = false;
+  sv3EnterAnalysisApp();
+}
+
 document.querySelectorAll("[data-start-analysis]").forEach((button) => {
   button.addEventListener("click", () => {
-    closePublicActionPanels();
-    document.body.classList.remove("landing-mode");
-    if (elements.startScreen) elements.startScreen.hidden = true;
-    if (elements.results) elements.results.hidden = false;
-    const sv3App = document.querySelector("#sv3-app");
-    if (typeof sv3ShowMain === "function") sv3ShowMain("input");
-    document.querySelector("#sv3-biztype")?.focus({ preventScroll: true });
-    sv3App?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!sv3RequireAccount()) return;
+    sv3EnterAnalysisApp();
   });
 });
 
@@ -8540,6 +8575,7 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
       localStorage.removeItem(pendingSearchStorageKey);
     } catch { /* ignore */ }
     if (pending && (pending.address || pending.zip)) {
+      sv3AuthBypassOnce = true;
       document.body.classList.remove("landing-mode");
       if (elements.startScreen) elements.startScreen.hidden = true;
       if (elements.results) elements.results.hidden = false;
