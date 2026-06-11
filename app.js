@@ -7665,6 +7665,23 @@ function openPublicActionPanel(selector, options = {}) {
 }
 
 function renderAccountStatus(account) {
+  // Nav reflects auth state: "Login" → /account when anonymous, the user's
+  // name → account panel when signed in.
+  const navAuth = document.querySelector("#nav-auth-link");
+  if (navAuth) {
+    if (account) {
+      navAuth.textContent = (account.name || "").trim().split(/\s+/)[0] || "Account";
+      navAuth.href = "#account-access";
+      navAuth.onclick = (event) => {
+        event.preventDefault();
+        openPublicActionPanel("#account-access");
+      };
+    } else {
+      navAuth.textContent = "Login";
+      navAuth.href = "/account";
+      navAuth.onclick = null;
+    }
+  }
   if (!launchEls.accountStatus) return;
   document.body.classList.toggle("account-signed-in", Boolean(account));
   if (!account) {
