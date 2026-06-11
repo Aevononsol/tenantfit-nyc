@@ -36,7 +36,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
     <link rel="stylesheet" href="./styles.css?v=20260610-landing" />
-    <link rel="stylesheet" href="./inside-v3.css?v=20260610-report2" />
+    <link rel="stylesheet" href="./inside-v3.css?v=20260611-paywall" />
   </head>
   <body class="landing-mode">
     <main class="app-shell">
@@ -481,14 +481,14 @@
                 <strong>$9</strong>
                 <h4>Full Report</h4>
                 <p>Full report, PDF export, risks, conditions, and better alternatives for one location.</p>
-                <button class="launch-scroll" type="button" data-open-panel="#paid-report" data-package="full-report">Request full report</button>
+                <button type="button" data-checkout-product="single-report" data-package="full-report">Buy a report — $9</button>
               </article>
               <article class="pricing-card">
-                <span>Compare</span>
-                <strong>$29</strong>
-                <h4>Compare 3 Locations</h4>
-                <p>Compare three candidate ZIPs, storefronts, or business ideas before choosing a direction.</p>
-                <button class="launch-scroll" type="button" data-open-panel="#paid-report" data-package="three-location-compare">Compare locations</button>
+                <span>Save $10</span>
+                <strong>$35</strong>
+                <h4>5-Report Pack</h4>
+                <p>Five full reports for any businesses and locations — $7 each instead of $9. Credits never expire.</p>
+                <button type="button" data-checkout-product="report-pack-5" data-package="report-pack-5">Buy 5-pack — $35</button>
               </article>
               <article class="pricing-card">
                 <span>Teams</span>
@@ -527,7 +527,7 @@
               <select name="package" aria-label="Report package">
                 <option value="free-demo">Free Demo — decision, score, summary</option>
                 <option value="full-report">Full Report — $9</option>
-                <option value="three-location-compare">Compare 3 Locations — $29</option>
+                <option value="report-pack-5">5-Report Pack — $35</option>
                 <option value="team-enterprise">Team / Enterprise — custom</option>
               </select>
               <select name="timeline" aria-label="Decision timeline">
@@ -1476,7 +1476,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260610-account"></script>
+    <script defer src="./app.js?v=20260611-paywall"></script>
     <script defer src="./home.js?v=20260610-nearme3"></script>
   </body>
 </html>

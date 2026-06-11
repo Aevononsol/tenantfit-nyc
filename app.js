@@ -5191,15 +5191,22 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   // Only rewrite a tab when its content actually changed — this avoids
   // tearing down the live map / charts on every late async re-render.
   const setIf = (el, html) => { if (!el || el.__sv3html === html) return false; el.__sv3html = html; el.innerHTML = html; return true; };
+  // Overview (decision + score) is the free teaser; the four deep tabs are
+  // the $9 product. Locked tabs render the unlock card instead of content.
+  sv3LastRender = { profile, recommendations, analysis };
+  const reportPaid = sv3ReportUnlocked();
   setIf(refs.tabOverview, sv3OverviewHTML(ctx));
-  const marketChanged = setIf(refs.tabMarket, sv3MarketHTML(ctx));
-  setIf(refs.tabRisk, sv3RiskHTML(ctx));
-  setIf(refs.tabMoney, sv3MoneyHTML(ctx));
-  setIf(refs.tabMethod, sv3MethodHTML(ctx));
+  const marketChanged = setIf(refs.tabMarket, reportPaid ? sv3MarketHTML(ctx) : sv3PaywallHTML("market"));
+  setIf(refs.tabRisk, reportPaid ? sv3RiskHTML(ctx) : sv3PaywallHTML("risk"));
+  setIf(refs.tabMoney, reportPaid ? sv3MoneyHTML(ctx) : sv3PaywallHTML("money"));
+  setIf(refs.tabMethod, reportPaid ? sv3MethodHTML(ctx) : sv3PaywallHTML("method"));
+  refs.app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
+    button.classList.toggle("locked", !reportPaid && button.dataset.sv3Tab !== "overview");
+  });
 
   sv3BindActions();
-  sv3InitWhatIf();
-  if (marketChanged || !sv3MarketMap) sv3RenderMarketMap();
+  if (reportPaid) sv3InitWhatIf();
+  if (reportPaid && (marketChanged || !sv3MarketMap)) sv3RenderMarketMap();
   if (showingPortfolio) {
     sv3RenderPortfolio();
   } else if (!showingReport && !showingCompare) {
@@ -5408,6 +5415,11 @@ function sv3BindActions() {
               btn.innerHTML = original;
             }, 1400);
           });
+        return;
+      }
+      if (action === "export-pdf" && !sv3ReportUnlocked()) {
+        sv3ShowTab("market");
+        sv3PaywallToast("PDF export is part of the full report — unlock it to download.");
         return;
       }
       const sel = map[action];
@@ -8176,3 +8188,255 @@ assistantEls.cta?.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !assistantEls.panel?.hidden) closeAssistant();
 });
+
+/* ---------- Paywall: $9 single report / $35 five-report pack ---------- */
+// The Overview tab (decision + score) is the free teaser; Market, Risk,
+// Money, Method, and PDF export unlock per report (business + location).
+// Purchases live server-side keyed by a code (SV-XXXX-XXXX); the browser
+// keeps a copy in localStorage so unlocks survive reloads, and the code
+// restores them on any other device.
+const purchaseStorageKey = "spotvestPurchase";
+const pendingSearchStorageKey = "spotvestPendingSearch";
+let sv3LastRender = null;
+
+function sv3Purchase() {
+  try { return JSON.parse(localStorage.getItem(purchaseStorageKey) || "null"); } catch { return null; }
+}
+
+function sv3SavePurchase(purchase) {
+  if (!purchase) return;
+  const existing = sv3Purchase();
+  const merged = {
+    code: purchase.code || existing?.code || "",
+    product: purchase.product || existing?.product || "",
+    credits: Number(purchase.credits) || 0,
+    creditsUsed: Number(purchase.creditsUsed) || 0,
+    // Keep unlocks from earlier codes — a customer can buy a single report
+    // first and a pack later; both sets of reports must stay open.
+    unlockedReports: Array.from(new Set([
+      ...(existing?.unlockedReports || []),
+      ...(purchase.unlockedReports || [])
+    ]))
+  };
+  try { localStorage.setItem(purchaseStorageKey, JSON.stringify(merged)); } catch { /* ignore */ }
+}
+
+// One report = one business + one location. Must produce the same string at
+// buy time and at render time, so it only uses values set by the analysis.
+function sv3ReportKey() {
+  const place = (state.location?.address || state.zip || "").trim();
+  return `${(state.business || "").trim()}|${place}`.toLowerCase().replace(/\s+/g, " ");
+}
+
+function sv3ReportLabel() {
+  const place = state.location?.address || (state.zip ? `ZIP ${state.zip}` : "");
+  try { return `${businessDisplayName(state.business)} — ${place}`; } catch { return place; }
+}
+
+function sv3CreditsLeft() {
+  const purchase = sv3Purchase();
+  if (!purchase) return 0;
+  return Math.max(0, (Number(purchase.credits) || 0) - (Number(purchase.creditsUsed) || 0));
+}
+
+function sv3ReportUnlocked() {
+  const purchase = sv3Purchase();
+  return Boolean(purchase?.unlockedReports?.includes(sv3ReportKey()));
+}
+
+function sv3PaywallHTML(tabName) {
+  const labels = {
+    market: "Market analysis",
+    risk: "Risk analysis",
+    money: "Money & revenue model",
+    method: "Methodology & data sources"
+  };
+  const creditsLeft = sv3CreditsLeft();
+  const buyButtons = creditsLeft > 0
+    ? `<button class="btn" type="button" data-paywall-action="use-credit">Open with 1 credit — ${creditsLeft} left</button>`
+    : `<button class="btn" type="button" data-paywall-action="buy-single">Unlock this report — $9</button>
+       <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>`;
+  return `<div class="card accent sv3-paywall">
+      <div class="paywall-lock" aria-hidden="true">🔒</div>
+      <h3>${escapeText(labels[tabName] || "This section")} is in the full report</h3>
+      <div class="desc">The free preview shows the decision and score. Unlocking opens Market, Risk, Money, and Method for <b>${escapeText(sv3ReportLabel())}</b> — plus PDF export. One purchase, this report stays open forever.</div>
+      <div class="paywall-actions">${buyButtons}</div>
+      <div class="paywall-redeem">
+        <input class="input" data-paywall-code placeholder="Have a code? SV-XXXX-XXXX" autocomplete="off" />
+        <button class="btn ghost sm" type="button" data-paywall-action="redeem">Redeem</button>
+      </div>
+      <div class="desc paywall-status" data-paywall-status role="status"></div>
+    </div>`;
+}
+
+function sv3PaywallToast(message, isError = false) {
+  let el = document.getElementById("sv3-paywall-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "sv3-paywall-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.toggle("err", Boolean(isError));
+  el.classList.add("show");
+  clearTimeout(el.__hideTimer);
+  el.__hideTimer = setTimeout(() => el.classList.remove("show"), 12000);
+}
+
+async function startSpotvestCheckout(product, options = {}) {
+  const payload = { product };
+  const account = storedAccount();
+  if (account?.email) payload.email = account.email;
+  if (options.forCurrentReport && (state.location || state.zip)) {
+    payload.reportKey = sv3ReportKey();
+    payload.reportLabel = sv3ReportLabel();
+    // Stripe redirects through a full page reload, losing the analysis —
+    // remember the search so the return handler can re-run it.
+    try {
+      localStorage.setItem(pendingSearchStorageKey, JSON.stringify({
+        business: businessDisplayName(state.business) || "",
+        zip: state.zip || "",
+        address: state.location?.address || ""
+      }));
+    } catch { /* ignore */ }
+  }
+  const response = await fetch("/api/checkout", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.url) throw new Error(result.error || "Could not start checkout.");
+  window.location.href = result.url;
+}
+
+async function sv3RedeemUnlock(code) {
+  const response = await fetch("/api/report-unlock", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, reportKey: sv3ReportKey(), reportLabel: sv3ReportLabel() })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Could not unlock this report.");
+  sv3SavePurchase(result.purchase);
+  sv3RerenderReport();
+  sv3PaywallToast("Report unlocked ✓ Market, Risk, Money, Method, and PDF export are open.");
+}
+
+function sv3RerenderReport() {
+  if (!sv3LastRender) return;
+  try {
+    renderSpotVestV3(sv3LastRender.profile, sv3LastRender.recommendations, sv3LastRender.analysis);
+  } catch (error) {
+    sv3Debug?.(`paywall rerender failed: ${error.message}`);
+  }
+}
+
+document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-paywall-action]");
+  if (!button) return;
+  const action = button.dataset.paywallAction;
+  const wrap = button.closest(".sv3-paywall");
+  const statusEl = wrap?.querySelector("[data-paywall-status]");
+  const setStatus = (text, isError) => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.classList.toggle("err", Boolean(isError));
+  };
+  try {
+    if (action === "buy-single" || action === "buy-pack") {
+      button.disabled = true;
+      setStatus("Opening secure Stripe checkout…");
+      await startSpotvestCheckout(action === "buy-single" ? "single-report" : "report-pack-5", { forCurrentReport: true });
+      return; // page navigates to Stripe
+    }
+    if (action === "use-credit") {
+      const code = sv3Purchase()?.code;
+      if (!code) {
+        setStatus("No purchase found on this device — redeem your code below.", true);
+        return;
+      }
+      button.disabled = true;
+      setStatus("Unlocking…");
+      await sv3RedeemUnlock(code);
+      return;
+    }
+    if (action === "redeem") {
+      const code = (wrap?.querySelector("[data-paywall-code]")?.value || "").trim();
+      if (!code) {
+        setStatus("Enter the code from your purchase confirmation.", true);
+        return;
+      }
+      setStatus("Checking the code…");
+      await sv3RedeemUnlock(code);
+    }
+  } catch (error) {
+    button.disabled = false;
+    setStatus(error.message || "Something went wrong. Try again.", true);
+  }
+});
+
+// Landing-page pricing cards: straight to Stripe. If payments are offline the
+// old request form is the fallback so the button is never a dead end.
+document.querySelectorAll("[data-checkout-product]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = "Opening checkout…";
+    try {
+      await startSpotvestCheckout(button.dataset.checkoutProduct, { forCurrentReport: false });
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = original;
+      try { openPublicActionPanel("#paid-report", { package: button.dataset.package }); } catch { /* ignore */ }
+      sv3PaywallToast(error.message || "Checkout is unavailable right now — send the request form instead.", true);
+    }
+  });
+});
+
+// Returning from Stripe: confirm the payment server-side (Stripe is the
+// source of truth), store the purchase, then re-run the search the customer
+// paid for so they land on the unlocked report instead of a blank page.
+(async function handleCheckoutReturn() {
+  let params;
+  try { params = new URLSearchParams(window.location.search); } catch { return; }
+  const checkoutStatus = params.get("checkout");
+  if (!checkoutStatus) return;
+  const sessionId = params.get("session_id");
+  try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ }
+  if (checkoutStatus !== "success" || !sessionId) {
+    if (checkoutStatus === "cancelled") sv3PaywallToast("Checkout cancelled — nothing was charged.");
+    return;
+  }
+  try {
+    const response = await fetch(`/api/checkout/confirm?session_id=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Could not confirm the payment.");
+    sv3SavePurchase(result.purchase);
+    const creditsLeft = Math.max(0, (Number(result.purchase?.credits) || 0) - (Number(result.purchase?.creditsUsed) || 0));
+    sv3PaywallToast(`Payment confirmed ✓ Your code: ${result.purchase.code} — save it to open your reports on any device.${creditsLeft ? ` Credits left: ${creditsLeft}.` : ""}`);
+    let pending = null;
+    try {
+      pending = JSON.parse(localStorage.getItem(pendingSearchStorageKey) || "null");
+      localStorage.removeItem(pendingSearchStorageKey);
+    } catch { /* ignore */ }
+    if (pending && (pending.address || pending.zip)) {
+      document.body.classList.remove("landing-mode");
+      if (elements.startScreen) elements.startScreen.hidden = true;
+      if (elements.results) elements.results.hidden = false;
+      const refs = sv3Refs();
+      if (refs.biztype && pending.business) refs.biztype.value = pending.business;
+      if (pending.address && refs.address) {
+        refs.address.value = pending.address;
+        document.querySelector("#sv3-analyze-address")?.click();
+      } else if (pending.zip && refs.zip) {
+        refs.zip.value = pending.zip;
+        document.querySelector("#sv3-analyze-area")?.click();
+      }
+    }
+  } catch (error) {
+    sv3PaywallToast(error.message || "Could not confirm the payment. Your purchase is safe — contact support.", true);
+  }
+})();

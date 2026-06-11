@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { fetchDemandMomentum } from "./services/googleTrends.js";
 
@@ -45,6 +45,7 @@ const envAliases = {
   OPENAI_API_KEY: ["SPOTVEST_OPENAI_API_KEY", "AREAINTEL_OPENAI_API_KEY"],
   OPENAI_MODEL: ["SPOTVEST_OPENAI_MODEL", "AREAINTEL_OPENAI_MODEL"],
   STRIPE_SECRET_KEY: ["SPOTVEST_STRIPE_SECRET_KEY", "AREAINTEL_STRIPE_SECRET_KEY"],
+  STRIPE_WEBHOOK_SECRET: ["SPOTVEST_STRIPE_WEBHOOK_SECRET", "AREAINTEL_STRIPE_WEBHOOK_SECRET"],
   RESEND_API_KEY: ["SPOTVEST_RESEND_API_KEY", "AREAINTEL_RESEND_API_KEY"],
   ADMIN_TOKEN: ["SPOTVEST_ADMIN_TOKEN", "AREAINTEL_ADMIN_TOKEN"]
 };
@@ -310,6 +311,23 @@ function readRequestJson(request) {
         reject(new Error("Invalid JSON"));
       }
     });
+    request.on("error", reject);
+  });
+}
+
+// Raw body, no JSON parsing — Stripe webhook signatures are computed over the
+// exact bytes sent, so the payload must reach the verifier untouched.
+function readRequestText(request) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1_000_000) {
+        request.destroy();
+        reject(new Error("Request body too large"));
+      }
+    });
+    request.on("end", () => resolve(body));
     request.on("error", reject);
   });
 }
@@ -665,7 +683,7 @@ function agentRunPayload(task, lead) {
       summary: `Sales qualification prepared for ${context}.`,
       actions: [
         "Identify buyer type: owner, broker, franchise buyer, landlord, or investor.",
-        "Recommend the lowest-friction next offer: Free Demo, $9 Full Report, $29 Compare, or consultation waitlist.",
+        "Recommend the lowest-friction next offer: Free Demo, $9 Full Report, $35 5-Report Pack, or consultation waitlist.",
         "Draft a short follow-up focused on one business decision, not dashboard features."
       ],
       output: {
@@ -809,6 +827,135 @@ function checkoutUrlFor(plan) {
   const normalized = safeText(plan, 80).toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   const specific = process.env[`STRIPE_${normalized}_PAYMENT_URL`];
   return specific || process.env.STRIPE_REPORT_PAYMENT_URL || process.env.SPOTVEST_PAYMENT_URL || process.env.AREAINTEL_PAYMENT_URL || "";
+}
+
+/* ---------- Stripe Checkout + report credits ---------- */
+// Amounts are cents. "credits" is how many full reports the purchase unlocks;
+// a credit is burned when a specific report (business + location) is opened,
+// and that report stays unlocked forever on its purchase code.
+const checkoutProducts = {
+  "single-report": {
+    name: "SpotVest Full Report",
+    description: "Full report for one business and location: market, risk, money, method, and PDF export.",
+    amount: 900,
+    credits: 1
+  },
+  "report-pack-5": {
+    name: "SpotVest 5-Report Pack",
+    description: "Five full reports for any businesses and locations — $35 instead of $45. Credits never expire.",
+    amount: 3500,
+    credits: 5
+  }
+};
+
+function stripeConfigured() {
+  return Boolean(process.env.STRIPE_SECRET_KEY);
+}
+
+async function stripeRequest(method, path, params) {
+  const response = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {})
+    },
+    body: method === "POST" ? new URLSearchParams(params).toString() : undefined
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Stripe request failed (${response.status})`);
+  }
+  return data;
+}
+
+function purchaseCode() {
+  // The code is the customer's receipt — they may retype it from a phone
+  // screen, so skip glyphs that misread (0/O, 1/I/L).
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const block = () => Array.from(randomBytes(4)).map((byte) => alphabet[byte % alphabet.length]).join("");
+  return `SV-${block()}-${block()}`;
+}
+
+function normalizeReportKey(value) {
+  return safeText(value, 220).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizePurchaseCode(value) {
+  return safeText(value, 40).toUpperCase().replace(/[^A-Z0-9-]/g, "");
+}
+
+function publicPurchase(purchase) {
+  if (!purchase) return null;
+  const credits = Number(purchase.credits) || 0;
+  const used = Number(purchase.creditsUsed) || 0;
+  return {
+    code: purchase.code,
+    product: purchase.product,
+    credits,
+    creditsUsed: used,
+    creditsLeft: Math.max(0, credits - used),
+    unlockedReports: (purchase.unlockedReports || []).map((entry) => entry.key),
+    createdAt: purchase.createdAt
+  };
+}
+
+// Idempotent by Stripe session id: the webhook and the success-page confirm
+// can both fire for the same payment and must not double-credit.
+async function recordPaidCheckout(session) {
+  const purchases = await readJsonStore("purchases", []);
+  const existing = purchases.find((purchase) => purchase.sessionId === session.id);
+  if (existing) return existing;
+  const meta = session.metadata || {};
+  const product = checkoutProducts[meta.product] ? meta.product : "single-report";
+  const purchase = {
+    id: `pur_${randomBytes(8).toString("hex")}`,
+    sessionId: session.id,
+    code: purchaseCode(),
+    product,
+    credits: checkoutProducts[product].credits,
+    creditsUsed: 0,
+    unlockedReports: [],
+    email: normalizeEmail(session.customer_details?.email || session.customer_email || ""),
+    accountId: safeText(meta.accountId, 80) || null,
+    amountTotal: Number(session.amount_total) || checkoutProducts[product].amount,
+    currency: safeText(session.currency, 8) || "usd",
+    createdAt: new Date().toISOString()
+  };
+  const reportKey = normalizeReportKey(meta.reportKey);
+  if (reportKey) {
+    purchase.unlockedReports.push({ key: reportKey, label: safeText(meta.reportLabel, 220), at: purchase.createdAt });
+    purchase.creditsUsed = 1;
+  }
+  purchases.unshift(purchase);
+  await writeJsonStore("purchases", purchases.slice(0, 20000));
+  return purchase;
+}
+
+function verifyStripeSignature(payload, header, secret) {
+  const parts = String(header || "").split(",").reduce((acc, pair) => {
+    const eq = pair.indexOf("=");
+    if (eq === -1) return acc;
+    const key = pair.slice(0, eq).trim();
+    (acc[key] ||= []).push(pair.slice(eq + 1).trim());
+    return acc;
+  }, {});
+  const timestamp = parts.t?.[0];
+  if (!timestamp || !Array.isArray(parts.v1)) return false;
+  // Reject stale events so a captured webhook body can't be replayed later.
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+  const expected = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest();
+  return parts.v1.some((candidate) => {
+    const provided = Buffer.from(String(candidate || ""), "hex");
+    return provided.length === expected.length && timingSafeEqual(provided, expected);
+  });
+}
+
+function requestOrigin(request) {
+  const configured = process.env.SPOTVEST_PUBLIC_URL || process.env.PUBLIC_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+  const proto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim() || "http";
+  const host = String(request.headers["x-forwarded-host"] || request.headers.host || "localhost").split(",")[0].trim();
+  return `${proto}://${host}`;
 }
 
 function publicAccount(account) {
@@ -2780,18 +2927,18 @@ createServer(async (request, response) => {
             cta: "Request demo"
           },
           {
-            id: "full-report",
+            id: "single-report",
             name: "Full Report",
             price: "$9",
             description: "Full report, PDF export, risks, conditions, and alternatives.",
-            cta: "Request full report"
+            cta: "Unlock full report"
           },
           {
-            id: "three-location-compare",
-            name: "Compare 3 Locations",
-            price: "$29",
-            description: "Compare three candidate ZIPs, storefronts, or business ideas.",
-            cta: "Compare locations"
+            id: "report-pack-5",
+            name: "5-Report Pack",
+            price: "$35",
+            description: "Five full reports for any locations — save $10. Credits never expire.",
+            cta: "Buy 5-pack"
           },
           {
             id: "team-enterprise",
@@ -2801,7 +2948,7 @@ createServer(async (request, response) => {
             cta: "Talk to sales"
           }
         ],
-        paymentConfigured: Boolean(checkoutUrlFor("full-report"))
+        paymentConfigured: stripeConfigured() || Boolean(checkoutUrlFor("full-report"))
       });
       return;
     }
@@ -3068,6 +3215,165 @@ createServer(async (request, response) => {
       }
       const lead = await appendLead("contact", body, request);
       sendJson(response, 200, { ok: true, lead: publicLead(lead) });
+      return;
+    }
+
+    if (url.pathname === "/api/checkout" && request.method === "POST") {
+      if (rateLimited(`checkout:${clientIp(request)}`, 10, 60_000)) {
+        sendJson(response, 429, { error: "Too many checkout attempts. Please wait a minute and try again." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const productId = checkoutProducts[body.product] ? body.product : null;
+      if (!productId) {
+        sendJson(response, 400, { error: "Unknown product." });
+        return;
+      }
+      if (!stripeConfigured()) {
+        // Static Payment Link fallback keeps the buy buttons alive if the
+        // key is ever removed; otherwise tell the client to use the
+        // request-form flow instead of a dead button.
+        const fallback = checkoutUrlFor(productId);
+        if (fallback) {
+          sendJson(response, 200, { ok: true, url: fallback, mode: "payment-link" });
+        } else {
+          sendJson(response, 503, { error: "Payments are not configured yet. Use the report request form instead." });
+        }
+        return;
+      }
+      const item = checkoutProducts[productId];
+      const account = await authAccount(request);
+      const origin = requestOrigin(request);
+      const reportKey = normalizeReportKey(body.reportKey);
+      const email = account?.email || normalizeEmail(body.email);
+      try {
+        const session = await stripeRequest("POST", "checkout/sessions", {
+          mode: "payment",
+          "line_items[0][quantity]": "1",
+          "line_items[0][price_data][currency]": "usd",
+          "line_items[0][price_data][unit_amount]": String(item.amount),
+          "line_items[0][price_data][product_data][name]": item.name,
+          "line_items[0][price_data][product_data][description]": item.description,
+          success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}/?checkout=cancelled`,
+          "metadata[product]": productId,
+          ...(reportKey ? { "metadata[reportKey]": reportKey, "metadata[reportLabel]": safeText(body.reportLabel, 220) } : {}),
+          ...(account ? { "metadata[accountId]": account.id } : {}),
+          ...(email ? { customer_email: email } : {})
+        });
+        sendJson(response, 200, { ok: true, url: session.url });
+      } catch (error) {
+        console.error(`[SpotVest] checkout error: ${error.message}`);
+        sendJson(response, 502, { error: "Could not start checkout. Please try again." });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/checkout/confirm") {
+      if (rateLimited(`checkout-confirm:${clientIp(request)}`, 20, 60_000)) {
+        sendJson(response, 429, { error: "Too many attempts. Please wait a minute and try again." });
+        return;
+      }
+      const sessionId = safeText(url.searchParams.get("session_id"), 140);
+      if (!sessionId) {
+        sendJson(response, 400, { error: "Missing session_id." });
+        return;
+      }
+      if (!stripeConfigured()) {
+        sendJson(response, 503, { error: "Payments are not configured." });
+        return;
+      }
+      try {
+        // The session is fetched from Stripe with our secret key, so a forged
+        // session_id can't mint credits — Stripe is the source of truth.
+        const session = await stripeRequest("GET", `checkout/sessions/${encodeURIComponent(sessionId)}`);
+        if (session.payment_status !== "paid") {
+          sendJson(response, 402, { error: "Payment not completed yet. If you just paid, retry in a few seconds." });
+          return;
+        }
+        const purchase = await recordPaidCheckout(session);
+        sendJson(response, 200, { ok: true, purchase: publicPurchase(purchase) });
+      } catch (error) {
+        console.error(`[SpotVest] checkout confirm error: ${error.message}`);
+        sendJson(response, 502, { error: "Could not confirm the payment. Your purchase is safe — contact support with your Stripe receipt." });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
+      const payload = await readRequestText(request);
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (!secret) {
+        // Without a signing secret anyone could POST fake "paid" events, so
+        // ignore the webhook; the confirm endpoint already records purchases.
+        sendJson(response, 503, { error: "Webhook signing secret not configured." });
+        return;
+      }
+      if (!verifyStripeSignature(payload, request.headers["stripe-signature"], secret)) {
+        sendJson(response, 400, { error: "Invalid signature." });
+        return;
+      }
+      let event = {};
+      try { event = JSON.parse(payload); } catch { /* leave empty */ }
+      if (event.type === "checkout.session.completed" && event.data?.object?.payment_status === "paid") {
+        await recordPaidCheckout(event.data.object);
+      }
+      sendJson(response, 200, { received: true });
+      return;
+    }
+
+    if (url.pathname === "/api/report-unlock" && request.method === "POST") {
+      // Rate limit is the real defense against code guessing (the code space
+      // is ~31^8, but cheap insurance).
+      if (rateLimited(`report-unlock:${clientIp(request)}`, 20, 60_000)) {
+        sendJson(response, 429, { error: "Too many attempts. Please wait a minute and try again." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const code = normalizePurchaseCode(body.code);
+      const reportKey = normalizeReportKey(body.reportKey);
+      if (!code || !reportKey) {
+        sendJson(response, 400, { error: "A purchase code and a report are required." });
+        return;
+      }
+      const purchases = await readJsonStore("purchases", []);
+      const purchase = purchases.find((candidate) => candidate.code === code);
+      if (!purchase) {
+        sendJson(response, 404, { error: "That code was not found. Check it against your purchase confirmation." });
+        return;
+      }
+      const alreadyUnlocked = (purchase.unlockedReports || []).some((entry) => entry.key === reportKey);
+      if (!alreadyUnlocked) {
+        const creditsLeft = (Number(purchase.credits) || 0) - (Number(purchase.creditsUsed) || 0);
+        if (creditsLeft <= 0) {
+          sendJson(response, 402, { error: "No report credits left on this code.", purchase: publicPurchase(purchase) });
+          return;
+        }
+        purchase.unlockedReports = purchase.unlockedReports || [];
+        purchase.unlockedReports.push({ key: reportKey, label: safeText(body.reportLabel, 220), at: new Date().toISOString() });
+        purchase.creditsUsed = (Number(purchase.creditsUsed) || 0) + 1;
+        await writeJsonStore("purchases", purchases);
+      }
+      sendJson(response, 200, { ok: true, purchase: publicPurchase(purchase) });
+      return;
+    }
+
+    if (url.pathname === "/api/report-credits") {
+      if (rateLimited(`report-credits:${clientIp(request)}`, 30, 60_000)) {
+        sendJson(response, 429, { error: "Too many attempts. Please wait a minute and try again." });
+        return;
+      }
+      const code = normalizePurchaseCode(url.searchParams.get("code"));
+      const account = await authAccount(request);
+      if (!code && !account) {
+        sendJson(response, 400, { error: "Provide a purchase code or sign in." });
+        return;
+      }
+      const purchases = await readJsonStore("purchases", []);
+      const matches = purchases.filter(
+        (purchase) => (code && purchase.code === code) || (account && purchase.accountId === account.id)
+      );
+      sendJson(response, 200, { ok: true, purchases: matches.map(publicPurchase) });
       return;
     }
 
