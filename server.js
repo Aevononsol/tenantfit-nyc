@@ -845,6 +845,13 @@ const checkoutProducts = {
     description: "Five full reports for any businesses and locations — $35 instead of $45. Credits never expire.",
     amount: 3500,
     credits: 5
+  },
+  "pro-pass-30": {
+    name: "SpotVest Pro Pass — 30 days",
+    description: "Unlimited full reports for 30 days. One-time payment — no subscription, no auto-renewal.",
+    amount: 9900,
+    credits: 0,
+    passDays: 30
   }
 };
 
@@ -894,9 +901,14 @@ function publicPurchase(purchase) {
     credits,
     creditsUsed: used,
     creditsLeft: Math.max(0, credits - used),
+    passExpiresAt: purchase.passExpiresAt || null,
     unlockedReports: (purchase.unlockedReports || []).map((entry) => entry.key),
     createdAt: purchase.createdAt
   };
+}
+
+function passActive(purchase) {
+  return Boolean(purchase?.passExpiresAt && Date.parse(purchase.passExpiresAt) > Date.now());
 }
 
 // Idempotent by Stripe session id: the webhook and the success-page confirm
@@ -907,24 +919,28 @@ async function recordPaidCheckout(session) {
   if (existing) return existing;
   const meta = session.metadata || {};
   const product = checkoutProducts[meta.product] ? meta.product : "single-report";
+  const item = checkoutProducts[product];
+  const now = new Date();
   const purchase = {
     id: `pur_${randomBytes(8).toString("hex")}`,
     sessionId: session.id,
     code: purchaseCode(),
     product,
-    credits: checkoutProducts[product].credits,
+    credits: item.credits,
     creditsUsed: 0,
+    passExpiresAt: item.passDays ? new Date(now.getTime() + item.passDays * 24 * 60 * 60 * 1000).toISOString() : null,
     unlockedReports: [],
     email: normalizeEmail(session.customer_details?.email || session.customer_email || ""),
     accountId: safeText(meta.accountId, 80) || null,
-    amountTotal: Number(session.amount_total) || checkoutProducts[product].amount,
+    amountTotal: Number(session.amount_total) || item.amount,
     currency: safeText(session.currency, 8) || "usd",
-    createdAt: new Date().toISOString()
+    createdAt: now.toISOString()
   };
   const reportKey = normalizeReportKey(meta.reportKey);
   if (reportKey) {
     purchase.unlockedReports.push({ key: reportKey, label: safeText(meta.reportLabel, 220), at: purchase.createdAt });
-    purchase.creditsUsed = 1;
+    // Pass holders don't burn credits — the pass IS the entitlement.
+    if (item.credits > 0) purchase.creditsUsed = 1;
   }
   purchases.unshift(purchase);
   await writeJsonStore("purchases", purchases.slice(0, 20000));
@@ -2941,11 +2957,11 @@ createServer(async (request, response) => {
             cta: "Buy 5-pack"
           },
           {
-            id: "team-enterprise",
-            name: "Team / Enterprise",
-            price: "Custom",
-            description: "Bulk reports, saved reports, broker workflows, and support for teams.",
-            cta: "Talk to sales"
+            id: "pro-pass-30",
+            name: "Pro Pass — 30 days",
+            price: "$99",
+            description: "Unlimited full reports for 30 days. One-time payment — no subscription.",
+            cta: "Get the Pro Pass"
           }
         ],
         paymentConfigured: stripeConfigured() || Boolean(checkoutUrlFor("full-report"))
@@ -3345,13 +3361,20 @@ createServer(async (request, response) => {
       const alreadyUnlocked = (purchase.unlockedReports || []).some((entry) => entry.key === reportKey);
       if (!alreadyUnlocked) {
         const creditsLeft = (Number(purchase.credits) || 0) - (Number(purchase.creditsUsed) || 0);
-        if (creditsLeft <= 0) {
-          sendJson(response, 402, { error: "No report credits left on this code.", purchase: publicPurchase(purchase) });
+        const onPass = passActive(purchase);
+        if (!onPass && creditsLeft <= 0) {
+          const expired = purchase.passExpiresAt && !onPass;
+          sendJson(response, 402, {
+            error: expired ? "This Pro Pass has expired." : "No report credits left on this code.",
+            purchase: publicPurchase(purchase)
+          });
           return;
         }
         purchase.unlockedReports = purchase.unlockedReports || [];
         purchase.unlockedReports.push({ key: reportKey, label: safeText(body.reportLabel, 220), at: new Date().toISOString() });
-        purchase.creditsUsed = (Number(purchase.creditsUsed) || 0) + 1;
+        // Pass unlocks are free while the pass is active; credits only burn
+        // on credit-based purchases.
+        if (!onPass) purchase.creditsUsed = (Number(purchase.creditsUsed) || 0) + 1;
         await writeJsonStore("purchases", purchases);
       }
       sendJson(response, 200, { ok: true, purchase: publicPurchase(purchase) });

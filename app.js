@@ -8243,6 +8243,11 @@ function sv3SavePurchase(purchase) {
     product: purchase.product || existing?.product || "",
     credits: Number(purchase.credits) || 0,
     creditsUsed: Number(purchase.creditsUsed) || 0,
+    // Keep whichever pass reaches further into the future.
+    passExpiresAt: [purchase.passExpiresAt, existing?.passExpiresAt]
+      .filter(Boolean)
+      .sort()
+      .pop() || null,
     // Keep unlocks from earlier codes — a customer can buy a single report
     // first and a pack later; both sets of reports must stay open.
     unlockedReports: Array.from(new Set([
@@ -8271,7 +8276,13 @@ function sv3CreditsLeft() {
   return Math.max(0, (Number(purchase.credits) || 0) - (Number(purchase.creditsUsed) || 0));
 }
 
+function sv3PassActive() {
+  const purchase = sv3Purchase();
+  return Boolean(purchase?.passExpiresAt && Date.parse(purchase.passExpiresAt) > Date.now());
+}
+
 function sv3ReportUnlocked() {
+  if (sv3PassActive()) return true;
   const purchase = sv3Purchase();
   return Boolean(purchase?.unlockedReports?.includes(sv3ReportKey()));
 }
@@ -8288,7 +8299,8 @@ function sv3PaywallCTAHTML(compact = false) {
   return compact
     ? `<button class="btn sm" type="button" data-paywall-action="buy-single">Unlock — $9</button>`
     : `<button class="btn" type="button" data-paywall-action="buy-single">Unlock full report — $9</button>
-       <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>`;
+       <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>
+       <button class="btn ghost" type="button" data-paywall-action="buy-pass">Pro Pass · unlimited for 30 days — $99</button>`;
 }
 
 function sv3PaywallBannerHTML() {
@@ -8448,10 +8460,11 @@ document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
     statusEl.classList.toggle("err", Boolean(isError));
   };
   try {
-    if (action === "buy-single" || action === "buy-pack") {
+    if (action === "buy-single" || action === "buy-pack" || action === "buy-pass") {
       button.disabled = true;
       setStatus("Opening secure Stripe checkout…");
-      await startSpotvestCheckout(action === "buy-single" ? "single-report" : "report-pack-5", { forCurrentReport: true });
+      const product = action === "buy-single" ? "single-report" : action === "buy-pack" ? "report-pack-5" : "pro-pass-30";
+      await startSpotvestCheckout(product, { forCurrentReport: true });
       return; // page navigates to Stripe
     }
     if (action === "use-credit") {
@@ -8511,7 +8524,10 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
     if (!response.ok) throw new Error(result.error || "Could not confirm the payment.");
     sv3SavePurchase(result.purchase);
     const creditsLeft = Math.max(0, (Number(result.purchase?.credits) || 0) - (Number(result.purchase?.creditsUsed) || 0));
-    sv3PaywallToast(`Payment confirmed ✓ Your code: ${result.purchase.code} — save it to open your reports on any device.${creditsLeft ? ` Credits left: ${creditsLeft}.` : ""}`);
+    const passNote = result.purchase?.passExpiresAt
+      ? ` Pro Pass active — unlimited reports until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}.`
+      : creditsLeft ? ` Credits left: ${creditsLeft}.` : "";
+    sv3PaywallToast(`Payment confirmed ✓ Your code: ${result.purchase.code} — save it to open your reports on any device.${passNote}`);
     let pending = null;
     try {
       pending = JSON.parse(localStorage.getItem(pendingSearchStorageKey) || "null");
