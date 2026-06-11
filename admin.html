@@ -3,36 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AreaIntel Admin</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <meta name="robots" content="noindex" />
+    <title>SpotVest — Owner Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+    <style>
+      :root{
+        --bg:#04060d;--surface:#0E1525;--surface-2:#121B30;
+        --border:rgba(255,255,255,.07);--border-strong:rgba(255,255,255,.14);
+        --teal:#39C2D6;--teal-bright:#4FE3D8;
+        --grad:linear-gradient(135deg,#3BD6C9 0%,#33A7D8 100%);
+        --txt:#F2F6FF;--txt-2:#AEB9D0;--txt-3:#6E7B96;
+      }
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:28px 16px 80px}
+      .admin-shell{max-width:880px;margin:0 auto;display:grid;gap:18px}
+      .admin-hero{display:flex;align-items:center;gap:16px;padding:6px 2px 10px}
+      .admin-hero .logo{width:46px;height:46px;flex:none}
+      .admin-hero h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800}
+      .admin-hero p{color:var(--txt-3);font-size:13px;margin-top:2px}
+      .admin-hero .home{margin-left:auto;color:var(--teal);font-size:13px;text-decoration:none;border:1px solid var(--border-strong);border-radius:10px;padding:8px 13px}
+      .section-label{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+      .launch-section{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px}
+      .launch-section-header h3{font-family:'Sora',sans-serif;font-size:17px;font-weight:700;margin-bottom:3px}
+      .launch-section-header p{color:var(--txt-3);font-size:13px;line-height:1.5;margin-bottom:14px}
+      .admin-token-row{display:flex;gap:10px}
+      input,select,textarea{width:100%;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;padding:12px 14px;color:var(--txt);font-family:'Inter';font-size:14.5px;outline:none}
+      input:focus,select:focus,textarea:focus{border-color:rgba(79,227,216,.5)}
+      input::placeholder,textarea::placeholder{color:var(--txt-3)}
+      button{border:none;border-radius:12px;padding:12px 18px;font-family:'Sora',sans-serif;font-weight:700;font-size:13.5px;background:var(--grad);color:#04222a;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px rgba(57,194,214,.25)}
+      button:active{transform:scale(.985)}
+      .launch-status{font-size:12.5px;color:var(--txt-2);margin-top:10px;line-height:1.5}
+      .launch-status-ok{color:#4ADE80}
+      .launch-status-error{color:#FF8585}
+      .admin-list{display:grid;gap:10px}
+      .admin-list > .launch-status{margin-top:0}
+      .admin-row{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:13px 15px;display:grid;gap:4px}
+      .admin-row strong{font-family:'Sora',sans-serif;font-size:14px;font-weight:700}
+      .admin-row span{color:var(--txt-2);font-size:12.5px}
+      .admin-row small{color:var(--txt-3);font-size:11.5px;font-family:'JetBrains Mono',monospace}
+      .admin-actions{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+      .agents-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+      .agent-card{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:14px}
+      .agent-card span{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--teal-bright);background:linear-gradient(135deg,rgba(59,214,201,.16),rgba(51,167,216,.10));border:1px solid rgba(57,194,214,.25);border-radius:7px;padding:4px 8px;margin-bottom:8px}
+      .agent-card strong{display:block;font-family:'Sora',sans-serif;font-size:13.5px;margin-bottom:4px}
+      .agent-card p{color:var(--txt-3);font-size:12px;line-height:1.5}
+      .agent-card em{display:block;color:var(--txt-2);font-size:11.5px;font-style:normal;margin-top:8px}
+      .launch-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .launch-form textarea{grid-column:1/-1;min-height:80px;resize:vertical}
+      .launch-form button{grid-column:1/-1}
+      @media(max-width:640px){.launch-form{grid-template-columns:1fr}.admin-token-row{flex-direction:column}}
+    </style>
   </head>
   <body class="admin-page">
     <main class="admin-shell">
       <header class="admin-hero">
-        <a href="/" class="admin-home-link">AreaIntel</a>
+        <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="sv-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FE3D8"/><stop offset="1" stop-color="#33A7D8"/></linearGradient></defs><circle cx="32" cy="32" r="23" stroke="url(#sv-a)" stroke-width="3.5" fill="none"/><circle cx="32" cy="32" r="13" stroke="url(#sv-a)" stroke-width="3.5" fill="none" opacity=".5"/><circle cx="32" cy="32" r="5.5" fill="url(#sv-a)"/><path d="M32 3v9M32 52v9M3 32h9M52 32h9" stroke="url(#sv-a)" stroke-width="3.5" stroke-linecap="round"/></svg>
         <div>
-          <p class="section-label">Internal operations</p>
-          <h1>Admin control center</h1>
-          <p>Private workspace for leads, agent tasks, internal operations, and launch controls.</p>
+          <h1>SpotVest Owner Console</h1>
+          <p>Signups, revenue, emails, leads, and internal operations.</p>
         </div>
+        <a href="/" class="home">← spotvest.ai</a>
       </header>
 
       <section class="launch-section admin-auth-panel">
+        <p class="section-label">Admin access</p>
         <div class="launch-section-header">
-          <p class="section-label">Admin access</p>
-          <h3>Load protected operations</h3>
-          <p>Enter the admin token configured in the hosting environment. This page is not part of the public AreaIntel product experience.</p>
+          <h3>Unlock the console</h3>
+          <p>Enter the admin token (the ADMIN_TOKEN value configured in Render). This page is never linked from the public site.</p>
         </div>
         <form id="admin-auth-form" class="admin-token-row">
           <input id="admin-token" type="password" placeholder="Admin token" autocomplete="current-password" required />
-          <button type="submit">Load admin</button>
+          <button type="submit">Load console</button>
         </form>
         <p id="admin-status" class="launch-status" role="status"></p>
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Customers</p>
         <div class="launch-section-header">
-          <p class="section-label">Customers</p>
           <h3>Signups</h3>
           <p>Every account, newest first — verification status included.</p>
         </div>
@@ -42,8 +92,8 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Revenue</p>
         <div class="launch-section-header">
-          <p class="section-label">Revenue</p>
           <h3>Purchases</h3>
           <p>Every Stripe purchase: product, buyer, code, and credits used.</p>
         </div>
@@ -53,8 +103,8 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Email</p>
         <div class="launch-section-header">
-          <p class="section-label">Email</p>
           <h3>Email log</h3>
           <p>Every transactional email sent (or failed) — receipts, verifications, alerts.</p>
         </div>
@@ -64,8 +114,8 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Leads</p>
         <div class="launch-section-header">
-          <p class="section-label">Leads</p>
           <h3>Lead queue</h3>
           <p>Report requests, consultation requests, and contact form submissions.</p>
         </div>
@@ -75,14 +125,14 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Agent tasks</p>
         <div class="launch-section-header">
-          <p class="section-label">Agent tasks</p>
           <h3>Agent tasks</h3>
           <p>Operational tasks generated from customer requests and manual owner follow-ups.</p>
         </div>
         <div class="admin-actions">
           <button id="admin-run-agents" type="button">Run agents now</button>
-          <p id="admin-run-status" class="launch-status" role="status"></p>
+          <p id="admin-run-status" class="launch-status" role="status" style="margin-top:0"></p>
         </div>
         <div id="admin-tasks" class="admin-list">
           <p class="launch-status">Enter admin token to load agent tasks.</p>
@@ -90,10 +140,10 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Agent output</p>
         <div class="launch-section-header">
-          <p class="section-label">Agent output</p>
           <h3>Latest agent work</h3>
-          <p>Completed internal work from the six AreaIntel operating agents.</p>
+          <p>Completed internal work from the six SpotVest operating agents.</p>
         </div>
         <div id="admin-runs" class="admin-list">
           <p class="launch-status">Enter admin token to load agent output.</p>
@@ -101,8 +151,8 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Internal agents</p>
         <div class="launch-section-header">
-          <p class="section-label">Internal agents</p>
           <h3>Launch operating system</h3>
           <p>Internal roles used by the owner team. These are hidden from normal users.</p>
         </div>
@@ -112,8 +162,8 @@
       </section>
 
       <section class="launch-section">
+        <p class="section-label">Admin controls</p>
         <div class="launch-section-header">
-          <p class="section-label">Admin controls</p>
           <h3>Create manual task</h3>
           <p>Add an internal follow-up task without exposing any admin tooling to public users.</p>
         </div>
@@ -140,6 +190,6 @@
         <p id="admin-task-status" class="launch-status" role="status"></p>
       </section>
     </main>
-    <script type="module" src="/admin.js"></script>
+    <script type="module" src="/admin.js?v=20260611-console1"></script>
   </body>
 </html>
