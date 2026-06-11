@@ -8244,28 +8244,72 @@ function sv3ReportUnlocked() {
   return Boolean(purchase?.unlockedReports?.includes(sv3ReportKey()));
 }
 
-function sv3PaywallHTML(tabName) {
-  const labels = {
-    market: "Market analysis",
-    risk: "Risk analysis",
-    money: "Money & revenue model",
-    method: "Methodology & data sources"
-  };
+// Placer-style locked view: every section of the real report is listed with
+// its real title and number, but the body is a skeleton chart under a lock
+// overlay. Skeletons are fake placeholder bars — no real data goes into the
+// DOM for a locked report, so the gate can't be peeled off in dev tools.
+const sv3LockedSections = {
+  market: { start: 4, titles: ["Area read", "Market map", "Business fit in this area", "Concept intelligence", "Best nearby competitive examples", "Foot traffic intelligence", "Area demand trends"] },
+  risk: { start: 11, titles: ["Risk register", "Why this may succeed", "Conditions for success", "Needs verification", "Better alternatives", "Viability benchmark", "Permit & licensing roadmap"] },
+  money: { start: 18, titles: ["Cost vs revenue at a glance", "Monthly profit & loss · base case", "Cash needed to open", "Scenarios · how the year could go", "What would have to be true", "Revenue estimator"] },
+  method: { start: 24, titles: ["Customer profile", "Market pulse", "Local vs chain fit", "Decision rationale", "Evidence quality", "Evidence summary — what SpotVest used", "Methodology"] }
+};
+
+function sv3GhostChartHTML(index) {
+  // Three skeleton flavors cycle so the locked page reads like varied report
+  // content, not a repeated template. Heights/widths are fixed patterns —
+  // deliberately fake.
+  const flavor = index % 3;
+  if (flavor === 0) {
+    const heights = [62, 88, 46, 74, 96, 58, 80, 38];
+    return `<div class="pw-ghost pw-bars" aria-hidden="true">${heights.map((h) => `<i style="height:${h}%"></i>`).join("")}</div>`;
+  }
+  if (flavor === 1) {
+    const widths = [92, 71, 84, 56, 78];
+    return `<div class="pw-ghost pw-lines" aria-hidden="true">${widths.map((w) => `<i style="width:${w}%"></i>`).join("")}</div>`;
+  }
+  return `<div class="pw-ghost pw-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
+}
+
+function sv3PaywallCTAHTML(compact = false) {
   const creditsLeft = sv3CreditsLeft();
-  const buyButtons = creditsLeft > 0
-    ? `<button class="btn" type="button" data-paywall-action="use-credit">Open with 1 credit — ${creditsLeft} left</button>`
-    : `<button class="btn" type="button" data-paywall-action="buy-single">Unlock this report — $9</button>
+  if (creditsLeft > 0) {
+    return `<button class="btn${compact ? " sm" : ""}" type="button" data-paywall-action="use-credit">${compact ? "Unlock" : `Open with 1 credit — ${creditsLeft} left`}</button>`;
+  }
+  return compact
+    ? `<button class="btn sm" type="button" data-paywall-action="buy-single">Unlock — $9</button>`
+    : `<button class="btn" type="button" data-paywall-action="buy-single">Unlock full report — $9</button>
        <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>`;
-  return `<div class="card accent sv3-paywall">
-      <div class="paywall-lock" aria-hidden="true">🔒</div>
-      <h3>${escapeText(labels[tabName] || "This section")} is in the full report</h3>
-      <div class="desc">The free preview shows the decision and score. Unlocking opens Market, Risk, Money, and Method for <b>${escapeText(sv3ReportLabel())}</b> — plus PDF export. One purchase, this report stays open forever.</div>
-      <div class="paywall-actions">${buyButtons}</div>
-      <div class="paywall-redeem">
-        <input class="input" data-paywall-code placeholder="Have a code? SV-XXXX-XXXX" autocomplete="off" />
-        <button class="btn ghost sm" type="button" data-paywall-action="redeem">Redeem</button>
+}
+
+function sv3PaywallHTML(tabName) {
+  const config = sv3LockedSections[tabName] || sv3LockedSections.market;
+  const cards = config.titles.map((title, index) => `
+    <div class="card pw-card">
+      <div class="section-label"><span class="n">${String(config.start + index).padStart(2, "0")}</span> ${escapeText(title)}</div>
+      ${sv3GhostChartHTML(index)}
+      <div class="pw-overlay">
+        <div class="pw-lockchip" aria-hidden="true">🔒</div>
+        <div class="pw-msg">Unlock the full report to see this</div>
+        ${sv3PaywallCTAHTML(true)}
       </div>
-      <div class="desc paywall-status" data-paywall-status role="status"></div>
+    </div>`).join("");
+  return `<div class="sv3-paywall">
+      <div class="card accent pw-banner">
+        <div class="pw-lockchip" aria-hidden="true">🔒</div>
+        <h3>This is the full report — locked</h3>
+        <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Unlock to open every section below across Market, Risk, Money, and Method — plus PDF export. One purchase, this report stays open forever.</div>
+        <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
+      </div>
+      ${cards}
+      <div class="card pw-redeem-card">
+        <div class="desc">Already bought a report or a 5-pack? Enter your code.</div>
+        <div class="paywall-redeem">
+          <input class="input" data-paywall-code placeholder="SV-XXXX-XXXX" autocomplete="off" />
+          <button class="btn ghost sm" type="button" data-paywall-action="redeem">Redeem</button>
+        </div>
+        <div class="desc paywall-status" data-paywall-status role="status"></div>
+      </div>
     </div>`;
 }
 
