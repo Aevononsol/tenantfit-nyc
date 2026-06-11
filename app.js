@@ -8806,10 +8806,24 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
 
   input.addEventListener("focus", () => renderMenu(input.value));
   input.addEventListener("input", () => renderMenu(input.value));
-  // pointerdown (not click) so the choice lands before the input blurs on iOS
+  // Select on pointerUP only if the finger didn't travel — a moving finger
+  // is a scroll, not a choice. (Selecting on pointerdown made scrolling the
+  // list pick whatever sat under the finger.)
+  let menuTouchY = null;
+  let menuTouchMoved = false;
   menu.addEventListener("pointerdown", (event) => {
+    menuTouchY = event.clientY;
+    menuTouchMoved = false;
+  });
+  menu.addEventListener("pointermove", (event) => {
+    if (menuTouchY !== null && Math.abs(event.clientY - menuTouchY) > 8) menuTouchMoved = true;
+  });
+  menu.addEventListener("pointerup", (event) => {
     const choice = event.target.closest("[data-biz]");
-    if (!choice) return;
+    const wasScroll = menuTouchMoved;
+    menuTouchY = null;
+    menuTouchMoved = false;
+    if (!choice || wasScroll) return;
     event.preventDefault();
     input.value = choice.dataset.biz;
     menu.hidden = true;
