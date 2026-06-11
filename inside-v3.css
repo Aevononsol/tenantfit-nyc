@@ -541,12 +541,16 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 .sv3-map-pop .maplibregl-popup-close-button:hover{color:#fff;background:transparent}
 
 /* ---------- paywall (Placer-style locked sections) ---------- */
-.sv3-app .tab.locked::after{content:"🔒";font-size:10px;margin-left:5px;opacity:.75}
+.sv3-app .tab.locked::after{content:"";display:inline-block;width:10px;height:10px;margin-left:6px;vertical-align:-1px;opacity:.8;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239fb3c8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2.5'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat}
+.sv3-app .tab.on.locked::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234FE3D8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2.5'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E")}
 .sv3-app .sv3-paywall .pw-banner{text-align:center;padding:24px 18px}
 .sv3-app .sv3-paywall .pw-banner h3{font-family:'Sora';font-size:17px;font-weight:700;margin:10px 0 8px}
 .sv3-app .sv3-paywall .pw-banner .desc{margin-bottom:14px}
 .sv3-app .sv3-paywall .paywall-actions{display:flex;flex-direction:column;gap:10px}
-.sv3-app .pw-lockchip{width:46px;height:46px;border-radius:13px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:21px;background:rgba(79,227,216,.12);border:1px solid rgba(79,227,216,.3)}
+.sv3-app .pw-lockchip{width:52px;height:52px;border-radius:16px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#4FE3D8;background:linear-gradient(150deg,rgba(79,227,216,.18),rgba(51,167,216,.06));border:1px solid rgba(79,227,216,.38);box-shadow:0 8px 26px rgba(57,194,214,.22),inset 0 1px 0 rgba(255,255,255,.08)}
+.sv3-app .pw-lockchip svg{width:24px;height:24px}
+.sv3-app .pw-overlay .pw-lockchip{width:44px;height:44px;border-radius:13px}
+.sv3-app .pw-overlay .pw-lockchip svg{width:20px;height:20px}
 .sv3-app .pw-card{position:relative;overflow:hidden;min-height:190px}
 .sv3-app .pw-card .section-label{position:relative;z-index:4}
 /* skeleton charts — deliberately fake placeholder shapes */
@@ -561,10 +565,6 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 .sv3-app .pw-overlay{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:18px;background:linear-gradient(180deg,rgba(7,11,22,.34),rgba(7,11,22,.66));backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px)}
 .sv3-app .pw-overlay .pw-msg{font-family:'Sora';font-weight:700;font-size:14px;color:#e8f0f8;text-shadow:0 2px 10px rgba(0,0,0,.6)}
 .sv3-app .pw-overlay .btn.sm{width:auto;padding:9px 22px}
-.sv3-app .pw-redeem-card{text-align:center}
-.sv3-app .pw-redeem-card .desc{margin-bottom:10px}
-.sv3-app .paywall-redeem{display:flex;gap:8px;align-items:center;justify-content:center}
-.sv3-app .paywall-redeem .input{flex:1;min-width:0;text-transform:uppercase}
 .sv3-app .paywall-status{min-height:1em;margin:10px 0 0}
 .sv3-app .paywall-status.err{color:#f87171}
 #sv3-paywall-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);z-index:9999;max-width:min(92vw,460px);padding:13px 18px;border-radius:14px;background:rgba(10,16,28,.96);border:1px solid rgba(79,227,216,.45);color:#e8f0f8;font:600 13.5px/1.5 'Inter',system-ui,sans-serif;box-shadow:0 12px 36px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}

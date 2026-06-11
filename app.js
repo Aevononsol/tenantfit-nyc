@@ -8255,6 +8255,10 @@ const sv3LockedSections = {
   method: { start: 24, titles: ["Customer profile", "Market pulse", "Local vs chain fit", "Decision rationale", "Evidence quality", "Evidence summary — what SpotVest used", "Methodology"] }
 };
 
+// Crisp stroked padlock (matches the app's icon style) — the emoji lock
+// rendered differently on every platform and read as cheap.
+const sv3LockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>`;
+
 function sv3GhostChartHTML(index) {
   // Three skeleton flavors cycle so the locked page reads like varied report
   // content, not a repeated template. Heights/widths are fixed patterns —
@@ -8289,27 +8293,20 @@ function sv3PaywallHTML(tabName) {
       <div class="section-label"><span class="n">${String(config.start + index).padStart(2, "0")}</span> ${escapeText(title)}</div>
       ${sv3GhostChartHTML(index)}
       <div class="pw-overlay">
-        <div class="pw-lockchip" aria-hidden="true">🔒</div>
+        <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
         <div class="pw-msg">Unlock the full report to see this</div>
         ${sv3PaywallCTAHTML(true)}
       </div>
     </div>`).join("");
   return `<div class="sv3-paywall">
       <div class="card accent pw-banner">
-        <div class="pw-lockchip" aria-hidden="true">🔒</div>
+        <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
         <h3>This is the full report — locked</h3>
         <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Unlock to open every section below across Market, Risk, Money, and Method — plus PDF export. One purchase, this report stays open forever.</div>
         <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
-      </div>
-      ${cards}
-      <div class="card pw-redeem-card">
-        <div class="desc">Already bought a report or a 5-pack? Enter your code.</div>
-        <div class="paywall-redeem">
-          <input class="input" data-paywall-code placeholder="SV-XXXX-XXXX" autocomplete="off" />
-          <button class="btn ghost sm" type="button" data-paywall-action="redeem">Redeem</button>
-        </div>
         <div class="desc paywall-status" data-paywall-status role="status"></div>
       </div>
+      ${cards}
     </div>`;
 }
 
@@ -8399,21 +8396,11 @@ document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
     if (action === "use-credit") {
       const code = sv3Purchase()?.code;
       if (!code) {
-        setStatus("No purchase found on this device — redeem your code below.", true);
+        setStatus("No purchase found on this device.", true);
         return;
       }
       button.disabled = true;
       setStatus("Unlocking…");
-      await sv3RedeemUnlock(code);
-      return;
-    }
-    if (action === "redeem") {
-      const code = (wrap?.querySelector("[data-paywall-code]")?.value || "").trim();
-      if (!code) {
-        setStatus("Enter the code from your purchase confirmation.", true);
-        return;
-      }
-      setStatus("Checking the code…");
       await sv3RedeemUnlock(code);
     }
   } catch (error) {
