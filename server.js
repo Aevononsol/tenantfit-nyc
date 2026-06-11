@@ -366,6 +366,8 @@ function keyStatus() {
     googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
     nycOpenData: Boolean(process.env.NYC_OPEN_DATA_APP_TOKEN),
     openai: Boolean(process.env.OPENAI_API_KEY),
+    stripe: Boolean(process.env.STRIPE_SECRET_KEY),
+    email: Boolean(process.env.RESEND_API_KEY),
     canSaveKeys: !isHostedProduction
   };
 }
@@ -948,6 +950,39 @@ async function recordPaidCheckout(session) {
   }
   purchases.unshift(purchase);
   await writeJsonStore("purchases", purchases.slice(0, 20000));
+
+  // Report delivery: the buyer's code IS the product — email it so the
+  // purchase survives cleared browsers and works on any device. Sale alert
+  // goes to the owner. Both fire-and-forget: email trouble must never make
+  // a paid checkout look failed.
+  const baseUrl = (process.env.SPOTVEST_PUBLIC_URL || "https://spotvest.ai").replace(/\/+$/, "");
+  const amountLabel = `$${((Number(purchase.amountTotal) || item.amount) / 100).toFixed(2)}`;
+  if (purchase.email) {
+    const accessLine = purchase.passExpiresAt
+      ? `Your Pro Pass is active until ${new Date(purchase.passExpiresAt).toDateString()} — unlimited full reports until then. Reports you open while it's active stay unlocked forever.`
+      : `This code holds ${item.credits} full report${item.credits === 1 ? "" : "s"}. Each report you unlock stays open forever.`;
+    const firstReport = purchase.unlockedReports[0]?.label || purchase.unlockedReports[0]?.key;
+    sendAppEmail(
+      "purchase-receipt",
+      purchase.email,
+      `Your SpotVest purchase — code ${purchase.code}`,
+      [
+        `Thanks for your purchase of ${item.name} (${amountLabel}).`,
+        "",
+        `Your purchase code: ${purchase.code}`,
+        accessLine,
+        firstReport ? `Already unlocked: ${firstReport}` : "",
+        "",
+        `To use it on any device: run your search on ${baseUrl}, tap a locked section, and your code unlocks the report.`,
+        "",
+        "Keep this email — the code is your receipt and your access."
+      ].filter((line) => line !== "").join("\n")
+    ).catch((error) => console.error(`[SpotVest] purchase email failed: ${error.message}`));
+  }
+  notifyOwner(
+    `SpotVest sale: ${item.name} — ${amountLabel}`,
+    `Buyer: ${purchase.email || "no email on session"}\nProduct: ${item.name}\nAmount: ${amountLabel}\nCode: ${purchase.code}\nStripe session: ${purchase.sessionId}\nReport: ${purchase.unlockedReports[0]?.label || purchase.unlockedReports[0]?.key || "none yet (credits)"}`
+  );
   return purchase;
 }
 
@@ -1129,31 +1164,14 @@ function authEmailBaseUrl(request) {
   return process.env.SPOTVEST_PUBLIC_URL || process.env.AREAINTEL_PUBLIC_URL || `${isHostedProduction ? "https" : "http"}://${request.headers.host}`;
 }
 
-async function queueAuthEmail(type, account, token, request) {
-  const outbox = await readJsonStore("email-outbox", []);
-  const baseUrl = authEmailBaseUrl(request);
-  const path = type === "password-reset" ? "reset-password" : "verify-email";
-  const url = `${baseUrl}/${path}?token=${encodeURIComponent(token)}`;
-  const intro = type === "password-reset"
-    ? "Use this secure link to reset your SpotVest password. The link expires in 1 hour."
-    : "Use this secure link to verify your SpotVest email address. The link expires in 24 hours.";
-  const email = {
-    id: leadId("email"),
-    type,
-    to: account.email,
-    subject: type === "password-reset" ? "Reset your SpotVest password" : "Verify your SpotVest email",
-    url,
-    text: `${intro}\n\n${url}\n\nIf you did not request this, you can ignore this email.`,
-    status: process.env.RESEND_API_KEY
-      ? "queued-resend"
-      : (process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL)
-        ? "queued-webhook"
-        : "queued-local",
-    createdAt: new Date().toISOString()
-  };
-  outbox.unshift(email);
-  await writeJsonStore("email-outbox", outbox.slice(0, 1000));
+function ownerEmail() {
+  return process.env.SPOTVEST_NOTIFY_EMAIL || process.env.SPOTVEST_OWNER_EMAIL || "maherjadoa9@gmail.com";
+}
 
+// Single delivery path for every transactional email (auth links, purchase
+// receipts, owner notifications, tests) — Resend first, webhook fallback.
+async function deliverEmail({ to, subject, text }) {
+  if (!to) return { delivered: false, error: "missing recipient" };
   if (process.env.RESEND_API_KEY) {
     try {
       const resendResponse = await fetch("https://api.resend.com/emails", {
@@ -1164,29 +1182,75 @@ async function queueAuthEmail(type, account, token, request) {
         },
         body: JSON.stringify({
           from: process.env.SPOTVEST_EMAIL_FROM || process.env.AREAINTEL_EMAIL_FROM || "SpotVest <onboarding@resend.dev>",
-          to: [account.email],
-          subject: email.subject,
-          text: email.text
+          to: [to],
+          subject,
+          text
         })
       });
       if (!resendResponse.ok) {
         const errorText = await resendResponse.text();
-        throw new Error(`Resend returned ${resendResponse.status}: ${errorText.slice(0, 160)}`);
+        throw new Error(`Resend ${resendResponse.status}: ${errorText.slice(0, 200)}`);
       }
+      return { delivered: true, via: "resend" };
     } catch (error) {
-      console.error(`[AreaIntel] Resend auth email failed: ${error.message}`);
-    }
-  } else if ((process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL)) {
-    try {
-      await fetch((process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(email)
-      });
-    } catch (error) {
-      console.error(`[AreaIntel] auth email webhook failed: ${error.message}`);
+      console.error(`[SpotVest] email to ${to} failed: ${error.message}`);
+      return { delivered: false, error: error.message };
     }
   }
+  const webhookUrl = process.env.SPOTVEST_EMAIL_WEBHOOK_URL || process.env.AREAINTEL_EMAIL_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject, text })
+      });
+      return { delivered: true, via: "webhook" };
+    } catch (error) {
+      return { delivered: false, error: error.message };
+    }
+  }
+  return { delivered: false, error: "no email provider configured" };
+}
+
+// Delivers and records the attempt in the email-outbox store so every send
+// (and every failure reason) is inspectable later.
+async function sendAppEmail(type, to, subject, text) {
+  const result = await deliverEmail({ to, subject, text });
+  const outbox = await readJsonStore("email-outbox", []);
+  outbox.unshift({
+    id: leadId("email"),
+    type,
+    to,
+    subject,
+    text: String(text).slice(0, 2000),
+    status: result.delivered ? `sent-${result.via}` : `failed: ${result.error}`,
+    createdAt: new Date().toISOString()
+  });
+  await writeJsonStore("email-outbox", outbox.slice(0, 1000));
+  return result;
+}
+
+// Fire-and-forget owner alert — never lets an email hiccup break the
+// request that triggered it.
+function notifyOwner(subject, text) {
+  sendAppEmail("owner-notification", ownerEmail(), subject, text)
+    .catch((error) => console.error(`[SpotVest] owner notification failed: ${error.message}`));
+}
+
+async function queueAuthEmail(type, account, token, request) {
+  const baseUrl = authEmailBaseUrl(request);
+  const path = type === "password-reset" ? "reset-password" : "verify-email";
+  const url = `${baseUrl}/${path}?token=${encodeURIComponent(token)}`;
+  const intro = type === "password-reset"
+    ? "Use this secure link to reset your SpotVest password. The link expires in 1 hour."
+    : "Use this secure link to verify your SpotVest email address. The link expires in 24 hours.";
+  await sendAppEmail(
+    type,
+    account.email,
+    type === "password-reset" ? "Reset your SpotVest password" : "Verify your SpotVest email",
+    `${intro}\n\n${url}\n\nIf you did not request this, you can ignore this email.`
+  );
   return isHostedProduction ? null : url;
 }
 
@@ -3037,6 +3101,28 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === "/api/test-email") {
+      // Recipient is hard-locked to the owner address, so the worst an
+      // abuser can do is send the owner a couple of test emails per hour.
+      if (rateLimited(`test-email:${clientIp(request)}`, 2, 60 * 60_000)) {
+        sendJson(response, 429, { error: "Test email already sent recently. Try again in an hour." });
+        return;
+      }
+      const result = await sendAppEmail(
+        "test",
+        ownerEmail(),
+        "SpotVest production email test ✓",
+        `This is the production email test from spotvest.ai.\n\nSent: ${new Date().toISOString()}\nProvider: ${process.env.RESEND_API_KEY ? "Resend" : "none configured"}\nFrom: ${process.env.SPOTVEST_EMAIL_FROM || "SpotVest <onboarding@resend.dev>"}\n\nIf you are reading this, verification, password reset, purchase, and notification emails are all working.`
+      );
+      sendJson(response, result.delivered ? 200 : 502, {
+        ok: result.delivered,
+        to: ownerEmail().replace(/^(.).*?(@.*)$/, "$1***$2"),
+        via: result.via || null,
+        error: result.delivered ? null : result.error
+      });
+      return;
+    }
+
     if (url.pathname === "/api/auth/config") {
       sendJson(response, 200, { googleClientId: process.env.GOOGLE_CLIENT_ID || null });
       return;
@@ -3306,6 +3392,10 @@ createServer(async (request, response) => {
         return;
       }
       const lead = await appendLead("contact", body, request);
+      notifyOwner(
+        `SpotVest contact: ${safeText(body.topic || body.subject, 80) || "new message"}`,
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180) || "no email"}> ${safeText(body.phone, 80)}\n\n${safeText(body.message, 2000) || "(no message)"}`
+      );
       sendJson(response, 200, { ok: true, lead: publicLead(lead) });
       return;
     }
@@ -3487,6 +3577,10 @@ createServer(async (request, response) => {
         return;
       }
       const lead = await appendLead("report", body, request);
+      notifyOwner(
+        `SpotVest report request: ${safeText(body.business, 160)} — ${safeText(body.location || body.zip || body.address, 260)}`,
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\nPackage: ${safeText(body.package || body.plan, 80) || "—"}\nTimeline: ${safeText(body.timeline, 80) || "—"}\n\n${safeText(body.message, 2000) || "(no message)"}`
+      );
       const checkoutUrl = checkoutUrlFor(body.package || body.plan || "single-report");
       sendJson(response, 200, {
         ok: true,
@@ -3509,6 +3603,10 @@ createServer(async (request, response) => {
         return;
       }
       const lead = await appendLead("advisor", body, request);
+      notifyOwner(
+        "SpotVest consultation request",
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\n\n${safeText(body.message, 2000) || "(no message)"}`
+      );
       sendJson(response, 200, {
         ok: true,
         lead: publicLead(lead),
