@@ -44,12 +44,15 @@
   };
   const NYC_DEFAULT = { c: CONFIG.DEFAULT_CENTER, city: "New York, NY" };
 
-  // Demo categories -> engine category-model business ids.
+  // Demo categories. appTerm is the EXACT business label from the app's
+  // picker (index.html datalist): the engine scores and the server searches
+  // competitors with the term it's given, so the demo must send the same
+  // string a user would select in-app or the scores diverge.
   const BIZ = [
-    { id: "coffee", label: "Coffee Shop", cat: "cafe", noun: "coffee shop", search: "coffee shop" },
-    { id: "gym", label: "Fitness Gym", cat: "gym", noun: "gym", search: "gym" },
-    { id: "pizza", label: "Pizza Place", cat: "pizza", noun: "pizza place", search: "pizza" },
-    { id: "salon", label: "Hair Salon", cat: "salon", noun: "salon", search: "hair salon" }
+    { id: "coffee", label: "Coffee Shop", cat: "cafe", noun: "coffee shop", search: "coffee shop", appTerm: "Specialty coffee" },
+    { id: "gym", label: "Fitness Gym", cat: "gym", noun: "gym", search: "gym", appTerm: "Gym / health club" },
+    { id: "pizza", label: "Pizza Place", cat: "pizza", noun: "pizza place", search: "pizza", appTerm: "Pizza" },
+    { id: "salon", label: "Hair Salon", cat: "salon", noun: "salon", search: "hair salon", appTerm: "Hair salon" }
   ];
   const bizById = (id) => BIZ.find((b) => b.id === id) || BIZ[0];
 
@@ -390,7 +393,7 @@
       // what the same search shows inside the app.
       const quick = await window.spotvestQuickAnalysis({
         zip: loc.zip,
-        business: biz.cat,
+        business: biz.appTerm,
         lat: loc.center[1],
         lng: loc.center[0],
         address: loc.label || value || `${loc.zip}, New York, NY`,
@@ -424,9 +427,9 @@
         why,
         risk,
         action,
-        // The exact business key the score was computed with — the app must
-        // normalize to the same category or the handed-off report rescores.
-        business: biz.cat,
+        // The exact business term the score was computed with — the handed-off
+        // report must rescore identically.
+        business: biz.appTerm,
         zip: loc.zip,
         address: mode === "block" ? value : "",
         radius: "0.5"
