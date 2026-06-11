@@ -973,9 +973,9 @@ async function recordPaidCheckout(session) {
         accessLine,
         firstReport ? `Already unlocked: ${firstReport}` : "",
         "",
-        `To use it on any device: run your search on ${baseUrl}, tap a locked section, and your code unlocks the report.`,
+        `Nothing to type anywhere — just sign in at ${baseUrl} with this email address and your purchases unlock automatically, on any device.`,
         "",
-        "Keep this email — the code is your receipt and your access."
+        "Keep this email: the code above is your proof of purchase if you ever need support."
       ].filter((line) => line !== "").join("\n")
     ).catch((error) => console.error(`[SpotVest] purchase email failed: ${error.message}`));
   }
