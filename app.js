@@ -5189,17 +5189,27 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   const showingPortfolio = refs.screenPortfolio?.classList.contains("show");
 
   // Only rewrite a tab when its content actually changed — this avoids
-  // tearing down the live map / charts on every late async re-render.
-  const setIf = (el, html) => { if (!el || el.__sv3html === html) return false; el.__sv3html = html; el.innerHTML = html; return true; };
+  // tearing down the live map / charts on every late async re-render. The
+  // locked flag is part of the cache key so unlocking forces a clean rebuild
+  // (same HTML, but without the blur wrappers).
+  const setIf = (el, html, locked = false) => {
+    const key = (locked ? "L::" : "U::") + html;
+    if (!el || el.__sv3html === key) return false;
+    el.__sv3html = key;
+    el.innerHTML = html;
+    if (locked) sv3LockTabContent(el);
+    return true;
+  };
   // Overview (decision + score) is the free teaser; the four deep tabs are
-  // the $9 product. Locked tabs render the unlock card instead of content.
+  // the $9 product. Locked tabs show the REAL report cards blurred under a
+  // lock overlay per section — section titles stay sharp.
   sv3LastRender = { profile, recommendations, analysis };
   const reportPaid = sv3ReportUnlocked();
   setIf(refs.tabOverview, sv3OverviewHTML(ctx));
-  const marketChanged = setIf(refs.tabMarket, reportPaid ? sv3MarketHTML(ctx) : sv3PaywallHTML("market"));
-  setIf(refs.tabRisk, reportPaid ? sv3RiskHTML(ctx) : sv3PaywallHTML("risk"));
-  setIf(refs.tabMoney, reportPaid ? sv3MoneyHTML(ctx) : sv3PaywallHTML("money"));
-  setIf(refs.tabMethod, reportPaid ? sv3MethodHTML(ctx) : sv3PaywallHTML("method"));
+  const marketChanged = setIf(refs.tabMarket, sv3MarketHTML(ctx), !reportPaid);
+  setIf(refs.tabRisk, sv3RiskHTML(ctx), !reportPaid);
+  setIf(refs.tabMoney, sv3MoneyHTML(ctx), !reportPaid);
+  setIf(refs.tabMethod, sv3MethodHTML(ctx), !reportPaid);
   refs.app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
     button.classList.toggle("locked", !reportPaid && button.dataset.sv3Tab !== "overview");
   });
@@ -8244,36 +8254,9 @@ function sv3ReportUnlocked() {
   return Boolean(purchase?.unlockedReports?.includes(sv3ReportKey()));
 }
 
-// Placer-style locked view: every section of the real report is listed with
-// its real title and number, but the body is a skeleton chart under a lock
-// overlay. Skeletons are fake placeholder bars — no real data goes into the
-// DOM for a locked report, so the gate can't be peeled off in dev tools.
-const sv3LockedSections = {
-  market: { start: 4, titles: ["Area read", "Market map", "Business fit in this area", "Concept intelligence", "Best nearby competitive examples", "Foot traffic intelligence", "Area demand trends"] },
-  risk: { start: 11, titles: ["Risk register", "Why this may succeed", "Conditions for success", "Needs verification", "Better alternatives", "Viability benchmark", "Permit & licensing roadmap"] },
-  money: { start: 18, titles: ["Cost vs revenue at a glance", "Monthly profit & loss · base case", "Cash needed to open", "Scenarios · how the year could go", "What would have to be true", "Revenue estimator"] },
-  method: { start: 24, titles: ["Customer profile", "Market pulse", "Local vs chain fit", "Decision rationale", "Evidence quality", "Evidence summary — what SpotVest used", "Methodology"] }
-};
-
 // Crisp stroked padlock (matches the app's icon style) — the emoji lock
 // rendered differently on every platform and read as cheap.
 const sv3LockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>`;
-
-function sv3GhostChartHTML(index) {
-  // Three skeleton flavors cycle so the locked page reads like varied report
-  // content, not a repeated template. Heights/widths are fixed patterns —
-  // deliberately fake.
-  const flavor = index % 3;
-  if (flavor === 0) {
-    const heights = [62, 88, 46, 74, 96, 58, 80, 38];
-    return `<div class="pw-ghost pw-bars" aria-hidden="true">${heights.map((h) => `<i style="height:${h}%"></i>`).join("")}</div>`;
-  }
-  if (flavor === 1) {
-    const widths = [92, 71, 84, 56, 78];
-    return `<div class="pw-ghost pw-lines" aria-hidden="true">${widths.map((w) => `<i style="width:${w}%"></i>`).join("")}</div>`;
-  }
-  return `<div class="pw-ghost pw-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
-}
 
 function sv3PaywallCTAHTML(compact = false) {
   const creditsLeft = sv3CreditsLeft();
@@ -8286,28 +8269,53 @@ function sv3PaywallCTAHTML(compact = false) {
        <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>`;
 }
 
-function sv3PaywallHTML(tabName) {
-  const config = sv3LockedSections[tabName] || sv3LockedSections.market;
-  const cards = config.titles.map((title, index) => `
-    <div class="card pw-card">
-      <div class="section-label"><span class="n">${String(config.start + index).padStart(2, "0")}</span> ${escapeText(title)}</div>
-      ${sv3GhostChartHTML(index)}
-      <div class="pw-overlay">
+function sv3PaywallBannerHTML() {
+  return `<div class="card accent pw-banner">
+      <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
+      <h3>This is the full report — locked</h3>
+      <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Unlock to open every section across Market, Risk, Money, and Method — plus PDF export. One purchase, this report stays open forever.</div>
+      <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
+      <div class="desc paywall-status" data-paywall-status role="status"></div>
+    </div>`;
+}
+
+// Placer-style lock: the REAL report cards render and get blurred under a
+// frosted overlay, grouped by section so each numbered title stays sharp
+// with one lock per section. (The data is in the page under the blur — a
+// deliberate trade: it reads as the real report, not a mockup.)
+function sv3LockTabContent(el) {
+  const groups = [];
+  let current = null;
+  Array.from(el.children).forEach((child) => {
+    if (child.classList.contains("section-label")) {
+      current = null;
+      return;
+    }
+    if (!current) {
+      current = [];
+      groups.push(current);
+    }
+    current.push(child);
+  });
+  groups.forEach((members) => {
+    const wrap = document.createElement("div");
+    wrap.className = "pw-wrap";
+    members[0].parentNode.insertBefore(wrap, members[0]);
+    const inner = document.createElement("div");
+    inner.className = "pw-blurred";
+    inner.setAttribute("aria-hidden", "true");
+    wrap.appendChild(inner);
+    members.forEach((member) => inner.appendChild(member));
+    const overlay = document.createElement("div");
+    overlay.className = "pw-overlay";
+    overlay.innerHTML = `<div class="pw-overlay-inner">
         <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
         <div class="pw-msg">Unlock the full report to see this</div>
         ${sv3PaywallCTAHTML(true)}
-      </div>
-    </div>`).join("");
-  return `<div class="sv3-paywall">
-      <div class="card accent pw-banner">
-        <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
-        <h3>This is the full report — locked</h3>
-        <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Unlock to open every section below across Market, Risk, Money, and Method — plus PDF export. One purchase, this report stays open forever.</div>
-        <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
-        <div class="desc paywall-status" data-paywall-status role="status"></div>
-      </div>
-      ${cards}
-    </div>`;
+      </div>`;
+    wrap.appendChild(overlay);
+  });
+  el.insertAdjacentHTML("afterbegin", sv3PaywallBannerHTML());
 }
 
 function sv3PaywallToast(message, isError = false) {
@@ -8379,8 +8387,7 @@ document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-paywall-action]");
   if (!button) return;
   const action = button.dataset.paywallAction;
-  const wrap = button.closest(".sv3-paywall");
-  const statusEl = wrap?.querySelector("[data-paywall-status]");
+  const statusEl = document.querySelector("#sv3-app [data-paywall-status]");
   const setStatus = (text, isError) => {
     if (!statusEl) return;
     statusEl.textContent = text;
@@ -8405,7 +8412,10 @@ document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
     }
   } catch (error) {
     button.disabled = false;
+    // The banner status can be scrolled far above a per-card unlock button,
+    // so errors also surface as a toast.
     setStatus(error.message || "Something went wrong. Try again.", true);
+    sv3PaywallToast(error.message || "Something went wrong. Try again.", true);
   }
 });
 
