@@ -509,3 +509,92 @@
   }, { threshold: 0.15 });
   cards.forEach((card) => observer.observe(card));
 })();
+
+/* ---------- Reviews: render approved, submit new (verified accounts) ---------- */
+(function initReviews() {
+  const grid = document.getElementById("reviews-grid");
+  if (!grid) return;
+  const esc = (value) => String(value ?? "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "?";
+  const stars = (rating) => Array.from({ length: 5 }, (_, index) =>
+    `<span${index < rating ? "" : ' class="off"'}>★</span>`).join("");
+
+  (async () => {
+    try {
+      const data = await (await fetch("/api/reviews")).json();
+      if (Array.isArray(data.reviews) && data.reviews.length) {
+        grid.innerHTML = data.reviews.map((review) => `
+          <article class="review-card reveal in">
+            <div class="review-head">
+              <div class="review-avatar">${esc(initials(review.name))}</div>
+              <div><strong>${esc(review.name)}</strong>${review.role ? `<small>${esc(review.role)}</small>` : ""}</div>
+            </div>
+            <div class="review-stars">${stars(review.rating)}</div>
+            <p>${esc(review.text)}</p>
+          </article>`).join("");
+        const subh = document.getElementById("reviews-subh");
+        if (subh && data.average) subh.textContent = `${data.average}/5 from ${data.count} verified SpotVest account${data.count === 1 ? "" : "s"}.`;
+      }
+    } catch { /* keep the empty-state line */ }
+  })();
+
+  const form = document.getElementById("review-form");
+  const openButton = document.getElementById("review-open");
+  const statusEl = document.getElementById("review-status");
+  const starButtons = Array.from(document.querySelectorAll("#review-stars button"));
+  let rating = 5;
+  const paintStars = () => starButtons.forEach((button) => button.classList.toggle("on", Number(button.dataset.star) <= rating));
+  paintStars();
+  starButtons.forEach((button) => button.addEventListener("click", () => {
+    rating = Number(button.dataset.star) || 5;
+    paintStars();
+  }));
+  openButton?.addEventListener("click", () => {
+    form.hidden = !form.hidden;
+    if (!form.hidden) {
+      try {
+        const account = JSON.parse(localStorage.getItem("areaIntelAccount") || "null");
+        if (account?.name && form.elements.name && !form.elements.name.value) form.elements.name.value = account.name;
+      } catch { /* fine */ }
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector("button[type=submit]");
+    submit.disabled = true;
+    statusEl.textContent = "Submitting…";
+    statusEl.className = "launch-status";
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating,
+          name: form.elements.name.value.trim(),
+          role: form.elements.role.value.trim(),
+          text: form.elements.text.value.trim()
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        statusEl.innerHTML = 'Reviews come from real accounts — <a href="/account" style="color:#4FE3D8">sign in</a> first, then come back.';
+        statusEl.className = "launch-status launch-status-error";
+        submit.disabled = false;
+        return;
+      }
+      if (!response.ok) throw new Error(result.error || "Could not submit the review.");
+      statusEl.textContent = result.message || "Thanks! Your review will appear after a quick check.";
+      statusEl.className = "launch-status launch-status-ok";
+      form.reset();
+      paintStars();
+    } catch (error) {
+      statusEl.textContent = error.message;
+      statusEl.className = "launch-status launch-status-error";
+      submit.disabled = false;
+    }
+  });
+})();

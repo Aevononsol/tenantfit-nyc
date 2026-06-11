@@ -858,6 +858,16 @@ const checkoutProducts = {
     amount: 9900,
     credits: 0,
     passDays: 30
+  },
+  // The live offer: everything above stays defined so historical purchase
+  // records and codes keep rendering, but checkout sells the subscription.
+  "pro-monthly": {
+    name: "SpotVest Pro",
+    description: "Unlimited location reports. 3-day free trial, then $29/month. Cancel anytime.",
+    amount: 2900,
+    credits: 0,
+    subscription: true,
+    trialDays: 3
   }
 };
 
@@ -927,6 +937,22 @@ async function recordPaidCheckout(session) {
   const product = checkoutProducts[meta.product] ? meta.product : "single-report";
   const item = checkoutProducts[product];
   const now = new Date();
+  let passExpiresAt = item.passDays ? new Date(now.getTime() + item.passDays * 24 * 60 * 60 * 1000).toISOString() : null;
+  let subscriptionId = null;
+  if (session.mode === "subscription" && session.subscription) {
+    subscriptionId = String(session.subscription);
+    try {
+      const subscription = await stripeRequest("GET", `subscriptions/${encodeURIComponent(subscriptionId)}`);
+      if (["trialing", "active"].includes(subscription.status) && subscription.current_period_end) {
+        passExpiresAt = new Date(subscription.current_period_end * 1000).toISOString();
+      }
+    } catch (error) {
+      // Stripe hiccup: grant trial length + a day of grace; the refresh on
+      // the next page load corrects it from the subscription record.
+      console.error(`[SpotVest] subscription fetch failed: ${error.message}`);
+      passExpiresAt = new Date(now.getTime() + ((item.trialDays || 0) + 1) * 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
   const purchase = {
     id: `pur_${randomBytes(8).toString("hex")}`,
     sessionId: session.id,
@@ -934,11 +960,14 @@ async function recordPaidCheckout(session) {
     product,
     credits: item.credits,
     creditsUsed: 0,
-    passExpiresAt: item.passDays ? new Date(now.getTime() + item.passDays * 24 * 60 * 60 * 1000).toISOString() : null,
+    passExpiresAt,
+    subscriptionId,
+    stripeCustomerId: session.customer ? String(session.customer) : null,
     unlockedReports: [],
     email: normalizeEmail(session.customer_details?.email || session.customer_email || ""),
     accountId: safeText(meta.accountId, 80) || null,
-    amountTotal: Number(session.amount_total) || item.amount,
+    // amount_total is legitimately 0 for trial-start sessions — keep it.
+    amountTotal: Number.isFinite(Number(session.amount_total)) ? Number(session.amount_total) : item.amount,
     currency: safeText(session.currency, 8) || "usd",
     createdAt: now.toISOString()
   };
@@ -956,11 +985,15 @@ async function recordPaidCheckout(session) {
   // goes to the owner. Both fire-and-forget: email trouble must never make
   // a paid checkout look failed.
   const baseUrl = (process.env.SPOTVEST_PUBLIC_URL || "https://spotvest.ai").replace(/\/+$/, "");
-  const amountLabel = `$${((Number(purchase.amountTotal) || item.amount) / 100).toFixed(2)}`;
+  const amountLabel = purchase.subscriptionId && purchase.amountTotal === 0
+    ? "free trial started"
+    : `$${((Number(purchase.amountTotal) || item.amount) / 100).toFixed(2)}`;
   if (purchase.email) {
-    const accessLine = purchase.passExpiresAt
-      ? `Your Pro Pass is active until ${new Date(purchase.passExpiresAt).toDateString()} — unlimited full reports until then. Reports you open while it's active stay unlocked forever.`
-      : `This code holds ${item.credits} full report${item.credits === 1 ? "" : "s"}. Each report you unlock stays open forever.`;
+    const accessLine = purchase.subscriptionId
+      ? `Your SpotVest Pro subscription is active — unlimited reports. ${purchase.amountTotal === 0 ? `Your free trial runs until ${new Date(purchase.passExpiresAt).toDateString()}; after that it's $29/month.` : "It renews at $29/month."} Manage or cancel anytime from inside the app (Manage subscription).`
+      : purchase.passExpiresAt
+        ? `Your Pro Pass is active until ${new Date(purchase.passExpiresAt).toDateString()} — unlimited full reports until then. Reports you open while it's active stay unlocked forever.`
+        : `This code holds ${item.credits} full report${item.credits === 1 ? "" : "s"}. Each report you unlock stays open forever.`;
     const firstReport = purchase.unlockedReports[0]?.label || purchase.unlockedReports[0]?.key;
     sendAppEmail(
       "purchase-receipt",
@@ -3013,25 +3046,18 @@ createServer(async (request, response) => {
             cta: "Request demo"
           },
           {
-            id: "single-report",
-            name: "Full Report",
-            price: "$9",
-            description: "Full report, PDF export, risks, conditions, and alternatives.",
-            cta: "Unlock full report"
+            id: "pro-monthly",
+            name: "SpotVest Pro",
+            price: "$29/mo",
+            description: "Unlimited location reports. 3-day free trial, then $29/month. Cancel anytime.",
+            cta: "Start free trial"
           },
           {
-            id: "report-pack-5",
-            name: "5-Report Pack",
-            price: "$35",
-            description: "Five full reports for any locations — save $10. Credits never expire.",
-            cta: "Buy 5-pack"
-          },
-          {
-            id: "pro-pass-30",
-            name: "Pro Pass — 30 days",
-            price: "$99",
-            description: "Unlimited full reports for 30 days. One-time payment — no subscription.",
-            cta: "Get the Pro Pass"
+            id: "team-enterprise",
+            name: "Team / Enterprise",
+            price: "Custom",
+            description: "Bulk reports, broker workflows, and support for teams.",
+            cta: "Talk to sales"
           }
         ],
         paymentConfigured: stripeConfigured() || Boolean(checkoutUrlFor("full-report"))
@@ -3436,14 +3462,28 @@ createServer(async (request, response) => {
       const origin = requestOrigin(request);
       const reportKey = normalizeReportKey(body.reportKey);
       const email = account?.email || normalizeEmail(body.email);
+      const isSubscription = Boolean(item.subscription);
+      // One free trial per customer: a returning subscriber re-subscribes
+      // without a fresh trial.
+      let trialDays = isSubscription ? (item.trialDays || 0) : 0;
+      if (trialDays) {
+        const purchases = await readJsonStore("purchases", []);
+        const hadSubscription = purchases.some((purchase) =>
+          purchase.product === productId &&
+          ((account && purchase.accountId === account.id) || (email && purchase.email === email))
+        );
+        if (hadSubscription) trialDays = 0;
+      }
       try {
         const session = await stripeRequest("POST", "checkout/sessions", {
-          mode: "payment",
+          mode: isSubscription ? "subscription" : "payment",
           "line_items[0][quantity]": "1",
           "line_items[0][price_data][currency]": "usd",
           "line_items[0][price_data][unit_amount]": String(item.amount),
           "line_items[0][price_data][product_data][name]": item.name,
           "line_items[0][price_data][product_data][description]": item.description,
+          ...(isSubscription ? { "line_items[0][price_data][recurring][interval]": "month" } : {}),
+          ...(trialDays ? { "subscription_data[trial_period_days]": String(trialDays) } : {}),
           success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${origin}/?checkout=cancelled`,
           "metadata[product]": productId,
@@ -3477,7 +3517,11 @@ createServer(async (request, response) => {
         // The session is fetched from Stripe with our secret key, so a forged
         // session_id can't mint credits — Stripe is the source of truth.
         const session = await stripeRequest("GET", `checkout/sessions/${encodeURIComponent(sessionId)}`);
-        if (session.payment_status !== "paid") {
+        // Trial subscriptions complete with payment_status "no_payment_required"
+        // — the card is on file but nothing is charged until the trial ends.
+        const settled = session.payment_status === "paid" ||
+          (session.mode === "subscription" && session.status === "complete");
+        if (!settled) {
           sendJson(response, 402, { error: "Payment not completed yet. If you just paid, retry in a few seconds." });
           return;
         }
@@ -3509,6 +3553,113 @@ createServer(async (request, response) => {
         await recordPaidCheckout(event.data.object);
       }
       sendJson(response, 200, { received: true });
+      return;
+    }
+
+    if (url.pathname === "/api/billing-portal" && request.method === "POST") {
+      const account = await authAccount(request);
+      if (!account) {
+        sendJson(response, 401, { error: "Sign in first." });
+        return;
+      }
+      if (!stripeConfigured()) {
+        sendJson(response, 503, { error: "Payments are not configured." });
+        return;
+      }
+      const purchases = await readJsonStore("purchases", []);
+      const subscriber = purchases.find((purchase) => purchase.accountId === account.id && purchase.stripeCustomerId);
+      if (!subscriber) {
+        sendJson(response, 404, { error: "No subscription found on this account." });
+        return;
+      }
+      try {
+        const portal = await stripeRequest("POST", "billing_portal/sessions", {
+          customer: subscriber.stripeCustomerId,
+          return_url: `${requestOrigin(request)}/`
+        });
+        sendJson(response, 200, { ok: true, url: portal.url });
+      } catch (error) {
+        console.error(`[SpotVest] billing portal error: ${error.message}`);
+        sendJson(response, 502, { error: "Could not open billing management. Try again or contact support." });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/reviews" && request.method === "POST") {
+      if (rateLimited(`review:${clientIp(request)}`, 3, 60_000)) {
+        sendJson(response, 429, { error: "Too many attempts. Please wait a minute." });
+        return;
+      }
+      const account = await authAccount(request);
+      if (!account?.emailVerifiedAt) {
+        sendJson(response, 401, { error: "Sign in with a verified account to leave a review." });
+        return;
+      }
+      const body = await readRequestJson(request);
+      const rating = Math.max(1, Math.min(5, Math.round(Number(body.rating) || 0)));
+      const text = safeText(body.text, 600);
+      if (!Number(body.rating) || text.length < 10) {
+        sendJson(response, 400, { error: "Pick a star rating and write at least a sentence." });
+        return;
+      }
+      const reviews = await readJsonStore("reviews", []);
+      // One review per account; resubmitting replaces it and returns it to
+      // the moderation queue.
+      const remaining = reviews.filter((review) => review.accountId !== account.id);
+      const review = {
+        id: leadId("review"),
+        accountId: account.id,
+        name: safeText(body.name, 80) || account.name || account.email.split("@")[0],
+        role: safeText(body.role, 120),
+        rating,
+        text,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      };
+      remaining.unshift(review);
+      await writeJsonStore("reviews", remaining.slice(0, 2000));
+      notifyOwner(
+        `SpotVest review pending: ${rating}/5 from ${review.name}`,
+        `${rating}/5 — ${review.name}${review.role ? ` (${review.role})` : ""} <${account.email}>\n\n${text}\n\nApprove or remove it in the owner console.`
+      );
+      sendJson(response, 200, { ok: true, message: "Thanks! Your review will appear on the site after a quick check." });
+      return;
+    }
+
+    if (url.pathname === "/api/reviews") {
+      const reviews = await readJsonStore("reviews", []);
+      const approved = reviews
+        .filter((review) => review.status === "approved")
+        .slice(0, 24)
+        .map((review) => ({
+          id: review.id,
+          name: review.name,
+          role: review.role,
+          rating: review.rating,
+          text: review.text,
+          createdAt: review.createdAt
+        }));
+      const average = approved.length
+        ? Math.round((approved.reduce((sum, review) => sum + review.rating, 0) / approved.length) * 10) / 10
+        : null;
+      sendJson(response, 200, { ok: true, average, count: approved.length, reviews: approved });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/reviews") {
+      if (!adminAuthorized(request)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      const reviews = await readJsonStore("reviews", []);
+      if (request.method === "POST") {
+        const body = await readRequestJson(request);
+        const target = reviews.find((review) => review.id === body.id);
+        if (target && body.action === "approve") target.status = "approved";
+        if (target && body.action === "delete") reviews.splice(reviews.indexOf(target), 1);
+        await writeJsonStore("reviews", reviews);
+      }
+      sendJson(response, 200, { ok: true, reviews });
       return;
     }
 
@@ -3570,6 +3721,29 @@ createServer(async (request, response) => {
       const matches = purchases.filter(
         (purchase) => (code && purchase.code === code) || (account && purchase.accountId === account.id)
       );
+      // Subscription renewals happen on Stripe's clock with no webhook here:
+      // when an entitlement is expired or within a day of it, re-read the
+      // subscription and extend to the new period end (or leave it lapsed if
+      // the customer cancelled).
+      if (stripeConfigured()) {
+        let dirty = false;
+        for (const purchase of matches) {
+          if (!purchase.subscriptionId) continue;
+          const expires = Date.parse(purchase.passExpiresAt || 0);
+          if (Number.isFinite(expires) && expires > Date.now() + 24 * 60 * 60 * 1000) continue;
+          try {
+            const subscription = await stripeRequest("GET", `subscriptions/${encodeURIComponent(purchase.subscriptionId)}`);
+            if (["trialing", "active"].includes(subscription.status) && subscription.current_period_end) {
+              const next = new Date(subscription.current_period_end * 1000).toISOString();
+              if (next !== purchase.passExpiresAt) {
+                purchase.passExpiresAt = next;
+                dirty = true;
+              }
+            }
+          } catch { /* transient Stripe error: keep the stored window */ }
+        }
+        if (dirty) await writeJsonStore("purchases", purchases);
+      }
       // The owner's account carries a permanent built-in Pro Pass — no fake
       // purchase records, no Stripe involvement.
       if (account && normalizeEmail(account.email) === normalizeEmail(ownerEmail())) {

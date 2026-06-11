@@ -578,3 +578,4 @@ body:not(.landing-mode) .sv3-app .sv3-biz-menu button,
 body:not(.landing-mode) .sv3-app .sv3-biz-menu button:active,
 body:not(.landing-mode) .sv3-app .sv3-biz-menu button:hover{background:rgba(57,194,214,.10)!important;color:var(--txt)!important;transform:none}
 .sv3-app .sv3-biz-menu .biz-none{padding:13px 16px;color:var(--txt-3);font-size:13px}
+.sv3-app .pw-fine{color:var(--txt-3);font-size:12px;margin-top:2px}

@@ -178,6 +178,7 @@ async function loadAdmin() {
     renderAgents(agentsResult.agents || []);
     renderRuns(runsResult.runs || []);
     loadProspects();
+    loadAdminReviews();
     setStatus("Admin operations loaded.", "launch-status-ok");
   } catch (error) {
     setStatus(error.message || "Could not load admin operations.", "launch-status-error");
@@ -394,4 +395,45 @@ document.addEventListener("change", async (event) => {
     });
     renderSavedProspects(result.prospects || []);
   } catch { /* keep current view */ }
+});
+
+/* ---------- Review moderation ---------- */
+const reviewListEl = document.querySelector("#admin-reviews");
+
+function renderAdminReviews(reviews) {
+  if (!reviewListEl) return;
+  reviewListEl.innerHTML = (reviews || []).length ? reviews.map((review) => `
+    <div class="admin-row">
+      <strong>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)} — ${escapeText(review.name)}${review.role ? ` · ${escapeText(review.role)}` : ""}</strong>
+      <span>${escapeText(review.text)}</span>
+      <small style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${review.status === "approved" ? "✅ live on the site" : "⏳ pending"}
+        ${review.status !== "approved" ? `<button type="button" data-review-act="approve" data-review-id="${escapeText(review.id)}" style="padding:7px 14px;font-size:12px">Approve</button>` : ""}
+        <button type="button" data-review-act="delete" data-review-id="${escapeText(review.id)}" style="padding:7px 14px;font-size:12px;background:rgba(255,107,107,.15);color:#FF8585;border:1px solid rgba(255,107,107,.35);box-shadow:none">Delete</button>
+      </small>
+    </div>
+  `).join("") : '<p class="launch-status">No reviews yet.</p>';
+}
+
+async function loadAdminReviews() {
+  if (!adminToken() || !reviewListEl) return;
+  try {
+    const result = await getJson("/api/admin/reviews");
+    renderAdminReviews(result.reviews || []);
+  } catch { /* auth errors surface in the token panel */ }
+}
+
+document.addEventListener("click", async (event) => {
+  const actButton = event.target.closest("[data-review-act]");
+  if (!actButton) return;
+  actButton.disabled = true;
+  try {
+    const result = await postJson("/api/admin/reviews", {
+      action: actButton.dataset.reviewAct,
+      id: actButton.dataset.reviewId
+    });
+    renderAdminReviews(result.reviews || []);
+  } catch {
+    actButton.disabled = false;
+  }
 });

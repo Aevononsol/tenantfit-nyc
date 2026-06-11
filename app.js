@@ -7773,9 +7773,20 @@ function renderAccountStatus(account) {
   // In-app account line (input screen footer): who's signed in + sign out.
   const appFoot = document.querySelector("#sv3-account-foot");
   if (appFoot) {
+    const isSubscriber = sv3Purchase()?.product === "pro-monthly";
     appFoot.innerHTML = account
-      ? `Signed in as ${escapeText(account.email)} · <button type="button" id="sv3-signout">Sign out</button>`
+      ? `Signed in as ${escapeText(account.email)}${isSubscriber ? ' · <button type="button" id="sv3-manage-sub">Manage subscription</button>' : ""} · <button type="button" id="sv3-signout">Sign out</button>`
       : "";
+    appFoot.querySelector("#sv3-manage-sub")?.addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/billing-portal", { method: "POST", credentials: "same-origin" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.url) throw new Error(result.error || "Could not open billing management.");
+        window.location.href = result.url;
+      } catch (error) {
+        sv3PaywallToast(error.message || "Could not open billing management.", true);
+      }
+    });
     appFoot.querySelector("#sv3-signout")?.addEventListener("click", async () => {
       try { await fetch("/api/logout", { method: "POST", credentials: "same-origin" }); } catch { /* ignore */ }
       try {
@@ -8473,22 +8484,22 @@ function sv3ReportUnlocked() {
 const sv3LockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>`;
 
 function sv3PaywallCTAHTML(compact = false) {
+  // Legacy credit holders (pre-subscription buyers) keep spending credits.
   const creditsLeft = sv3CreditsLeft();
   if (creditsLeft > 0) {
     return `<button class="btn${compact ? " sm" : ""}" type="button" data-paywall-action="use-credit">${compact ? "Unlock" : `Open with 1 credit — ${creditsLeft} left`}</button>`;
   }
   return compact
-    ? `<button class="btn sm" type="button" data-paywall-action="buy-single">Unlock — $9</button>`
-    : `<button class="btn" type="button" data-paywall-action="buy-single">Unlock full report — $9</button>
-       <button class="btn ghost" type="button" data-paywall-action="buy-pack">5 reports for $35 · save $10</button>
-       <button class="btn ghost" type="button" data-paywall-action="buy-pass">Pro Pass · unlimited for 30 days — $99</button>`;
+    ? `<button class="btn sm" type="button" data-paywall-action="buy-sub">Start free trial</button>`
+    : `<button class="btn" type="button" data-paywall-action="buy-sub">Start 3-day free trial</button>
+       <div class="pw-fine">Unlimited reports · free for 3 days · then $29/month · cancel anytime</div>`;
 }
 
 function sv3PaywallBannerHTML() {
   return `<div class="card accent pw-banner">
       <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
       <h3>This is the full report — locked</h3>
-      <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Unlock to open every section across Market, Risk, Money, and Method — plus PDF export. One purchase, this report stays open forever.</div>
+      <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Start your free trial to open every section across Market, Risk, Money, and Method — plus PDF export and compare — for <b>unlimited locations</b>.</div>
       <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
       <div class="desc paywall-status" data-paywall-status role="status"></div>
     </div>`;
@@ -8685,11 +8696,10 @@ document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
     statusEl.classList.toggle("err", Boolean(isError));
   };
   try {
-    if (action === "buy-single" || action === "buy-pack" || action === "buy-pass") {
+    if (action === "buy-sub") {
       button.disabled = true;
       setStatus("Opening secure Stripe checkout…");
-      const product = action === "buy-single" ? "single-report" : action === "buy-pack" ? "report-pack-5" : "pro-pass-30";
-      await startSpotvestCheckout(product, { forCurrentReport: true });
+      await startSpotvestCheckout("pro-monthly", { forCurrentReport: true });
       return; // page navigates to Stripe
     }
     if (action === "use-credit") {
@@ -8768,11 +8778,15 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
     // Flip any report already on screen open immediately — don't depend on
     // the search re-run below succeeding.
     sv3RerenderReport();
-    const creditsLeft = Math.max(0, (Number(result.purchase?.credits) || 0) - (Number(result.purchase?.creditsUsed) || 0));
-    const passNote = result.purchase?.passExpiresAt
-      ? ` Pro Pass active — unlimited reports until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}.`
-      : creditsLeft ? ` Credits left: ${creditsLeft}.` : "";
-    sv3PaywallToast(`Payment confirmed ✓ Your code: ${result.purchase.code} — also emailed to you.${passNote}`);
+    if (result.purchase?.product === "pro-monthly") {
+      sv3PaywallToast(`Trial started ✓ Unlimited reports are open. Free until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}, then $29/month — cancel anytime via Manage subscription.`);
+    } else {
+      const creditsLeft = Math.max(0, (Number(result.purchase?.credits) || 0) - (Number(result.purchase?.creditsUsed) || 0));
+      const passNote = result.purchase?.passExpiresAt
+        ? ` Pro Pass active — unlimited reports until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}.`
+        : creditsLeft ? ` Credits left: ${creditsLeft}.` : "";
+      sv3PaywallToast(`Payment confirmed ✓ Your code: ${result.purchase.code} — also emailed to you.${passNote}`);
+    }
     let pending = null;
     try {
       pending = JSON.parse(localStorage.getItem(pendingSearchStorageKey) || "null");

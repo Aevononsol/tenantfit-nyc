@@ -35,8 +35,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=20260611-animate1" />
-    <link rel="stylesheet" href="./inside-v3.css?v=20260611-bizmenu1" />
+    <link rel="stylesheet" href="./styles.css?v=20260611-subs1" />
+    <link rel="stylesheet" href="./inside-v3.css?v=20260611-subs1" />
   </head>
   <body class="landing-mode">
     <main class="app-shell">
@@ -387,6 +387,32 @@
             </div>
           </section></div></div>
 
+          <div class="wrap"><section id="reviews">
+            <div class="eb">You're in good company</div>
+            <h2 class="h2">What customers say.</h2>
+            <p class="subh" id="reviews-subh">Real reviews from verified SpotVest accounts.</p>
+            <div id="reviews-grid" class="reviews-grid">
+              <p class="rev-empty">No reviews yet — be the first to share how SpotVest helped your location decision.</p>
+            </div>
+            <div class="rev-cta">
+              <button type="button" id="review-open">Write a review</button>
+            </div>
+            <form id="review-form" class="review-form" hidden>
+              <div class="rev-pick" id="review-stars" aria-label="Your rating">
+                <button type="button" data-star="1" aria-label="1 star">★</button>
+                <button type="button" data-star="2" aria-label="2 stars">★</button>
+                <button type="button" data-star="3" aria-label="3 stars">★</button>
+                <button type="button" data-star="4" aria-label="4 stars">★</button>
+                <button type="button" data-star="5" aria-label="5 stars">★</button>
+              </div>
+              <input name="name" placeholder="Your name (shown with the review)" autocomplete="name" />
+              <input name="role" placeholder="Role / company — optional, e.g. Broker, Corcoran" />
+              <textarea name="text" placeholder="How did SpotVest help your location decision?" required minlength="10" maxlength="600"></textarea>
+              <button type="submit">Submit review</button>
+              <p id="review-status" class="launch-status" role="status"></p>
+            </form>
+          </section></div>
+
           <div class="wrap"><section style="text-align:center">
             <h2 class="h2" style="margin:0 auto 8px;max-width:760px">Decide your next location with confidence.</h2>
             <p class="subh" style="margin:0 auto 24px">Create a free account and get your first verdict in seconds.</p>
@@ -486,38 +512,31 @@
 
           <section id="pricing" class="launch-section pricing-section">
             <div class="launch-section-header">
-              <p class="section-label">Launch pricing</p>
-              <h3>Start with a low-cost location decision</h3>
-              <p>Early pricing is built to validate demand, help first customers, and make SpotVest easy to try.</p>
+              <p class="section-label">Pricing</p>
+              <h3>Try everything free for 3 days.</h3>
+              <p>One simple plan — unlimited reports, every section unlocked, PDF export, compare. Cancel anytime.</p>
             </div>
-            <div class="pricing-grid">
+            <div class="pricing-grid pricing-grid-3">
               <article class="pricing-card">
                 <span>Demo</span>
                 <strong>Free</strong>
                 <h4>Free Demo</h4>
-                <p>Decision, score, and short summary so first-time users can see the value before paying.</p>
+                <p>Decision, score, and short summary so first-time users can see the value before subscribing.</p>
                 <button class="launch-scroll" type="button" data-scroll="#demo">Try free demo</button>
               </article>
               <article class="pricing-card pricing-card-featured">
-                <span>Most useful</span>
-                <strong>$9</strong>
-                <h4>Full Report</h4>
-                <p>Full report, PDF export, risks, conditions, and better alternatives for one location.</p>
-                <button type="button" data-checkout-product="single-report" data-package="full-report">Buy a report — $9</button>
+                <span>3-day free trial</span>
+                <strong>$29<i class="price-per">/mo</i></strong>
+                <h4>SpotVest Pro</h4>
+                <p>Unlimited location reports — market, risk, money, method, PDF export, and compare. Free for 3 days, then $29/month. Cancel anytime.</p>
+                <button type="button" data-checkout-product="pro-monthly" data-package="pro-monthly">Start free trial</button>
               </article>
               <article class="pricing-card">
-                <span>Save $10</span>
-                <strong>$35</strong>
-                <h4>5-Report Pack</h4>
-                <p>Five full reports for any businesses and locations — $7 each instead of $9. Credits never expire.</p>
-                <button type="button" data-checkout-product="report-pack-5" data-package="report-pack-5">Buy 5-pack — $35</button>
-              </article>
-              <article class="pricing-card">
-                <span>Brokers &amp; pros</span>
-                <strong>$99</strong>
-                <h4>Pro Pass — 30 days</h4>
-                <p>Unlimited full reports for 30 days. One-time payment — no subscription, no auto-renewal.</p>
-                <button type="button" data-checkout-product="pro-pass-30" data-package="pro-pass-30">Get the Pro Pass — $99</button>
+                <span>Teams</span>
+                <strong>Custom</strong>
+                <h4>Team / Enterprise</h4>
+                <p>Bulk reports, broker workflows, saved reports, and support for teams.</p>
+                <button class="launch-scroll" type="button" data-scroll="#contact">Talk to sales</button>
               </article>
             </div>
           </section>
@@ -548,9 +567,7 @@
               </select>
               <select name="package" aria-label="Report package">
                 <option value="free-demo">Free Demo — decision, score, summary</option>
-                <option value="full-report">Full Report — $9</option>
-                <option value="report-pack-5">5-Report Pack — $35</option>
-                <option value="pro-pass-30">Pro Pass — 30 days unlimited — $99</option>
+                <option value="pro-monthly">SpotVest Pro — $29/month (3-day free trial)</option>
                 <option value="team-enterprise">Team / Enterprise — custom</option>
               </select>
               <select name="timeline" aria-label="Decision timeline">
@@ -1499,7 +1516,7 @@
     </aside>
 
     <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="./app.js?v=20260611-onebtn1"></script>
-    <script defer src="./home.js?v=20260611-score2"></script>
+    <script defer src="./app.js?v=20260611-subs1"></script>
+    <script defer src="./home.js?v=20260611-subs1"></script>
   </body>
 </html>
