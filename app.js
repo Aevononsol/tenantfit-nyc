@@ -7670,17 +7670,34 @@ function renderAccountStatus(account) {
   const navAuth = document.querySelector("#nav-auth-link");
   if (navAuth) {
     if (account) {
+      // Signed in: the name is a shortcut into the app, never the old
+      // inline account panel.
       navAuth.textContent = (account.name || "").trim().split(/\s+/)[0] || "Account";
-      navAuth.href = "#account-access";
+      navAuth.href = "/";
       navAuth.onclick = (event) => {
         event.preventDefault();
-        openPublicActionPanel("#account-access");
+        sv3EnterAnalysisApp();
       };
     } else {
       navAuth.textContent = "Login";
       navAuth.href = "/account";
       navAuth.onclick = null;
     }
+  }
+  // In-app account line (input screen footer): who's signed in + sign out.
+  const appFoot = document.querySelector("#sv3-account-foot");
+  if (appFoot) {
+    appFoot.innerHTML = account
+      ? `Signed in as ${escapeText(account.email)} · <button type="button" id="sv3-signout">Sign out</button>`
+      : "";
+    appFoot.querySelector("#sv3-signout")?.addEventListener("click", async () => {
+      try { await fetch("/api/logout", { method: "POST", credentials: "same-origin" }); } catch { /* ignore */ }
+      try {
+        localStorage.removeItem("areaIntelAccount");
+        localStorage.removeItem("areaIntelSession");
+      } catch { /* ignore */ }
+      window.location.href = "/";
+    });
   }
   if (!launchEls.accountStatus) return;
   document.body.classList.toggle("account-signed-in", Boolean(account));
@@ -8063,7 +8080,13 @@ if (accountUrl.pathname.endsWith("/verify-email") && resetToken) {
   openPublicActionPanel("#account-access");
 }
 
-refreshAccountStatus();
+refreshAccountStatus().then((account) => {
+  // Signed in means inside the product: "/" skips the marketing page and
+  // opens the analysis app directly.
+  if (account?.emailVerified && document.body.classList.contains("landing-mode")) {
+    sv3EnterAnalysisApp();
+  }
+});
 
 // --- Phase 6: SpotVest Assistant ---------------------------------------
 // A floating chat that explains the current report. It only sends a compact,

@@ -563,3 +563,5 @@ body:not(.landing-mode) .sv3-app .nav button svg { stroke: currentColor; }
 #sv3-paywall-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);z-index:9999;max-width:min(92vw,460px);padding:13px 18px;border-radius:14px;background:rgba(10,16,28,.96);border:1px solid rgba(79,227,216,.45);color:#e8f0f8;font:600 13.5px/1.5 'Inter',system-ui,sans-serif;box-shadow:0 12px 36px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
 #sv3-paywall-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
 #sv3-paywall-toast.err{border-color:rgba(248,113,113,.55)}
+#sv3-account-foot:empty{display:none}
+#sv3-account-foot button{background:none;border:0;color:var(--teal);cursor:pointer;font:inherit;text-decoration:underline;text-underline-offset:3px;padding:0}
