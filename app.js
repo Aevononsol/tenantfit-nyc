@@ -5746,15 +5746,38 @@ function initSpotVestV3Controls() {
     sv3ShowMain("report");
     elements.addressForm?.requestSubmit();
   };
-  document.querySelector("#sv3-analyze-address")?.addEventListener("click", runAddress);
-  document.querySelector("#sv3-analyze-area")?.addEventListener("click", runArea);
+  // One button: it reads what the user actually typed. A street address wins
+  // (most specific); a bare 5-digit number anywhere is a ZIP; nothing typed
+  // gets a prompt instead of a dead click.
+  const runSmart = () => {
+    const refs = sv3Refs();
+    const addressValue = (refs.address?.value || "").trim();
+    const zipValue = (refs.zip?.value || "").trim();
+    if (/^\d{5}$/.test(addressValue)) {
+      // They typed a ZIP into the address box — treat it as a ZIP search.
+      if (refs.zip) refs.zip.value = addressValue;
+      if (refs.address) refs.address.value = "";
+      runArea();
+      return;
+    }
+    if (addressValue) {
+      runAddress();
+      return;
+    }
+    if (zipValue) {
+      runArea();
+      return;
+    }
+    if (refs.stepnote) refs.stepnote.textContent = "Enter a NYC ZIP code or a street address, then run the analysis.";
+  };
+  document.querySelector("#sv3-analyze")?.addEventListener("click", runSmart);
   // Enter / mobile "go" must run the search — these inputs sit outside any
   // form, so without this the keypress did nothing and the search never ran.
   document.querySelector("#sv3-zip")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); runArea(); }
+    if (e.key === "Enter") { e.preventDefault(); runSmart(); }
   });
   document.querySelector("#sv3-address")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); runAddress(); }
+    if (e.key === "Enter") { e.preventDefault(); runSmart(); }
   });
 }
 initSpotVestV3Controls();
@@ -8764,11 +8787,10 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
       if (refs.biztype && pending.business) refs.biztype.value = pending.business;
       if (pending.address && refs.address) {
         refs.address.value = pending.address;
-        document.querySelector("#sv3-analyze-address")?.click();
       } else if (pending.zip && refs.zip) {
         refs.zip.value = pending.zip;
-        document.querySelector("#sv3-analyze-area")?.click();
       }
+      document.querySelector("#sv3-analyze")?.click();
     }
   } catch (error) {
     stripUrl();
