@@ -67,6 +67,14 @@
     setStatus("Signing in…");
     try {
       const result = await postJson("/api/login", payloadOf(forms.login));
+      // Verification is enforced: signing in works, but the app stays closed
+      // until the emailed link has been clicked.
+      if (result.account && !result.account.emailVerified) {
+        button.disabled = false;
+        resendButton.hidden = false;
+        setStatus("Almost there — open the verification link we emailed you, then sign in again.", "err");
+        return;
+      }
       setStatus("Signed in ✓", "ok");
       finishAuth(result);
     } catch (error) {
@@ -82,18 +90,34 @@
     setStatus("Creating your account…");
     try {
       const result = await postJson("/api/signup", payloadOf(forms.signup));
+      button.disabled = false;
+      show("login");
       if (result.account) {
-        setStatus("Account created ✓", "ok");
-        finishAuth(result);
+        resendButton.hidden = false;
+        setStatus(`Account created ✓ — we emailed a verification link to ${result.account.email}. Open it, then sign in here.`, "ok");
       } else {
         // Non-enumerating signup response (email may already exist).
-        button.disabled = false;
         setStatus(result.message || "Check your inbox to continue.", "ok");
-        show("login");
       }
     } catch (error) {
       button.disabled = false;
       setStatus(error.message, "err");
+    }
+  });
+
+  const resendButton = document.querySelector("#auth-resend-verification");
+  resendButton?.addEventListener("click", async () => {
+    resendButton.disabled = true;
+    setStatus("Sending a fresh verification link…");
+    try {
+      const response = await fetch("/api/resend-verification", { method: "POST", credentials: "same-origin" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not resend. Sign in first, then try again.");
+      setStatus(result.message || "Verification email sent — check your inbox.", "ok");
+    } catch (error) {
+      setStatus(error.message, "err");
+    } finally {
+      resendButton.disabled = false;
     }
   });
 

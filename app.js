@@ -7861,7 +7861,9 @@ let sv3PendingStartAnalysis = false;
 let sv3AuthBypassOnce = false;
 
 function sv3RequireAccount(message) {
-  if (storedAccount()) return true;
+  // Verified accounts only: a signed-up-but-unverified visitor is sent back
+  // to /account, which walks them through the emailed link.
+  if (storedAccount()?.emailVerified) return true;
   if (sv3AuthBypassOnce) {
     sv3AuthBypassOnce = false;
     return true;
@@ -7896,7 +7898,7 @@ function sv3ResumeAfterAuth() {
   try { params = new URLSearchParams(window.location.search); } catch { return; }
   if (params.get("start") !== "analysis") return;
   try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ }
-  if (storedAccount()) sv3EnterAnalysisApp();
+  if (storedAccount()?.emailVerified) sv3EnterAnalysisApp();
 })();
 
 document.querySelectorAll("[data-start-analysis]").forEach((button) => {
