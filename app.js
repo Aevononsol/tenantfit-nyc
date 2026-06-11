@@ -8329,10 +8329,16 @@ function sv3WrapLockedGroups(groups) {
     members.forEach((member) => inner.appendChild(member));
     const overlay = document.createElement("div");
     overlay.className = "pw-overlay";
+    // One quiet lock per section — the full price CTA lives once in the top
+    // banner. The whole overlay is tappable and goes straight to checkout
+    // (or spends a credit when one is available).
+    overlay.setAttribute("data-paywall-action", sv3CreditsLeft() > 0 ? "use-credit" : "buy-single");
+    overlay.setAttribute("role", "button");
+    overlay.setAttribute("tabindex", "0");
+    overlay.setAttribute("aria-label", "Unlock the full report");
     overlay.innerHTML = `<div class="pw-overlay-inner">
         <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
-        <div class="pw-msg">Unlock the full report to see this</div>
-        ${sv3PaywallCTAHTML(true)}
+        <div class="pw-msg">Tap to unlock</div>
       </div>`;
     wrap.appendChild(overlay);
   });
