@@ -1227,8 +1227,18 @@ function authEmailBaseUrl(request) {
   return process.env.SPOTVEST_PUBLIC_URL || process.env.AREAINTEL_PUBLIC_URL || `${isHostedProduction ? "https" : "http"}://${request.headers.host}`;
 }
 
+// Two distinct roles, deliberately separate:
+// - ownerAccountEmail: WHICH LOGIN gets owner powers (built-in pass, no
+//   limits). Stays the owner's personal sign-in.
+// - ownerEmail: WHERE alerts and notifications are DELIVERED. Point
+//   SPOTVEST_NOTIFY_EMAIL at the professional inbox without touching the
+//   login identity.
+function ownerAccountEmail() {
+  return process.env.SPOTVEST_OWNER_EMAIL || "maherjadoa9@gmail.com";
+}
+
 function ownerEmail() {
-  return process.env.SPOTVEST_NOTIFY_EMAIL || process.env.SPOTVEST_OWNER_EMAIL || "maherjadoa9@gmail.com";
+  return process.env.SPOTVEST_NOTIFY_EMAIL || ownerAccountEmail();
 }
 
 // Single delivery path for every transactional email (auth links, purchase
@@ -3698,7 +3708,7 @@ createServer(async (request, response) => {
       // "Day" means a New York calendar day — the counter resets at midnight
       // ET, matching what an NYC customer expects (UTC reset landed at 8 PM).
       const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-      const isOwner = normalizeEmail(account.email) === normalizeEmail(ownerEmail());
+      const isOwner = normalizeEmail(account.email) === normalizeEmail(ownerAccountEmail());
       const usage = await readJsonStore("usage", []);
       let entry = usage.find((candidate) => candidate.accountId === account.id && candidate.date === today);
       if (!entry) {
@@ -3763,7 +3773,7 @@ createServer(async (request, response) => {
       // subscription (which required a card) before it can review. That's
       // what makes "create many emails, write fake reviews" expensive.
       const purchaseLedger = await readJsonStore("purchases", []);
-      const isOwner = normalizeEmail(account.email) === normalizeEmail(ownerEmail());
+      const isOwner = normalizeEmail(account.email) === normalizeEmail(ownerAccountEmail());
       const isCustomer = purchaseLedger.some((purchase) => purchase.accountId === account.id);
       if (!isOwner && !isCustomer) {
         sendJson(response, 403, { error: "Reviews are open to SpotVest customers — start your free trial first." });
@@ -3932,7 +3942,7 @@ createServer(async (request, response) => {
       }
       // The owner's account carries a permanent built-in Pro Pass — no fake
       // purchase records, no Stripe involvement.
-      if (account && normalizeEmail(account.email) === normalizeEmail(ownerEmail())) {
+      if (account && normalizeEmail(account.email) === normalizeEmail(ownerAccountEmail())) {
         matches.unshift({
           code: "OWNER-PASS",
           product: "owner",
