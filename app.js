@@ -5768,7 +5768,7 @@ function initSpotVestV3Controls() {
         if (refs.stepnote) refs.stepnote.textContent = result.error || "Daily limit reached — resets at midnight.";
         return false;
       }
-      if (response.ok && result.left <= 5) {
+      if (response.ok && result.left <= 3) {
         sv3PaywallToast(`Heads up: ${result.left} of ${result.limit} daily reports left.`);
       }
       return true;
@@ -8554,14 +8554,14 @@ function sv3PaywallCTAHTML(compact = false) {
   return compact
     ? `<button class="btn sm" type="button" data-paywall-action="buy-sub">Start free trial</button>`
     : `<button class="btn" type="button" data-paywall-action="buy-sub">Start 3-day free trial</button>
-       <div class="pw-fine">Unlimited reports · free for 3 days · then $29/month · cancel anytime</div>`;
+       <div class="pw-fine">Up to 10 reports a day · free for 3 days · then $29/month · cancel anytime</div>`;
 }
 
 function sv3PaywallBannerHTML() {
   return `<div class="card accent pw-banner">
       <div class="pw-lockchip" aria-hidden="true">${sv3LockSVG}</div>
       <h3>This is the full report — locked</h3>
-      <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Start your free trial to open every section across Market, Risk, Money, and Method — plus PDF export and compare — for <b>unlimited locations</b>.</div>
+      <div class="desc">You're previewing the free overview for <b>${escapeText(sv3ReportLabel())}</b>. Start your free trial to open every section across Market, Risk, Money, and Method — plus PDF export and compare — for <b>any location, up to 10 reports a day</b>.</div>
       <div class="paywall-actions">${sv3PaywallCTAHTML(false)}</div>
       <div class="desc paywall-status" data-paywall-status role="status"></div>
     </div>`;
@@ -8850,7 +8850,7 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
     // the search re-run below succeeding.
     sv3RerenderReport();
     if (result.purchase?.product === "pro-monthly") {
-      sv3PaywallToast(`Trial started ✓ Unlimited reports are open. Free until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}, then $29/month — cancel anytime via Manage subscription.`);
+      sv3PaywallToast(`Trial started ✓ Every report section is open. Free until ${new Date(result.purchase.passExpiresAt).toLocaleDateString()}, then $29/month — cancel anytime via Manage subscription.`);
     } else {
       const creditsLeft = Math.max(0, (Number(result.purchase?.credits) || 0) - (Number(result.purchase?.creditsUsed) || 0));
       const passNote = result.purchase?.passExpiresAt
