@@ -1029,7 +1029,8 @@ async function recordPaidCheckout(session) {
   }
   notifyOwner(
     `SpotVest sale: ${item.name} — ${amountLabel}`,
-    `Buyer: ${purchase.email || "no email on session"}\nProduct: ${item.name}\nAmount: ${amountLabel}\nCode: ${purchase.code}\nStripe session: ${purchase.sessionId}\nReport: ${purchase.unlockedReports[0]?.label || purchase.unlockedReports[0]?.key || "none yet (credits)"}`
+    `Buyer: ${purchase.email || "no email on session"}\nProduct: ${item.name}\nAmount: ${amountLabel}\nCode: ${purchase.code}\nStripe session: ${purchase.sessionId}\nReport: ${purchase.unlockedReports[0]?.label || purchase.unlockedReports[0]?.key || "none yet (credits)"}`,
+    purchase.email || ""
   );
   return purchase;
 }
@@ -1232,7 +1233,7 @@ function ownerEmail() {
 
 // Single delivery path for every transactional email (auth links, purchase
 // receipts, owner notifications, tests) — Resend first, webhook fallback.
-async function deliverEmail({ to, subject, text }) {
+async function deliverEmail({ to, subject, text, replyTo }) {
   if (!to) return { delivered: false, error: "missing recipient" };
   if (process.env.RESEND_API_KEY) {
     try {
@@ -1246,7 +1247,8 @@ async function deliverEmail({ to, subject, text }) {
           from: process.env.SPOTVEST_EMAIL_FROM || process.env.AREAINTEL_EMAIL_FROM || "SpotVest <onboarding@resend.dev>",
           to: [to],
           subject,
-          text
+          text,
+          ...(replyTo ? { reply_to: [replyTo] } : {})
         })
       });
       if (!resendResponse.ok) {
@@ -1277,8 +1279,8 @@ async function deliverEmail({ to, subject, text }) {
 
 // Delivers and records the attempt in the email-outbox store so every send
 // (and every failure reason) is inspectable later.
-async function sendAppEmail(type, to, subject, text) {
-  const result = await deliverEmail({ to, subject, text });
+async function sendAppEmail(type, to, subject, text, replyTo = "") {
+  const result = await deliverEmail({ to, subject, text, replyTo });
   const outbox = await readJsonStore("email-outbox", []);
   outbox.unshift({
     id: leadId("email"),
@@ -1295,8 +1297,10 @@ async function sendAppEmail(type, to, subject, text) {
 
 // Fire-and-forget owner alert — never lets an email hiccup break the
 // request that triggered it.
-function notifyOwner(subject, text) {
-  sendAppEmail("owner-notification", ownerEmail(), subject, text)
+function notifyOwner(subject, text, replyTo = "") {
+  // replyTo: when the alert is about a person (lead, review), hitting Reply
+  // in the owner's inbox answers THEM directly instead of no-reply@.
+  sendAppEmail("owner-notification", ownerEmail(), subject, text, replyTo)
     .catch((error) => console.error(`[SpotVest] owner notification failed: ${error.message}`));
 }
 
@@ -3550,7 +3554,8 @@ createServer(async (request, response) => {
       const lead = await appendLead("contact", body, request);
       notifyOwner(
         `SpotVest contact: ${safeText(body.topic || body.subject, 80) || "new message"}`,
-        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180) || "no email"}> ${safeText(body.phone, 80)}\n\n${safeText(body.message, 2000) || "(no message)"}`
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180) || "no email"}> ${safeText(body.phone, 80)}\n\n${safeText(body.message, 2000) || "(no message)"}`,
+        normalizeEmail(body.email)
       );
       sendJson(response, 200, { ok: true, lead: publicLead(lead) });
       return;
@@ -3789,7 +3794,8 @@ createServer(async (request, response) => {
       await writeJsonStore("reviews", remaining.slice(0, 2000));
       notifyOwner(
         `SpotVest review pending: ${rating}/5 from ${review.name}`,
-        `${rating}/5 — ${review.name}${review.role ? ` (${review.role})` : ""} <${account.email}>\n\n${text}\n\nApprove or remove it in the owner console.`
+        `${rating}/5 — ${review.name}${review.role ? ` (${review.role})` : ""} <${account.email}>\n\n${text}\n\nApprove or remove it in the owner console.`,
+        account.email
       );
       sendJson(response, 200, { ok: true, message: "Thanks! Your review will appear on the site after a quick check." });
       return;
@@ -3952,7 +3958,8 @@ createServer(async (request, response) => {
       const lead = await appendLead("report", body, request);
       notifyOwner(
         `SpotVest report request: ${safeText(body.business, 160)} — ${safeText(body.location || body.zip || body.address, 260)}`,
-        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\nPackage: ${safeText(body.package || body.plan, 80) || "—"}\nTimeline: ${safeText(body.timeline, 80) || "—"}\n\n${safeText(body.message, 2000) || "(no message)"}`
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\nPackage: ${safeText(body.package || body.plan, 80) || "—"}\nTimeline: ${safeText(body.timeline, 80) || "—"}\n\n${safeText(body.message, 2000) || "(no message)"}`,
+        normalizeEmail(body.email)
       );
       const checkoutUrl = checkoutUrlFor(body.package || body.plan || "single-report");
       sendJson(response, 200, {
@@ -3978,7 +3985,8 @@ createServer(async (request, response) => {
       const lead = await appendLead("advisor", body, request);
       notifyOwner(
         "SpotVest consultation request",
-        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\n\n${safeText(body.message, 2000) || "(no message)"}`
+        `From: ${safeText(body.name, 160) || "—"} <${safeText(body.email, 180)}>\n\n${safeText(body.message, 2000) || "(no message)"}`,
+        normalizeEmail(body.email)
       );
       sendJson(response, 200, {
         ok: true,
