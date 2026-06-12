@@ -3018,8 +3018,97 @@ async function sendFile(response, pathname) {
   response.end(data);
 }
 
+/* ---------- Security sentinel ----------
+   The tireless-developer loop: every hour it re-checks the things a human
+   security review checks — config sanity, locked admin doors, security
+   headers, data-disk health, email delivery — records the sweep, and emails
+   the owner when something serious appears (deduped so a persistent issue
+   alerts once a day, not hourly). It would have caught the relative
+   data-dir path that silently wiped accounts on every deploy. */
+async function securitySweep() {
+  const findings = [];
+  const passed = [];
+  const note = (sev, msg) => findings.push({ sev, msg });
+
+  if (!process.env.ADMIN_TOKEN) note("high", "ADMIN_TOKEN is not set — the owner console cannot be opened.");
+  if (!process.env.STRIPE_SECRET_KEY) note("critical", "STRIPE_SECRET_KEY missing — payments are down.");
+  if (!process.env.RESEND_API_KEY) note("critical", "RESEND_API_KEY missing — all email (receipts, verification, alerts) is down.");
+  if (!process.env.STRIPE_WEBHOOK_SECRET) note("info", "STRIPE_WEBHOOK_SECRET not set — purchases rely on the return-page confirmation only (works; the webhook adds redundancy).");
+  if (!process.env.GOOGLE_CLIENT_ID) note("info", "GOOGLE_CLIENT_ID not set — the Google sign-in button stays hidden.");
+  if (isHostedProduction && !String(dataRoot).startsWith("/")) {
+    note("critical", `SPOTVEST_DATA_DIR is a relative path ("${dataRoot}") — customer data will be WIPED on every deploy. Set it to the disk mount path (e.g. /var/data).`);
+  } else {
+    passed.push("Data directory points at an absolute path");
+  }
+
+  try {
+    await mkdir(dataRoot, { recursive: true });
+    await writeFile(join(dataRoot, ".sentinel"), new Date().toISOString(), "utf8");
+    passed.push("Data disk is writable");
+  } catch (error) {
+    note("critical", `Data disk is NOT writable: ${error.message} — signups and purchases cannot be saved.`);
+  }
+
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    const adminProbe = await fetch(`${base}/api/admin/accounts`);
+    if (adminProbe.status === 401) passed.push("Admin endpoints refuse requests without the token");
+    else note("critical", `Admin endpoint answered ${adminProbe.status} WITHOUT a token — customer data may be exposed.`);
+    const health = await fetch(`${base}/api/health`);
+    if (health.ok) passed.push("Health endpoint responding");
+    else note("high", `Health endpoint returned ${health.status}.`);
+    if (health.headers.get("content-security-policy")) passed.push("Security headers present on responses");
+    else note("high", "Security headers (CSP) missing from responses.");
+  } catch (error) {
+    note("high", `Self-probe failed: ${error.message}`);
+  }
+
+  try {
+    const outbox = await readJsonStore("email-outbox", []);
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const failed = outbox.filter((mail) => String(mail.status || "").startsWith("failed") && Date.parse(mail.createdAt || 0) > dayAgo);
+    if (failed.length >= 3) note("high", `${failed.length} emails failed in the last 24h (latest: ${failed[0].status}). Customers may be missing receipts or verification links.`);
+    else passed.push("Email delivery healthy over the last 24h");
+  } catch { /* outbox unreadable is covered by the disk check */ }
+
+  const sweep = { at: new Date().toISOString(), findings, passed };
+  try {
+    const history = await readJsonStore("security-sweeps", []);
+    await writeJsonStore("security-sweeps", [sweep, ...history].slice(0, 100));
+  } catch { /* never let bookkeeping kill the sweep */ }
+
+  const serious = findings.filter((finding) => finding.sev !== "info");
+  if (serious.length) {
+    const signature = serious.map((finding) => finding.msg).join("|");
+    const state = await readJsonStore("security-state", {});
+    const lastAlert = Date.parse(state.lastAlertAt || 0);
+    if (state.lastSignature !== signature || !Number.isFinite(lastAlert) || Date.now() - lastAlert > 24 * 60 * 60 * 1000) {
+      notifyOwner(
+        `SpotVest security sentinel: ${serious.length} issue${serious.length === 1 ? "" : "s"} found`,
+        serious.map((finding) => `[${finding.sev.toUpperCase()}] ${finding.msg}`).join("\n\n") +
+          "\n\nFull history: spotvest.ai/admin → Security."
+      );
+      await writeJsonStore("security-state", { lastSignature: signature, lastAlertAt: new Date().toISOString() });
+    }
+  }
+  return sweep;
+}
+
+function startSecuritySentinel() {
+  const interval = setInterval(() => {
+    securitySweep().catch((error) => console.error(`[SpotVest] sentinel error: ${error.message}`));
+  }, 60 * 60_000);
+  interval.unref?.();
+  // First sweep shortly after boot, once the listener is up for self-probes.
+  setTimeout(() => {
+    securitySweep().catch((error) => console.error(`[SpotVest] sentinel error: ${error.message}`));
+  }, 15_000);
+  console.log("SpotVest security sentinel: hourly sweeps enabled");
+}
+
 loadEnv();
 startAgentAutopilot();
+startSecuritySentinel();
 
 createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
@@ -3967,6 +4056,21 @@ createServer(async (request, response) => {
       }
       const prospects = await readJsonStore("prospects", []);
       sendJson(response, 200, { ok: true, prospects });
+      return;
+    }
+
+    if (url.pathname === "/api/admin/security") {
+      if (!adminAuthorized(request)) {
+        sendJson(response, 401, { error: "Admin token required." });
+        return;
+      }
+      if (request.method === "POST") {
+        const sweep = await securitySweep();
+        sendJson(response, 200, { ok: true, sweep });
+        return;
+      }
+      const history = await readJsonStore("security-sweeps", []);
+      sendJson(response, 200, { ok: true, sweeps: history.slice(0, 10) });
       return;
     }
 

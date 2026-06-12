@@ -179,6 +179,7 @@ async function loadAdmin() {
     renderRuns(runsResult.runs || []);
     loadProspects();
     loadAdminReviews();
+    loadSecuritySweeps();
     setStatus("Admin operations loaded.", "launch-status-ok");
   } catch (error) {
     setStatus(error.message || "Could not load admin operations.", "launch-status-error");
@@ -435,5 +436,59 @@ document.addEventListener("click", async (event) => {
     renderAdminReviews(result.reviews || []);
   } catch {
     actButton.disabled = false;
+  }
+});
+
+/* ---------- Security sentinel panel ---------- */
+const securityEls = {
+  list: document.querySelector("#admin-security"),
+  run: document.querySelector("#admin-run-security"),
+  status: document.querySelector("#admin-security-status")
+};
+
+function renderSecuritySweeps(sweeps) {
+  if (!securityEls.list) return;
+  securityEls.list.innerHTML = (sweeps || []).length ? sweeps.slice(0, 5).map((sweep) => {
+    const sev = { critical: "🔴", high: "🟠", info: "🔵" };
+    const lines = [
+      ...(sweep.findings || []).map((finding) => `${sev[finding.sev] || "🔵"} ${escapeText(finding.msg)}`),
+      ...(sweep.passed || []).map((msg) => `✅ ${escapeText(msg)}`)
+    ];
+    const seriousCount = (sweep.findings || []).filter((finding) => finding.sev !== "info").length;
+    return `<div class="admin-row">
+      <strong>${seriousCount ? `${seriousCount} issue${seriousCount === 1 ? "" : "s"} found` : "All clear"} · ${sweep.at ? new Date(sweep.at).toLocaleString() : ""}</strong>
+      <span style="white-space:pre-line">${lines.join("\n")}</span>
+    </div>`;
+  }).join("") : '<p class="launch-status">No sweeps recorded yet — the first runs ~15 seconds after each deploy.</p>';
+}
+
+async function loadSecuritySweeps() {
+  if (!adminToken() || !securityEls.list) return;
+  try {
+    const result = await getJson("/api/admin/security");
+    renderSecuritySweeps(result.sweeps || []);
+  } catch { /* token panel reports auth problems */ }
+}
+
+securityEls.run?.addEventListener("click", async () => {
+  if (!adminToken()) {
+    securityEls.status.textContent = "Enter the admin token first.";
+    securityEls.status.className = "launch-status launch-status-error";
+    return;
+  }
+  securityEls.run.disabled = true;
+  securityEls.status.textContent = "Sweeping…";
+  securityEls.status.className = "launch-status";
+  try {
+    const result = await postJson("/api/admin/security");
+    renderSecuritySweeps([result.sweep]);
+    const serious = (result.sweep.findings || []).filter((finding) => finding.sev !== "info").length;
+    securityEls.status.textContent = serious ? `${serious} issue${serious === 1 ? "" : "s"} found — details below.` : "All clear ✅";
+    securityEls.status.className = `launch-status ${serious ? "launch-status-error" : "launch-status-ok"}`;
+  } catch (error) {
+    securityEls.status.textContent = error.message || "Sweep failed.";
+    securityEls.status.className = "launch-status launch-status-error";
+  } finally {
+    securityEls.run.disabled = false;
   }
 });
