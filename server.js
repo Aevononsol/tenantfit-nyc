@@ -2616,7 +2616,7 @@ async function siteIntelligence(zip, location = null) {
     // around the analyzed point; the nearest one is "the space itself".
     location?.lat && location?.lng
       ? socrataJson("64uk-42ks", {
-          $select: "address,latitude,longitude,lotarea,bldgarea,comarea,resarea,retailarea,officearea,numfloors,yearbuilt,assesstot,assessland,unitsres,unitstotal,bldgclass,landuse,builtfar,residfar,commfar",
+          $select: "address,latitude,longitude,lotarea,bldgarea,comarea,resarea,retailarea,officearea,numfloors,yearbuilt,assesstot,assessland,unitsres,unitstotal,bldgclass,landuse,builtfar,residfar,commfar,ownername,ownertype,borough,block,lot",
           $where: `latitude > ${location.lat - 0.0007} AND latitude < ${location.lat + 0.0007} AND longitude > ${location.lng - 0.0009} AND longitude < ${location.lng + 0.0009}`,
           $limit: "40"
         }).catch(integrationFallback("PLUTO lot lookup", []))
@@ -2687,6 +2687,17 @@ async function siteIntelligence(zip, location = null) {
         builtFar: Number(typedNumber(best.builtfar).toFixed(2)) || null,
         maxCommercialFar: Number(typedNumber(best.commfar).toFixed(2)) || null,
         maxResidentialFar: Number(typedNumber(best.residfar).toFixed(2)) || null,
+        // Ownership is public record (PLUTO); ACRIS deep-link lets a broker
+        // jump from the (usually LLC) owner name to the actual signed deeds.
+        ownerName: best.ownername ? safeText(best.ownername, 160) : null,
+        acrisUrl: (() => {
+          const boroughCode = { MN: 1, BX: 2, BK: 3, QN: 4, SI: 5 }[String(best.borough || "").toUpperCase()];
+          const block = Math.round(typedNumber(best.block));
+          const lotNum = Math.round(typedNumber(best.lot));
+          return boroughCode && block && lotNum
+            ? `https://a836-acris.nyc.gov/bblsearch/bblsearch.asp?borough=${boroughCode}&block=${block}&lot=${lotNum}`
+            : null;
+        })(),
         source: "NYC PLUTO tax-lot record (nearest lot to the address)"
       };
     }

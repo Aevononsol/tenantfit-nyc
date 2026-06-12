@@ -4221,10 +4221,20 @@ function sv3SpaceItselfCard(ctx) {
     const headroom = Math.max(0, Math.round((1 - lot.builtFar / maxFar) * 100));
     add("Expansion headroom", `${headroom}%<span class="u"> estimate</span>`);
   }
+  // Owner name is a paid tease: masked for free users, revealed for subscribers/VIP.
+  let acrisLine = "";
+  if (lot.ownerName || lot.acrisUrl) {
+    if (sv3ReportUnlocked()) {
+      if (lot.ownerName) add("Building owner", `${escapeText(lot.ownerName)}<span class="u"> NYC public record</span>`);
+      if (lot.acrisUrl) acrisLine = `<div class="desc" style="margin-top:8px"><a href="${escapeText(lot.acrisUrl)}" target="_blank" rel="noopener" style="color:var(--teal,#39C2D6);text-decoration:none;font-weight:600">View deeds &amp; ownership history (ACRIS) ↗</a><span style="opacity:.6"> — the city's deed registry for this exact lot. If the owner is an LLC, the signed deeds usually name the people behind it.</span></div>`;
+    } else if (lot.ownerName) {
+      add("Building owner", `●●●●●●●●●●<span class="u"> subscribers</span>`);
+    }
+  }
   const distNote = Number.isFinite(lot.distanceMeters) && lot.distanceMeters > 60 ? ` · nearest lot ~${lot.distanceMeters}m away` : "";
   return `<div class="card">
     <div class="section-label"><span class="n">★</span> The space itself</div>
-    <div class="space-grid">${rows.join("")}</div>
+    <div class="space-grid">${rows.join("")}</div>${acrisLine}
     <div class="desc" style="margin-top:8px;opacity:.72">Source: NYC PLUTO tax-lot record${escapeText(distNote)}. Fields shown as recorded; assessed value is the city assessment (not market price); expansion headroom is an estimate from zoning FAR. Display only — not used in the score.</div>
   </div>`;
 }
