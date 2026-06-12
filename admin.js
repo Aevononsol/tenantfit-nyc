@@ -137,7 +137,9 @@ function renderRuns(runs) {
         <strong>${escapeText(run.agentName || run.agentId || "AreaIntel agent")}</strong>
         <span>${escapeText(run.summary || "Agent work completed.")}</span>
         ${actions.length ? `<small>${actions.map((action) => `• ${escapeText(action)}`).join("<br>")}</small>` : ""}
-        <small>${run.createdAt ? new Date(run.createdAt).toLocaleString() : "No timestamp"}</small>
+        <small style="display:flex;align-items:center;gap:10px">${run.createdAt ? new Date(run.createdAt).toLocaleString() : "No timestamp"}
+          <button type="button" data-run-del="${escapeText(run.id || "")}" style="padding:5px 11px;font-size:11px;background:rgba(255,107,107,.12);color:#FF8585;border:1px solid rgba(255,107,107,.3);box-shadow:none">Delete</button>
+        </small>
       </div>
     `;
   }).join("") : '<p class="launch-status">No agent output yet. Run agents after tasks are created.</p>';
@@ -526,5 +528,28 @@ document.addEventListener("click", async (event) => {
       const result = await postJson("/api/admin/emails", { action: "clear" });
       renderEmails(result);
     } finally { clearBtn.disabled = false; }
+  }
+});
+
+
+/* ---------- delete controls: agent output ---------- */
+document.addEventListener("click", async (event) => {
+  const runDel = event.target.closest("[data-run-del]");
+  if (runDel) {
+    runDel.disabled = true;
+    try {
+      const result = await postJson("/api/admin/agent-runs", { action: "delete", id: runDel.dataset.runDel });
+      renderRuns(result.runs || []);
+    } catch { runDel.disabled = false; }
+    return;
+  }
+  const clearRuns = event.target.closest("#admin-clear-runs");
+  if (clearRuns) {
+    if (!window.confirm("Delete all agent output? This cannot be undone.")) return;
+    clearRuns.disabled = true;
+    try {
+      const result = await postJson("/api/admin/agent-runs", { action: "clear" });
+      renderRuns(result.runs || []);
+    } finally { clearRuns.disabled = false; }
   }
 });
