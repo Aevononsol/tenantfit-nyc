@@ -59,13 +59,18 @@ async function postJson(path, payload = {}) {
   return result;
 }
 
+let leadsCache = [];
 function renderLeads(leads) {
+  leadsCache = leads || [];
   if (!adminEls.leads) return;
   adminEls.leads.innerHTML = leads.length ? leads.slice(0, 50).map((lead) => `
     <div class="admin-row">
       <strong>${escapeText(lead.name || lead.email || "New lead")}</strong>
       <span>${escapeText(lead.type || "lead")} · ${escapeText(lead.business || "No business")} · ${escapeText(lead.location || "No location")}</span>
-      <small style="display:flex;align-items:center;gap:10px">${escapeText(lead.email || lead.phone || "No contact")} · ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "No timestamp"}
+      ${lead.draftReply ? `<span style="white-space:pre-line;background:rgba(57,194,214,.07);border:1px solid rgba(57,194,214,.2);border-radius:10px;padding:10px 12px;margin-top:6px">✉️ <b>AI draft reply:</b>\n${escapeText(lead.draftReply)}</span>` : ""}
+      <small style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${escapeText(lead.email || lead.phone || "No contact")} · ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "No timestamp"}
+        ${lead.draftReply ? `<button type="button" data-copy-reply="${escapeText(lead.id || "")}" style="padding:5px 11px;font-size:11px;background:var(--surface);color:var(--txt);border:1px solid var(--border-strong);box-shadow:none">Copy reply</button>
+        <a href="mailto:${escapeText(lead.email || "")}?subject=${encodeURIComponent("Re: your SpotVest message")}&body=${encodeURIComponent(lead.draftReply)}" style="padding:5px 11px;font-size:11px;border-radius:12px;background:linear-gradient(135deg,#3BD6C9,#33A7D8);color:#04222a;font-weight:700;text-decoration:none">Send reply</a>` : ""}
         <button type="button" data-lead-del="${escapeText(lead.id || "")}" style="padding:5px 11px;font-size:11px;background:rgba(255,107,107,.12);color:#FF8585;border:1px solid rgba(255,107,107,.3);box-shadow:none">Delete</button>
       </small>
     </div>
@@ -186,6 +191,7 @@ async function loadAdmin() {
     loadProspects();
     loadAdminReviews();
     loadSecuritySweeps();
+    loadBriefs();
     setStatus("Admin operations loaded.", "launch-status-ok");
   } catch (error) {
     setStatus(error.message || "Could not load admin operations.", "launch-status-error");
@@ -303,7 +309,9 @@ function renderProspectRow(prospect, saved) {
       <small><button type="button" data-prospect-save='${escapeText(JSON.stringify(prospect))}' style="padding:7px 14px;font-size:12px">Save prospect</button></small>
     </div>`;
   }
-  const pitch = prospectPitch(prospect);
+  const pitch = prospect.draftPitch
+    ? { subject: "Evidence for your listings — SpotVest", body: prospect.draftPitch }
+    : prospectPitch(prospect);
   const mailto = `mailto:?subject=${encodeURIComponent(pitch.subject)}&body=${encodeURIComponent(pitch.body)}`;
   return `<div class="admin-row">
     <strong>${escapeText(prospect.name)}</strong>
@@ -382,7 +390,9 @@ document.addEventListener("click", async (event) => {
   if (copyButton) {
     const prospect = prospectCache.find((candidate) => candidate.id === copyButton.dataset.prospectCopy);
     if (!prospect) return;
-    const pitch = prospectPitch(prospect);
+    const pitch = prospect.draftPitch
+    ? { subject: "Evidence for your listings — SpotVest", body: prospect.draftPitch }
+    : prospectPitch(prospect);
     try {
       await navigator.clipboard.writeText(`Subject: ${pitch.subject}\n\n${pitch.body}`);
       copyButton.textContent = "Copied ✓";
@@ -552,4 +562,79 @@ document.addEventListener("click", async (event) => {
       renderRuns(result.runs || []);
     } finally { clearRuns.disabled = false; }
   }
+});
+
+
+/* ---------- SpotVest AI agents panel ---------- */
+const aiEls = {
+  brief: document.querySelector("#ai-run-brief"),
+  replies: document.querySelector("#ai-run-replies"),
+  pitches: document.querySelector("#ai-run-pitches"),
+  status: document.querySelector("#ai-status"),
+  briefs: document.querySelector("#ai-briefs")
+};
+
+function renderBriefs(briefs) {
+  if (!aiEls.briefs) return;
+  aiEls.briefs.innerHTML = (briefs || []).length ? briefs.slice(0, 5).map((brief) => `
+    <div class="admin-row">
+      <strong>📊 Brief · ${brief.createdAt ? new Date(brief.createdAt).toLocaleString() : ""}</strong>
+      <span style="white-space:pre-line">${escapeText(brief.text)}</span>
+    </div>
+  `).join("") : '<p class="launch-status">No briefs yet — generate one, or wait for the daily run (it emails you too).</p>';
+}
+
+async function loadBriefs() {
+  if (!adminToken() || !aiEls.briefs) return;
+  try {
+    const result = await getJson("/api/admin/ai");
+    renderBriefs(result.briefs || []);
+  } catch { /* token panel reports auth issues */ }
+}
+
+function aiStatus(text, kind) {
+  if (!aiEls.status) return;
+  aiEls.status.textContent = text;
+  aiEls.status.className = `launch-status ${kind || ""}`.trim();
+}
+
+async function runAgent(button, agent, after) {
+  if (!adminToken()) { aiStatus("Enter the admin token first.", "launch-status-error"); return; }
+  button.disabled = true;
+  aiStatus("Agent working… (10-30 seconds)");
+  try {
+    const result = await postJson("/api/admin/ai", { agent });
+    await after(result);
+  } catch (error) {
+    aiStatus(error.message || "Agent run failed.", "launch-status-error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+aiEls.brief?.addEventListener("click", () => runAgent(aiEls.brief, "brief", async (result) => {
+  renderBriefs([result.brief]);
+  loadBriefs();
+  aiStatus("Brief ready — also emailed to you.", "launch-status-ok");
+}));
+aiEls.replies?.addEventListener("click", () => runAgent(aiEls.replies, "lead-replies", async (result) => {
+  const leadsResult = await getJson("/api/admin/leads");
+  renderLeads(leadsResult.leads || []);
+  aiStatus(result.drafted ? `${result.drafted} repl${result.drafted === 1 ? "y" : "ies"} drafted — see the Lead queue.` : "No leads waiting for a draft.", "launch-status-ok");
+}));
+aiEls.pitches?.addEventListener("click", () => runAgent(aiEls.pitches, "prospect-pitches", async (result) => {
+  await loadProspects();
+  aiStatus(result.drafted ? `${result.drafted} pitch${result.drafted === 1 ? "" : "es"} written — see Saved prospects.` : "No new prospects waiting (save some in Outreach first).", "launch-status-ok");
+}));
+
+document.addEventListener("click", async (event) => {
+  const copyReply = event.target.closest("[data-copy-reply]");
+  if (!copyReply) return;
+  const lead = leadsCache.find((candidate) => candidate.id === copyReply.dataset.copyReply);
+  if (!lead?.draftReply) return;
+  try {
+    await navigator.clipboard.writeText(lead.draftReply);
+    copyReply.textContent = "Copied ✓";
+    setTimeout(() => { copyReply.textContent = "Copy reply"; }, 1500);
+  } catch { /* clipboard unavailable */ }
 });
