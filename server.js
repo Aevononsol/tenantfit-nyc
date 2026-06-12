@@ -2689,9 +2689,11 @@ async function siteIntelligence(zip, location = null) {
         maxResidentialFar: Number(typedNumber(best.residfar).toFixed(2)) || null,
         // Ownership is public record (PLUTO); ACRIS deep-link lets a broker
         // jump from the (usually LLC) owner name to the actual signed deeds.
+        // Staten Island deeds live at the Richmond County Clerk, not ACRIS,
+        // so no SI in the map — better no link than an always-empty one.
         ownerName: best.ownername ? safeText(best.ownername, 160) : null,
         acrisUrl: (() => {
-          const boroughCode = { MN: 1, BX: 2, BK: 3, QN: 4, SI: 5 }[String(best.borough || "").toUpperCase()];
+          const boroughCode = { MN: 1, BX: 2, BK: 3, QN: 4 }[String(best.borough || "").toUpperCase()];
           const block = Math.round(typedNumber(best.block));
           const lotNum = Math.round(typedNumber(best.lot));
           return boroughCode && block && lotNum

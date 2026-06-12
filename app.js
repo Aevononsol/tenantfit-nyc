@@ -4226,7 +4226,7 @@ function sv3SpaceItselfCard(ctx) {
   if (lot.ownerName || lot.acrisUrl) {
     if (sv3ReportUnlocked()) {
       if (lot.ownerName) add("Building owner", `${escapeText(lot.ownerName)}<span class="u"> NYC public record</span>`);
-      if (lot.acrisUrl) acrisLine = `<div class="desc" style="margin-top:8px"><a href="${escapeText(lot.acrisUrl)}" target="_blank" rel="noopener" style="color:var(--teal,#39C2D6);text-decoration:none;font-weight:600">View deeds &amp; ownership history (ACRIS) ↗</a><span style="opacity:.6"> — the city's deed registry for this exact lot. If the owner is an LLC, the signed deeds usually name the people behind it.</span></div>`;
+      if (lot.acrisUrl) acrisLine = `<div class="desc" style="margin-top:8px"><a href="${escapeText(lot.acrisUrl)}" target="_blank" rel="noopener" style="color:var(--teal,#39C2D6);text-decoration:none;font-weight:600">View deeds &amp; ownership history (ACRIS) ↗</a><span style="opacity:.6"> — the city's deed registry for this exact lot. If the owner is an LLC, the signed deeds usually name the people behind it. No records there means no sale or mortgage filed since 1966 — a long-held building (condo deeds are filed per unit).</span></div>`;
     } else if (lot.ownerName) {
       add("Building owner", `●●●●●●●●●●<span class="u"> subscribers</span>`);
     }
