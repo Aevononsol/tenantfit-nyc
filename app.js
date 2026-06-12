@@ -8705,8 +8705,13 @@ function sv3MergePurchases(purchases) {
   try { localStorage.setItem(purchaseStorageKey, JSON.stringify(merged)); } catch { /* ignore */ }
 }
 
+let sv3LastRestoreAt = 0;
 async function sv3RestorePurchases() {
   if (!storedAccount()) return;
+  // Throttle: visibility changes fire often; one server pull per 15s is
+  // plenty and stays far under the endpoint's rate limit.
+  if (Date.now() - sv3LastRestoreAt < 15_000) return;
+  sv3LastRestoreAt = Date.now();
   try {
     const response = await fetch("/api/report-credits", { credentials: "same-origin" });
     const result = await response.json().catch(() => ({}));
@@ -8716,6 +8721,14 @@ async function sv3RestorePurchases() {
     }
   } catch { /* offline — local copy still applies */ }
 }
+
+// Whenever the tab comes back into view — returning from Stripe, from the
+// receipt email, from anywhere — re-pull entitlements and refresh the lock
+// state. This catches every handoff race the load-time path can lose on iOS.
+window.addEventListener("pageshow", () => { sv3RestorePurchases(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") sv3RestorePurchases();
+});
 
 document.querySelector("#sv3-app")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-paywall-action]");
@@ -8837,6 +8850,9 @@ document.querySelectorAll("[data-checkout-product]").forEach((button) => {
         refs.zip.value = pending.zip;
       }
       document.querySelector("#sv3-analyze")?.click();
+      // Belt and braces: if any timing race rendered the report locked
+      // despite the saved purchase, these late re-renders flip it open.
+      [4000, 9000, 15000].forEach((delay) => window.setTimeout(sv3RerenderReport, delay));
     }
   } catch (error) {
     stripUrl();
