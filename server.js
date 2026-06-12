@@ -3013,9 +3013,11 @@ async function sendFile(response, pathname) {
     ? "index.html"
     : ["/account", "/login", "/signup", "/verify-email", "/reset-password"].includes(pathname)
       ? "account.html"
-      : pathname === "/admin"
-        ? "admin.html"
-        : pathname.slice(1);
+      : ["/legal", "/privacy", "/terms"].includes(pathname)
+        ? "legal.html"
+        : pathname === "/admin"
+          ? "admin.html"
+          : pathname.slice(1);
   const normalized = normalize(requested);
 
   if (normalized.startsWith("..") || normalized.includes("/.env")) {
