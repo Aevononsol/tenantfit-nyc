@@ -4255,7 +4255,17 @@ createServer(async (request, response) => {
         sendJson(response, 401, { error: "Admin token required." });
         return;
       }
-      const runs = await readJsonStore("agent-runs", []);
+      let runs = await readJsonStore("agent-runs", []);
+      if (request.method === "POST") {
+        const body = await readRequestJson(request);
+        if (body.action === "delete" && body.id) {
+          runs = runs.filter((run) => run.id !== body.id);
+          await writeJsonStore("agent-runs", runs);
+        } else if (body.action === "clear") {
+          runs = [];
+          await writeJsonStore("agent-runs", runs);
+        }
+      }
       sendJson(response, 200, { runs: runs.slice(0, 100) });
       return;
     }
