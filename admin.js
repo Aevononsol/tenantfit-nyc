@@ -65,7 +65,9 @@ function renderLeads(leads) {
     <div class="admin-row">
       <strong>${escapeText(lead.name || lead.email || "New lead")}</strong>
       <span>${escapeText(lead.type || "lead")} · ${escapeText(lead.business || "No business")} · ${escapeText(lead.location || "No location")}</span>
-      <small>${escapeText(lead.email || lead.phone || "No contact")} · ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "No timestamp"}</small>
+      <small style="display:flex;align-items:center;gap:10px">${escapeText(lead.email || lead.phone || "No contact")} · ${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "No timestamp"}
+        <button type="button" data-lead-del="${escapeText(lead.id || "")}" style="padding:5px 11px;font-size:11px;background:rgba(255,107,107,.12);color:#FF8585;border:1px solid rgba(255,107,107,.3);box-shadow:none">Delete</button>
+      </small>
     </div>
   `).join("") : '<p class="launch-status">No leads yet.</p>';
 }
@@ -107,7 +109,9 @@ function renderEmails(result) {
     <div class="admin-row">
       <strong>${escapeText(email.subject || email.type || "email")}</strong>
       <span>to ${escapeText(email.to || "—")} · ${escapeText(email.status || "")}</span>
-      <small>${email.createdAt ? new Date(email.createdAt).toLocaleString() : "No timestamp"}</small>
+      <small style="display:flex;align-items:center;gap:10px">${email.createdAt ? new Date(email.createdAt).toLocaleString() : "No timestamp"}
+        <button type="button" data-email-del="${escapeText(email.id || "")}" style="padding:5px 11px;font-size:11px;background:rgba(255,107,107,.12);color:#FF8585;border:1px solid rgba(255,107,107,.3);box-shadow:none">Delete</button>
+      </small>
     </div>
   `).join("") : '<p class="launch-status">No emails sent yet.</p>';
 }
@@ -490,5 +494,37 @@ securityEls.run?.addEventListener("click", async () => {
     securityEls.status.className = "launch-status launch-status-error";
   } finally {
     securityEls.run.disabled = false;
+  }
+});
+
+
+/* ---------- delete controls: email log + lead queue ---------- */
+document.addEventListener("click", async (event) => {
+  const emailDel = event.target.closest("[data-email-del]");
+  if (emailDel) {
+    emailDel.disabled = true;
+    try {
+      const result = await postJson("/api/admin/emails", { action: "delete", id: emailDel.dataset.emailDel });
+      renderEmails(result);
+    } catch { emailDel.disabled = false; }
+    return;
+  }
+  const leadDel = event.target.closest("[data-lead-del]");
+  if (leadDel) {
+    leadDel.disabled = true;
+    try {
+      const result = await postJson("/api/admin/leads", { action: "delete", id: leadDel.dataset.leadDel });
+      renderLeads(result.leads || []);
+    } catch { leadDel.disabled = false; }
+    return;
+  }
+  const clearBtn = event.target.closest("#admin-clear-emails");
+  if (clearBtn) {
+    if (!window.confirm("Delete the entire email log? This cannot be undone.")) return;
+    clearBtn.disabled = true;
+    try {
+      const result = await postJson("/api/admin/emails", { action: "clear" });
+      renderEmails(result);
+    } finally { clearBtn.disabled = false; }
   }
 });

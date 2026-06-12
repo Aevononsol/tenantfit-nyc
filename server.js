@@ -4155,10 +4155,21 @@ createServer(async (request, response) => {
         sendJson(response, 401, { error: "Admin token required." });
         return;
       }
-      const outbox = await readJsonStore("email-outbox", []);
+      let outbox = await readJsonStore("email-outbox", []);
+      if (request.method === "POST") {
+        const body = await readRequestJson(request);
+        if (body.action === "delete" && body.id) {
+          outbox = outbox.filter((email) => email.id !== body.id);
+          await writeJsonStore("email-outbox", outbox);
+        } else if (body.action === "clear") {
+          outbox = [];
+          await writeJsonStore("email-outbox", outbox);
+        }
+      }
       sendJson(response, 200, {
         total: outbox.length,
         emails: outbox.slice(0, 200).map((email) => ({
+          id: email.id,
           type: email.type,
           to: email.to,
           subject: email.subject,
@@ -4174,7 +4185,14 @@ createServer(async (request, response) => {
         sendJson(response, 401, { error: "Admin token required." });
         return;
       }
-      const leads = await readJsonStore("leads", []);
+      let leads = await readJsonStore("leads", []);
+      if (request.method === "POST") {
+        const body = await readRequestJson(request);
+        if (body.action === "delete" && body.id) {
+          leads = leads.filter((lead) => lead.id !== body.id);
+          await writeJsonStore("leads", leads);
+        }
+      }
       sendJson(response, 200, { leads: leads.map(publicLead) });
       return;
     }
