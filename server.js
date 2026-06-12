@@ -1134,6 +1134,12 @@ function authTokenFromRequest(request) {
   return parseCookies(request).areaintel_session || bearerToken(request);
 }
 
+// One subscription = one person. An account may hold this many simultaneous
+// sign-ins (a real customer's phone + laptop); signing in on another device
+// silently evicts the oldest session. A company sharing one login across a
+// team logs each other out constantly, which is the point.
+const MAX_SESSIONS_PER_ACCOUNT = 2;
+
 async function createSession(accountIdValue, request) {
   const token = sessionToken();
   const sessions = await readJsonStore("sessions", []);
@@ -1151,7 +1157,15 @@ async function createSession(accountIdValue, request) {
     ip: "",
     userAgent: safeText(request.headers["user-agent"], 260)
   });
-  await writeJsonStore("sessions", active.slice(0, 5000));
+  // Enforce the device cap: keep the newest sessions for this account
+  // (the one just created is first), drop the rest.
+  let kept = 0;
+  const capped = active.filter((session) => {
+    if (session.accountId !== accountIdValue) return true;
+    kept += 1;
+    return kept <= MAX_SESSIONS_PER_ACCOUNT;
+  });
+  await writeJsonStore("sessions", capped.slice(0, 5000));
   return token;
 }
 
