@@ -3688,7 +3688,9 @@ createServer(async (request, response) => {
         return;
       }
       const DAILY_ANALYSIS_LIMIT = 5;
-      const today = new Date().toISOString().slice(0, 10);
+      // "Day" means a New York calendar day — the counter resets at midnight
+      // ET, matching what an NYC customer expects (UTC reset landed at 8 PM).
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
       const isOwner = normalizeEmail(account.email) === normalizeEmail(ownerEmail());
       const usage = await readJsonStore("usage", []);
       let entry = usage.find((candidate) => candidate.accountId === account.id && candidate.date === today);
