@@ -5787,15 +5787,26 @@ function initSpotVestV3Controls() {
   app.addEventListener("click", (event) => {
     const button = event.target.closest("[data-sv3-space-analyze]");
     if (!button) return;
+    event.preventDefault();
     const refs = sv3Refs();
-    const addr = sv3TitleCaseAddr(button.dataset.sv3SpaceAnalyze || "");
+    const raw = button.dataset.sv3SpaceAnalyze || "";
+    const addr = sv3TitleCaseAddr(raw);
     if (!addr) return;
-    if (refs.address) refs.address.value = `${addr}, New York, NY ${state.zip || ""}`.trim();
-    sv3ShowMain("input");
+    // A bare storefront number like "229 EAST 2 STREET" geocodes better with
+    // the borough than with a ZIP tacked on; keep the ZIP only as a hint.
+    const full = `${addr}, New York, NY`;
+    if (refs.address) refs.address.value = full;
+    if (elements.addressInput) elements.addressInput.value = full;
+    if (refs.zip) refs.zip.value = ""; // address wins, don't let a stale ZIP hijack runSmart
+    // Force a fresh address-level run even if the building is in the same ZIP
+    // as the report on screen — otherwise the cached render short-circuits and
+    // it looks like the button did nothing.
+    state.location = null;
+    sv3LastRender = null;
+    sv3FootReal = null;
+    sv3ShowTab("overview"); // the report lands on Overview when it renders
+    sv3PaywallToast(`Analyzing ${addr}…`);
     document.querySelector("#sv3-analyze")?.click();
-    // Land on Overview: the tap re-runs the analysis for this address, and
-    // staying on the (unchanged) Spaces list made it look like a dead button.
-    sv3ShowTab("overview");
   });
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
   document.querySelector("#sv3-compare-add")?.addEventListener("click", () => {
