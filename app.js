@@ -5793,6 +5793,9 @@ function initSpotVestV3Controls() {
     if (refs.address) refs.address.value = `${addr}, New York, NY ${state.zip || ""}`.trim();
     sv3ShowMain("input");
     document.querySelector("#sv3-analyze")?.click();
+    // Land on Overview: the tap re-runs the analysis for this address, and
+    // staying on the (unchanged) Spaces list made it look like a dead button.
+    sv3ShowTab("overview");
   });
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
   document.querySelector("#sv3-compare-add")?.addEventListener("click", () => {

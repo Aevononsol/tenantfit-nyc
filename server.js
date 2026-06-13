@@ -2457,17 +2457,22 @@ async function storefrontFieldMap() {
   const sample = await socrataJson("92iy-9c3n", { $limit: "1" });
   const keys = Object.keys((Array.isArray(sample) && sample[0]) || {});
   if (!keys.length) throw new Error("storefront registry: empty sample row");
+  // A combined "borough_block_lot"-style key contains the words "block" and
+  // "lot", so detect it first and exclude it from the per-part picks.
+  const bbl = sfPick(keys, /^bbl$/i, /borough.*block.*lot/i, /bbl/i);
+  const rest = keys.filter((key) => key !== bbl);
   storefrontFields = {
-    zip: sfPick(keys, /zip/i),
-    address: sfPick(keys, /street.*address/i, /address/i),
-    borough: sfPick(keys, /^borough$/i, /^boro/i),
-    block: sfPick(keys, /^block$/i, /block/i),
-    lot: sfPick(keys, /^lot$/i, /(^|_)lot($|_)/i),
-    year: sfPick(keys, /filing.*(year|period)/i, /report.*year/i, /year/i),
-    vacantJun: sfPick(keys, /vacant.*(6_30|june|jun)/i),
-    vacantDec: sfPick(keys, /vacant.*(12_31|december|dec)/i, /vacant/i),
-    construction: sfPick(keys, /construct/i),
-    bizType: sfPick(keys, /business/i, /activity/i)
+    zip: sfPick(rest, /zip/i, /postcode/i, /postal/i),
+    address: sfPick(rest, /street.*address/i, /address/i),
+    borough: sfPick(rest, /^borough$/i, /^boro/i, /borough/i),
+    block: sfPick(rest, /^block$/i, /tax.*block/i, /block/i),
+    lot: sfPick(rest, /^lot$/i, /tax.*lot/i, /(^|_)lot($|_)/i),
+    bbl,
+    year: sfPick(rest, /filing.*(year|period)/i, /report.*year/i, /year/i),
+    vacantJun: sfPick(rest, /vacant.*(6_30|june|jun)/i),
+    vacantDec: sfPick(rest, /vacant.*(12_31|december|dec)/i, /vacant/i),
+    construction: sfPick(rest, /construct/i),
+    bizType: sfPick(rest, /business/i, /activity/i)
   };
   return storefrontFields;
 }
@@ -2481,7 +2486,14 @@ function sfNormAddr(value) {
 function sfBoroughCode(value) {
   const v = String(value || "").trim().toUpperCase();
   if (/^[1-5]$/.test(v)) return Number(v);
-  return { MANHATTAN: 1, MN: 1, BRONX: 2, BX: 2, BROOKLYN: 3, BK: 3, QUEENS: 4, QN: 4, "STATEN ISLAND": 5, SI: 5 }[v] || null;
+  // Prefix matching: registry values arrive as "MANHATTAN", "MANHATTAN / NEW
+  // YORK", county names, or codes depending on the filing-year vintage.
+  if (v === "MN" || v.startsWith("MANHATTAN") || v.startsWith("NEW YORK")) return 1;
+  if (v === "BX" || v.startsWith("BRONX")) return 2;
+  if (v === "BK" || v.startsWith("BROOKLYN") || v.startsWith("KINGS")) return 3;
+  if (v === "QN" || v.startsWith("QUEENS")) return 4;
+  if (v === "SI" || v.startsWith("STATEN") || v.startsWith("RICHMOND")) return 5;
+  return null;
 }
 
 async function vacantStorefronts(zip) {
@@ -2522,9 +2534,24 @@ async function vacantStorefronts(zip) {
     if (!isVacant) continue;
     const addr = String(row[f.address]).trim();
     const norm = sfNormAddr(addr);
-    const boroughCode = sfBoroughCode(row[f.borough]);
-    const block = Math.round(typedNumber(row[f.block]));
-    const lotNum = Math.round(typedNumber(row[f.lot]));
+    // BBL: prefer a combined field ("1-00437-0005" → 1004370005), else build
+    // it from borough + block + lot; fill missing parts back from the BBL.
+    let bblNum = null;
+    if (f.bbl) {
+      const digits = String(row[f.bbl] || "").replace(/\D+/g, "");
+      if (digits.length === 10) bblNum = Number(digits);
+    }
+    let boroughCode = sfBoroughCode(row[f.borough]);
+    let block = Math.round(typedNumber(row[f.block]));
+    let lotNum = Math.round(typedNumber(row[f.lot]));
+    if (!bblNum && boroughCode && block && lotNum) {
+      bblNum = boroughCode * 1000000000 + block * 10000 + lotNum;
+    }
+    if (bblNum && !(boroughCode && block && lotNum)) {
+      boroughCode = Math.floor(bblNum / 1000000000);
+      block = Math.floor((bblNum % 1000000000) / 10000);
+      lotNum = bblNum % 10000;
+    }
     const taken = liquorAt.has(norm);
     vacancies.push({
       address: safeText(addr, 120),
@@ -2532,7 +2559,7 @@ async function vacantStorefronts(zip) {
       reportedAsOf: jun ? "mid-year update (Jun 30)" : "annual filing (Dec 31)",
       constructionReported: f.construction ? sfYes(row[f.construction]) : false,
       businessType: f.bizType ? safeText(String(row[f.bizType] || ""), 60) || null : null,
-      bbl: boroughCode && block && lotNum ? boroughCode * 1000000000 + block * 10000 + lotNum : null,
+      bbl: bblNum,
       // Staten Island deeds live at the Richmond County Clerk, not ACRIS.
       acrisUrl: boroughCode && boroughCode !== 5 && block && lotNum
         ? `https://a836-acris.nyc.gov/bblsearch/bblsearch.asp?borough=${boroughCode}&block=${block}&lot=${lotNum}`
@@ -2546,23 +2573,38 @@ async function vacantStorefronts(zip) {
     (a.mayBeTaken ? 1 : 0) - (b.mayBeTaken ? 1 : 0) || (b.year || 0) - (a.year || 0)
   );
   const top = vacancies.slice(0, 80);
-  // Owner names for the returned rows in ONE PLUTO query — enrichment, not a gate.
+  // Owner names for the returned rows in ONE PLUTO query — enrichment, not a
+  // gate. PLUTO's bbl is numeric, but retry quoted in case the type changes.
   const bbls = [...new Set(top.map((v) => v.bbl).filter(Boolean))];
+  let ownerLookup = "no BBLs derived from registry rows";
   if (bbls.length) {
     try {
-      const ownerRows = await socrataJson("64uk-42ks", {
-        $select: "bbl,ownername",
-        $where: `bbl in(${bbls.join(",")})`,
-        $limit: String(bbls.length + 5)
-      });
+      let ownerRows;
+      try {
+        ownerRows = await socrataJson("64uk-42ks", {
+          $select: "bbl,ownername",
+          $where: `bbl in(${bbls.join(",")})`,
+          $limit: String(bbls.length + 5)
+        });
+      } catch {
+        ownerRows = await socrataJson("64uk-42ks", {
+          $select: "bbl,ownername",
+          $where: `bbl in(${bbls.map((b) => `'${b}'`).join(",")})`,
+          $limit: String(bbls.length + 5)
+        });
+      }
       const owners = new Map(
         (Array.isArray(ownerRows) ? ownerRows : []).map((r) => [String(Math.round(typedNumber(r.bbl))), r.ownername])
       );
+      let matched = 0;
       top.forEach((v) => {
         const name = v.bbl ? owners.get(String(v.bbl)) : null;
-        if (name) v.ownerName = safeText(name, 160);
+        if (name) { v.ownerName = safeText(name, 160); matched++; }
       });
-    } catch { /* list still useful without names */ }
+      ownerLookup = `matched ${matched} of ${bbls.length} BBLs`;
+    } catch (error) {
+      ownerLookup = `PLUTO lookup failed: ${String(error?.message || error).slice(0, 120)}`;
+    }
   }
   return {
     available: true,
@@ -2571,6 +2613,7 @@ async function vacantStorefronts(zip) {
     vacantCount: vacancies.length,
     latestFilingYear: latestYear || null,
     vacancies: top,
+    diagnostics: { fields: f, ownerLookup },
     source: "NYC Storefront Registry (Local Law 157) — owner-reported vacancy, filed annually with a mid-year update"
   };
 }
