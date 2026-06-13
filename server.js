@@ -2439,6 +2439,142 @@ async function nearbyConstruction(lat, lng) {
   };
 }
 
+/* ---------- Vacant storefronts — NYC DOF Storefront Registry (Local Law 157) ---------- */
+// Owners of ground-floor storefronts must tell the city once a year whether
+// each space was vacant on Dec 31, plus a mid-year update for new vacancies
+// as of Jun 30. Column names are discovered from a sample row at runtime so a
+// DOF schema rename degrades to "unavailable" instead of 400ing forever.
+let storefrontFields = null;
+function sfPick(keys, ...patterns) {
+  for (const pattern of patterns) {
+    const hit = keys.find((key) => pattern.test(key));
+    if (hit) return hit;
+  }
+  return null;
+}
+async function storefrontFieldMap() {
+  if (storefrontFields) return storefrontFields;
+  const sample = await socrataJson("92iy-9c3n", { $limit: "1" });
+  const keys = Object.keys((Array.isArray(sample) && sample[0]) || {});
+  if (!keys.length) throw new Error("storefront registry: empty sample row");
+  storefrontFields = {
+    zip: sfPick(keys, /zip/i),
+    address: sfPick(keys, /street.*address/i, /address/i),
+    borough: sfPick(keys, /^borough$/i, /^boro/i),
+    block: sfPick(keys, /^block$/i, /block/i),
+    lot: sfPick(keys, /^lot$/i, /(^|_)lot($|_)/i),
+    year: sfPick(keys, /filing.*(year|period)/i, /report.*year/i, /year/i),
+    vacantJun: sfPick(keys, /vacant.*(6_30|june|jun)/i),
+    vacantDec: sfPick(keys, /vacant.*(12_31|december|dec)/i, /vacant/i),
+    construction: sfPick(keys, /construct/i),
+    bizType: sfPick(keys, /business/i, /activity/i)
+  };
+  return storefrontFields;
+}
+const sfYes = (value) => /^(y|yes|true|vacant)/i.test(String(value ?? "").trim()) && !/^not/i.test(String(value ?? "").trim());
+function sfNormAddr(value) {
+  let s = String(value || "").toUpperCase().replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  s = s.replace(/\b(\d+)(ST|ND|RD|TH)\b/g, "$1");
+  const suffix = { STREET: "ST", AVENUE: "AVE", BOULEVARD: "BLVD", ROAD: "RD", PLACE: "PL", DRIVE: "DR", LANE: "LN", COURT: "CT", PARKWAY: "PKWY", TERRACE: "TER", SQUARE: "SQ", EAST: "E", WEST: "W", NORTH: "N", SOUTH: "S" };
+  return s.split(" ").map((word) => suffix[word] || word).join(" ");
+}
+function sfBoroughCode(value) {
+  const v = String(value || "").trim().toUpperCase();
+  if (/^[1-5]$/.test(v)) return Number(v);
+  return { MANHATTAN: 1, MN: 1, BRONX: 2, BX: 2, BROOKLYN: 3, BK: 3, QUEENS: 4, QN: 4, "STATEN ISLAND": 5, SI: 5 }[v] || null;
+}
+
+async function vacantStorefronts(zip) {
+  const f = await storefrontFieldMap();
+  if (!f.zip || !f.address || !(f.vacantDec || f.vacantJun)) {
+    throw new Error("storefront registry: schema not recognized");
+  }
+  const [rows, liquorRows] = await Promise.all([
+    socrataJson("92iy-9c3n", { $where: `${f.zip}='${zip}'`, $limit: "4000" }, { timeoutMs: 25000 }),
+    // Active liquor licenses at an address = signs of an operating business →
+    // the space may have been rented since the owner's last filing.
+    dataNyJson("9s3h-dpkz", { $where: `zipcode='${zip}'`, $limit: "3000" }).catch(() => [])
+  ]);
+  const liquorKeys = Object.keys((Array.isArray(liquorRows) && liquorRows[0]) || {});
+  const liquorAddrKey = sfPick(liquorKeys, /^address$/i, /street/i, /address/i);
+  const liquorAt = new Set(
+    liquorAddrKey ? liquorRows.map((row) => sfNormAddr(row[liquorAddrKey])).filter(Boolean) : []
+  );
+  // One storefront appears once per filing year — keep only the latest filing,
+  // so a 2023 "vacant" superseded by a 2024 "not vacant" drops out.
+  const latest = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const addr = String(row[f.address] || "").trim();
+    if (!addr) continue;
+    const key = `${row[f.borough] || ""}|${row[f.block] || ""}|${row[f.lot] || ""}|${sfNormAddr(addr)}`;
+    const year = Math.round(typedNumber(f.year ? row[f.year] : 0)) || 0;
+    const have = latest.get(key);
+    if (!have || year >= have.year) latest.set(key, { row, year });
+  }
+  const vacancies = [];
+  let latestYear = 0;
+  for (const { row, year } of latest.values()) {
+    latestYear = Math.max(latestYear, year);
+    const jun = f.vacantJun ? String(row[f.vacantJun] ?? "").trim() : "";
+    const dec = f.vacantDec ? String(row[f.vacantDec] ?? "").trim() : "";
+    // The mid-year update is the fresher signal when the owner filed one.
+    const isVacant = jun ? sfYes(jun) : sfYes(dec);
+    if (!isVacant) continue;
+    const addr = String(row[f.address]).trim();
+    const norm = sfNormAddr(addr);
+    const boroughCode = sfBoroughCode(row[f.borough]);
+    const block = Math.round(typedNumber(row[f.block]));
+    const lotNum = Math.round(typedNumber(row[f.lot]));
+    const taken = liquorAt.has(norm);
+    vacancies.push({
+      address: safeText(addr, 120),
+      year: year || null,
+      reportedAsOf: jun ? "mid-year update (Jun 30)" : "annual filing (Dec 31)",
+      constructionReported: f.construction ? sfYes(row[f.construction]) : false,
+      businessType: f.bizType ? safeText(String(row[f.bizType] || ""), 60) || null : null,
+      bbl: boroughCode && block && lotNum ? boroughCode * 1000000000 + block * 10000 + lotNum : null,
+      // Staten Island deeds live at the Richmond County Clerk, not ACRIS.
+      acrisUrl: boroughCode && boroughCode !== 5 && block && lotNum
+        ? `https://a836-acris.nyc.gov/bblsearch/bblsearch.asp?borough=${boroughCode}&block=${block}&lot=${lotNum}`
+        : null,
+      mayBeTaken: taken,
+      takenReason: taken ? "active liquor license at this address" : null,
+      ownerName: null
+    });
+  }
+  vacancies.sort((a, b) =>
+    (a.mayBeTaken ? 1 : 0) - (b.mayBeTaken ? 1 : 0) || (b.year || 0) - (a.year || 0)
+  );
+  const top = vacancies.slice(0, 80);
+  // Owner names for the returned rows in ONE PLUTO query — enrichment, not a gate.
+  const bbls = [...new Set(top.map((v) => v.bbl).filter(Boolean))];
+  if (bbls.length) {
+    try {
+      const ownerRows = await socrataJson("64uk-42ks", {
+        $select: "bbl,ownername",
+        $where: `bbl in(${bbls.join(",")})`,
+        $limit: String(bbls.length + 5)
+      });
+      const owners = new Map(
+        (Array.isArray(ownerRows) ? ownerRows : []).map((r) => [String(Math.round(typedNumber(r.bbl))), r.ownername])
+      );
+      top.forEach((v) => {
+        const name = v.bbl ? owners.get(String(v.bbl)) : null;
+        if (name) v.ownerName = safeText(name, 160);
+      });
+    } catch { /* list still useful without names */ }
+  }
+  return {
+    available: true,
+    zip,
+    totalStorefronts: latest.size,
+    vacantCount: vacancies.length,
+    latestFilingYear: latestYear || null,
+    vacancies: top,
+    source: "NYC Storefront Registry (Local Law 157) — owner-reported vacancy, filed annually with a mid-year update"
+  };
+}
+
 // "What's around" — walk-in-traffic generators within ~0.3 mi from OpenStreetMap
 // (Overpass, no key). Display only. Routed through the durable responseCache
 // (7-day) so we never hammer the free shared API per request. Facts only.
@@ -4684,6 +4820,25 @@ createServer(async (request, response) => {
         sendJson(response, 200, await nearbyConstruction(lat, lng));
       } catch (error) {
         sendJson(response, 200, { available: false, unavailable: true });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/vacant-storefronts") {
+      const zip = String(url.searchParams.get("zip") || "").trim();
+      if (!/^\d{5}$/.test(zip)) {
+        sendJson(response, 400, { error: "Provide a five-digit ZIP." });
+        return;
+      }
+      if (rateLimited(`vacants:${clientIp(request)}`, 20, 60_000)) {
+        sendJson(response, 429, { error: "Too many requests — try again in a minute." });
+        return;
+      }
+      try {
+        sendJson(response, 200, await vacantStorefronts(zip));
+      } catch (error) {
+        console.error("vacant storefronts failed:", error?.message || error);
+        sendJson(response, 200, { available: false, zip });
       }
       return;
     }

@@ -4047,6 +4047,7 @@ function sv3Refs() {
     tabRisk: app.querySelector("#sv3-tab-risk"),
     tabMoney: app.querySelector("#sv3-tab-money"),
     tabMethod: app.querySelector("#sv3-tab-method"),
+    tabSpaces: app.querySelector("#sv3-tab-spaces"),
     compareBody: app.querySelector("#sv3-compare-body"),
     biztype: app.querySelector("#sv3-biztype"),
     zip: app.querySelector("#sv3-zip"),
@@ -4330,6 +4331,81 @@ function sv3ConstructionCard(ctx) {
     ${c.estNewUnits > 0 ? `<div class="desc" style="margin-top:6px">est. <b style="color:var(--teal-bright)">~${c.estNewUnits}</b> new residential units coming <span style="font-style:italic;color:var(--txt-3)">— estimate; proposed in DOB filings, not all will complete</span></div>` : ""}
     <div class="transit-list" style="margin-top:10px">${projects}</div>
     <div class="src">NYC DOB NOW: Build – Job Application Filings · within 0.5 mi · last 36 months. New construction signals future demand. Display only — not used in the score.</div>
+  </div>`;
+}
+
+/* ---------- "Spaces" tab — vacant storefronts from the NYC Storefront Registry ---------- */
+let sv3VacantSpaces = null;
+async function sv3LoadVacantSpaces(zip) {
+  if (!zip) return;
+  if (sv3VacantSpaces && sv3VacantSpaces.key === zip) return; // loading or loaded
+  sv3VacantSpaces = { key: zip, loading: true, data: null };
+  try {
+    const res = await fetch(`/api/vacant-storefronts?zip=${encodeURIComponent(zip)}`);
+    const data = res.ok ? await res.json() : { available: false };
+    sv3VacantSpaces = { key: zip, loading: false, data };
+  } catch {
+    sv3VacantSpaces = { key: zip, loading: false, data: { available: false } };
+  }
+  sv3RefreshSpacesTab();
+}
+function sv3RefreshSpacesTab() {
+  const refs = sv3Refs();
+  const el = refs.tabSpaces;
+  if (!el) return;
+  const locked = !sv3ReportUnlocked();
+  const html = sv3SpacesHTML();
+  const key = (locked ? "L::" : "U::") + html;
+  if (el.__sv3html === key) return;
+  el.__sv3html = key;
+  el.innerHTML = html;
+  if (locked) sv3LockTabContent(el);
+  sv3BindActions();
+}
+function sv3SpacesHTML() {
+  const zip = state.zip;
+  const intro = `<div class="card">
+    <div class="section-label"><span class="n">◎</span> Vacant storefronts${zip ? ` · ${escapeText(zip)}` : ""}</div>
+    <div class="desc" style="margin-top:6px">Storefronts whose owners reported them <b>vacant</b> to the city — from NYC's Storefront Registry. Owners must file once a year (status on Dec 31) plus a mid-year update (Jun 30), so always confirm by phone: a space can rent between filings. The upside: many of these were never publicly listed anywhere.</div>
+  </div>`;
+  if (!zip) {
+    return intro + `<div class="card"><div class="desc">Run an analysis first — the vacant-storefront list follows the ZIP of your current report.</div></div>`;
+  }
+  const d = sv3VacantSpaces;
+  if (!d || d.key !== zip || d.loading) {
+    return intro + `<div class="card"><div class="desc">Checking the city's storefront registry for ${escapeText(zip)}…</div></div>`;
+  }
+  const data = d.data;
+  if (!data || !data.available) {
+    return intro + `<div class="card"><div class="desc">The storefront registry is unavailable right now — try again in a minute.</div></div>`;
+  }
+  const list = Array.isArray(data.vacancies) ? data.vacancies : [];
+  if (!list.length) {
+    return intro + `<div class="card"><div class="desc">No storefronts in ${escapeText(zip)} are registered vacant in the latest filings${data.totalStorefronts ? ` (${formatInteger(data.totalStorefronts)} storefronts on file)` : ""}. Tight market — or filings for this area haven't landed yet.</div><div class="src">${escapeText(data.source || "NYC Storefront Registry")}</div></div>`;
+  }
+  const unlocked = sv3ReportUnlocked();
+  const rows = list.map((v) => {
+    const badges =
+      (v.constructionReported ? ` <span class="vs-badge warn">Construction reported</span>` : "") +
+      (v.mayBeTaken ? ` <span class="vs-badge alert">May be taken — ${escapeText(v.takenReason || "signs of an active business")}</span>` : ` <span class="vs-badge ok">Likely still vacant</span>`);
+    const owner = unlocked
+      ? (v.ownerName
+          ? `Owner: <b>${escapeText(v.ownerName)}</b>${v.acrisUrl ? ` · <a href="${escapeText(v.acrisUrl)}" target="_blank" rel="noopener">deeds ↗</a>` : ""}`
+          : "Owner not in the city's lot record")
+      : `Owner: ●●●●●●●●<span class="u"> subscribers</span>`;
+    return `<div class="vs-row">
+      <div class="vs-main">
+        <div class="vs-addr">${escapeText(sv3TitleCaseAddr(v.address))}</div>
+        <div class="vs-meta">Owner-reported vacant${v.year ? ` · filed ${escapeText(String(v.year))}` : ""}${v.businessType ? ` · was: ${escapeText(v.businessType)}` : ""}${badges}</div>
+        <div class="vs-owner">${owner}</div>
+      </div>
+      <button class="btn sm" type="button" data-sv3-space-analyze="${escapeText(v.address)}">Analyze</button>
+    </div>`;
+  }).join("");
+  return intro + `<div class="card">
+    <div class="sub">${formatInteger(data.vacantCount || list.length)} reported vacant${data.totalStorefronts ? ` of ${formatInteger(data.totalStorefronts)} registered storefronts` : ""}${data.latestFilingYear ? ` · latest filings ${escapeText(String(data.latestFilingYear))}` : ""}</div>
+    <div class="vs-list">${rows}</div>
+    <div class="src">${escapeText(data.source || "NYC Storefront Registry")}. "May be taken" = an active liquor license at the address suggests a business has moved in since the filing. Display only — not used in the score.</div>
   </div>`;
 }
 
@@ -5293,6 +5369,8 @@ function renderSpotVestV3(profile, recommendations, analysis) {
   setIf(refs.tabRisk, sv3RiskHTML(ctx), !reportPaid);
   setIf(refs.tabMoney, sv3MoneyHTML(ctx), !reportPaid);
   setIf(refs.tabMethod, sv3MethodHTML(ctx), !reportPaid);
+  setIf(refs.tabSpaces, sv3SpacesHTML(), !reportPaid);
+  if (state.zip) sv3LoadVacantSpaces(state.zip);
   refs.app.querySelectorAll("[data-sv3-tab]").forEach((button) => {
     button.classList.toggle("locked", !reportPaid && button.dataset.sv3Tab !== "overview");
   });
@@ -5668,7 +5746,7 @@ function sv3ShowMain(name) {
 function sv3ShowTab(name) {
   const refs = sv3Refs();
   if (!refs.app) return;
-  ["overview", "market", "risk", "money", "method"].forEach((t) => {
+  ["overview", "market", "risk", "money", "method", "spaces"].forEach((t) => {
     const el = document.getElementById("sv3-tab-" + t);
     if (el) el.classList.toggle("hide", t !== name);
   });
@@ -5704,6 +5782,18 @@ function initSpotVestV3Controls() {
     });
   });
   document.querySelector("#sv3-close")?.addEventListener("click", () => sv3ShowMain("input"));
+  // "Analyze" on a vacant-storefront row: prefill the address and run the
+  // normal analysis flow (account gate + meter apply as usual).
+  app.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-sv3-space-analyze]");
+    if (!button) return;
+    const refs = sv3Refs();
+    const addr = sv3TitleCaseAddr(button.dataset.sv3SpaceAnalyze || "");
+    if (!addr) return;
+    if (refs.address) refs.address.value = `${addr}, New York, NY ${state.zip || ""}`.trim();
+    sv3ShowMain("input");
+    document.querySelector("#sv3-analyze")?.click();
+  });
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
   document.querySelector("#sv3-compare-add")?.addEventListener("click", () => {
     if (!sv3ReportUnlocked()) {
