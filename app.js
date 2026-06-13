@@ -4391,7 +4391,7 @@ function sv3SpacesHTML() {
     const owner = unlocked
       ? (v.ownerName
           ? `Owner: <b>${escapeText(v.ownerName)}</b>${v.acrisUrl ? ` · <a href="${escapeText(v.acrisUrl)}" target="_blank" rel="noopener">deeds ↗</a>` : ""}`
-          : "Owner not in the city's lot record")
+          : `Owner: not matched in the city's lot record${v.acrisUrl ? ` · <a href="${escapeText(v.acrisUrl)}" target="_blank" rel="noopener">deeds ↗</a>` : ""}`)
       : `Owner: ●●●●●●●●<span class="u"> subscribers</span>`;
     return `<div class="vs-row">
       <div class="vs-main">
@@ -4416,7 +4416,7 @@ function sv3SpacesHTML() {
 // so expanding is instant. Owner + deeds are part of the paid tease.
 function sv3SpaceDetailHTML(v, unlocked) {
   const b = v.building;
-  if (!b) return `<div class="vs-facts-empty">No building record for this lot in NYC PLUTO.</div>`;
+  if (!b) return `<div class="vs-facts-empty">No matching building record in NYC PLUTO — usually a condo or co-op, whose lot ID differs from the city's building record. The ACRIS deeds link still works.</div>`;
   const sqft = (n) => Number.isFinite(n) && n > 0 ? `${formatInteger(n)} sq ft` : null;
   const cells = [];
   const add = (k, val) => { if (val) cells.push(`<div class="vs-fact"><span class="vs-fk">${k}</span><span class="vs-fv">${val}</span></div>`); };

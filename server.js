@@ -2605,51 +2605,77 @@ async function vacantStorefronts(zip) {
   // Owner names AND building facts for the returned rows in ONE PLUTO query —
   // so tapping a storefront expands instantly with no extra request. PLUTO's
   // bbl is numeric, but retry quoted in case the column type changes.
+  const nowYear = new Date().getFullYear();
+  const plutoSelect = "bbl,address,ownername,bldgarea,lotarea,numfloors,yearbuilt,assesstot,bldgclass,unitstotal,unitsres,comarea,resarea";
+  const fillFromPluto = (v, r) => {
+    if (!r) return;
+    if (r.ownername) v.ownerName = safeText(r.ownername, 160);
+    const yb = Math.round(typedNumber(r.yearbuilt));
+    const com = Math.round(typedNumber(r.comarea)), res = Math.round(typedNumber(r.resarea));
+    v.building = {
+      buildingArea: Math.round(typedNumber(r.bldgarea)) || null,
+      lotArea: Math.round(typedNumber(r.lotarea)) || null,
+      floors: Math.round(typedNumber(r.numfloors)) || null,
+      yearBuilt: yb >= 1800 && yb <= nowYear ? yb : null,
+      assessedTotal: Math.round(typedNumber(r.assesstot)) || null,
+      bldgClass: r.bldgclass || null,
+      unitsTotal: Math.round(typedNumber(r.unitstotal)) || null,
+      unitsRes: Math.round(typedNumber(r.unitsres)) || null,
+      commercialArea: com || null,
+      residentialArea: res || null
+    };
+  };
   const bbls = [...new Set(top.map((v) => v.bbl).filter(Boolean))];
   let ownerLookup = "no BBLs derived from registry rows";
   if (bbls.length) {
     try {
-      const plutoSelect = "bbl,ownername,bldgarea,lotarea,numfloors,yearbuilt,assesstot,bldgclass,unitstotal,unitsres,comarea,resarea";
       let ownerRows;
       try {
         ownerRows = await socrataJson("64uk-42ks", {
-          $select: plutoSelect,
-          $where: `bbl in(${bbls.join(",")})`,
-          $limit: String(bbls.length + 5)
+          $select: plutoSelect, $where: `bbl in(${bbls.join(",")})`, $limit: String(bbls.length + 5)
         });
       } catch {
         ownerRows = await socrataJson("64uk-42ks", {
-          $select: plutoSelect,
-          $where: `bbl in(${bbls.map((b) => `'${b}'`).join(",")})`,
-          $limit: String(bbls.length + 5)
+          $select: plutoSelect, $where: `bbl in(${bbls.map((b) => `'${b}'`).join(",")})`, $limit: String(bbls.length + 5)
         });
       }
-      const nowYear = new Date().getFullYear();
       const plutoBy = new Map(
         (Array.isArray(ownerRows) ? ownerRows : []).map((r) => [String(Math.round(typedNumber(r.bbl))), r])
       );
       let matched = 0;
       top.forEach((v) => {
         const r = v.bbl ? plutoBy.get(String(v.bbl)) : null;
-        if (!r) return;
-        matched++;
-        if (r.ownername) v.ownerName = safeText(r.ownername, 160);
-        const yb = Math.round(typedNumber(r.yearbuilt));
-        const com = Math.round(typedNumber(r.comarea)), res = Math.round(typedNumber(r.resarea));
-        v.building = {
-          buildingArea: Math.round(typedNumber(r.bldgarea)) || null,
-          lotArea: Math.round(typedNumber(r.lotarea)) || null,
-          floors: Math.round(typedNumber(r.numfloors)) || null,
-          yearBuilt: yb >= 1800 && yb <= nowYear ? yb : null,
-          assessedTotal: Math.round(typedNumber(r.assesstot)) || null,
-          bldgClass: r.bldgclass || null,
-          unitsTotal: Math.round(typedNumber(r.unitstotal)) || null,
-          unitsRes: Math.round(typedNumber(r.unitsres)) || null,
-          commercialArea: com || null,
-          residentialArea: res || null
-        };
+        if (r) { fillFromPluto(v, r); matched++; }
       });
-      ownerLookup = `matched ${matched} of ${bbls.length} BBLs`;
+      ownerLookup = `matched ${matched}/${bbls.length} by BBL`;
+
+      // Condos, co-ops and lot-ID format mismatches don't line up by BBL — the
+      // registry's lot differs from PLUTO's building lot. Recover those by the
+      // street address within the ZIP (one extra query, only if needed).
+      const unmatched = top.filter((v) => !v.building);
+      if (unmatched.length) {
+        try {
+          const byAddrRows = await socrataJson("64uk-42ks", {
+            $select: plutoSelect, $where: `zipcode='${zip}'`, $limit: "6000"
+          }, { timeoutMs: 25000 });
+          const plutoByAddr = new Map();
+          for (const r of Array.isArray(byAddrRows) ? byAddrRows : []) {
+            const key = sfNormAddr(r.address);
+            // Prefer the row with real building area when several share an address.
+            if (key && (!plutoByAddr.has(key) || Math.round(typedNumber(r.bldgarea)) > Math.round(typedNumber(plutoByAddr.get(key).bldgarea)))) {
+              plutoByAddr.set(key, r);
+            }
+          }
+          let byAddr = 0;
+          unmatched.forEach((v) => {
+            const r = plutoByAddr.get(sfNormAddr(v.address));
+            if (r) { fillFromPluto(v, r); byAddr++; }
+          });
+          ownerLookup += `, +${byAddr}/${unmatched.length} by address`;
+        } catch (error) {
+          ownerLookup += `, address fallback failed: ${String(error?.message || error).slice(0, 80)}`;
+        }
+      }
     } catch (error) {
       ownerLookup = `PLUTO lookup failed: ${String(error?.message || error).slice(0, 120)}`;
     }
