@@ -2477,6 +2477,30 @@ async function storefrontFieldMap() {
   return storefrontFields;
 }
 const sfYes = (value) => /^(y|yes|true|vacant)/i.test(String(value ?? "").trim()) && !/^not/i.test(String(value ?? "").trim());
+// Turn a registry address ("229 EAST 2 STREET") into a precise, geocodable one
+// ("229 East 2nd Street") so Google pins the exact storefront — an imprecise
+// pin drops Street View on whatever stale pano is nearest.
+function sfOrdinal(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  return `${n}${({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th"}`;
+}
+const SF_STREET_TYPES = new Set(["STREET", "ST", "AVENUE", "AVE", "AV", "PLACE", "PL", "ROAD", "RD", "DRIVE", "DR", "BOULEVARD", "BLVD", "TERRACE", "TER", "COURT", "CT", "LANE", "LN", "PARKWAY", "PKWY"]);
+const SF_DIRECTIONS = new Set(["EAST", "WEST", "NORTH", "SOUTH", "E", "W", "N", "S"]);
+function sfDisplayAddr(value) {
+  const tokens = String(value || "").trim().split(/\s+/);
+  return tokens.map((tok, i) => {
+    // Ordinalize a bare number only when it names a street (next word is a
+    // street type, or it follows a direction) — never the house number.
+    if (/^\d{1,3}$/.test(tok) && i > 0) {
+      const next = (tokens[i + 1] || "").toUpperCase().replace(/[^A-Z]/g, "");
+      const prev = (tokens[i - 1] || "").toUpperCase().replace(/[^A-Z]/g, "");
+      if (SF_STREET_TYPES.has(next) || SF_DIRECTIONS.has(prev)) return sfOrdinal(Number(tok));
+    }
+    // Title-case words; keep all-caps for short tokens that are likely codes.
+    return tok.charAt(0).toUpperCase() + tok.slice(1).toLowerCase();
+  }).join(" ");
+}
 function sfNormAddr(value) {
   let s = String(value || "").toUpperCase().replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   s = s.replace(/\b(\d+)(ST|ND|RD|TH)\b/g, "$1");
@@ -2568,11 +2592,10 @@ async function vacantStorefronts(zip) {
       takenReason: taken ? "active liquor license at this address" : null,
       ownerName: null,
       building: null,
-      // "View" opens Google Maps at the street ADDRESS (not the lot centroid):
-      // Google snaps an address to the street frontage and serves its current
-      // imagery. Linking to the lot's centre made Street View grab the nearest
-      // pano, which on a mid-block lot can be a stale side-street capture.
-      viewUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${addr}, New York, NY`)}`
+      // "View" opens Google Maps at the precise street address + ZIP. A sharp
+      // pin lets Google serve its current frontage imagery; the lot centroid or
+      // a vague address made Street View fall back to a stale nearest pano.
+      viewUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${sfDisplayAddr(addr)}, New York, NY ${zip}`)}`
     });
   }
   vacancies.sort((a, b) =>
