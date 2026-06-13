@@ -2566,40 +2566,60 @@ async function vacantStorefronts(zip) {
         : null,
       mayBeTaken: taken,
       takenReason: taken ? "active liquor license at this address" : null,
-      ownerName: null
+      ownerName: null,
+      building: null
     });
   }
   vacancies.sort((a, b) =>
     (a.mayBeTaken ? 1 : 0) - (b.mayBeTaken ? 1 : 0) || (b.year || 0) - (a.year || 0)
   );
   const top = vacancies.slice(0, 80);
-  // Owner names for the returned rows in ONE PLUTO query — enrichment, not a
-  // gate. PLUTO's bbl is numeric, but retry quoted in case the type changes.
+  // Owner names AND building facts for the returned rows in ONE PLUTO query —
+  // so tapping a storefront expands instantly with no extra request. PLUTO's
+  // bbl is numeric, but retry quoted in case the column type changes.
   const bbls = [...new Set(top.map((v) => v.bbl).filter(Boolean))];
   let ownerLookup = "no BBLs derived from registry rows";
   if (bbls.length) {
     try {
+      const plutoSelect = "bbl,ownername,bldgarea,lotarea,numfloors,yearbuilt,assesstot,bldgclass,unitstotal,unitsres,comarea,resarea";
       let ownerRows;
       try {
         ownerRows = await socrataJson("64uk-42ks", {
-          $select: "bbl,ownername",
+          $select: plutoSelect,
           $where: `bbl in(${bbls.join(",")})`,
           $limit: String(bbls.length + 5)
         });
       } catch {
         ownerRows = await socrataJson("64uk-42ks", {
-          $select: "bbl,ownername",
+          $select: plutoSelect,
           $where: `bbl in(${bbls.map((b) => `'${b}'`).join(",")})`,
           $limit: String(bbls.length + 5)
         });
       }
-      const owners = new Map(
-        (Array.isArray(ownerRows) ? ownerRows : []).map((r) => [String(Math.round(typedNumber(r.bbl))), r.ownername])
+      const nowYear = new Date().getFullYear();
+      const plutoBy = new Map(
+        (Array.isArray(ownerRows) ? ownerRows : []).map((r) => [String(Math.round(typedNumber(r.bbl))), r])
       );
       let matched = 0;
       top.forEach((v) => {
-        const name = v.bbl ? owners.get(String(v.bbl)) : null;
-        if (name) { v.ownerName = safeText(name, 160); matched++; }
+        const r = v.bbl ? plutoBy.get(String(v.bbl)) : null;
+        if (!r) return;
+        matched++;
+        if (r.ownername) v.ownerName = safeText(r.ownername, 160);
+        const yb = Math.round(typedNumber(r.yearbuilt));
+        const com = Math.round(typedNumber(r.comarea)), res = Math.round(typedNumber(r.resarea));
+        v.building = {
+          buildingArea: Math.round(typedNumber(r.bldgarea)) || null,
+          lotArea: Math.round(typedNumber(r.lotarea)) || null,
+          floors: Math.round(typedNumber(r.numfloors)) || null,
+          yearBuilt: yb >= 1800 && yb <= nowYear ? yb : null,
+          assessedTotal: Math.round(typedNumber(r.assesstot)) || null,
+          bldgClass: r.bldgclass || null,
+          unitsTotal: Math.round(typedNumber(r.unitstotal)) || null,
+          unitsRes: Math.round(typedNumber(r.unitsres)) || null,
+          commercialArea: com || null,
+          residentialArea: res || null
+        };
       });
       ownerLookup = `matched ${matched} of ${bbls.length} BBLs`;
     } catch (error) {

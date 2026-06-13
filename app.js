@@ -4384,7 +4384,7 @@ function sv3SpacesHTML() {
     return intro + `<div class="card"><div class="desc">No storefronts in ${escapeText(zip)} are registered vacant in the latest filings${data.totalStorefronts ? ` (${formatInteger(data.totalStorefronts)} storefronts on file)` : ""}. Tight market — or filings for this area haven't landed yet.</div><div class="src">${escapeText(data.source || "NYC Storefront Registry")}</div></div>`;
   }
   const unlocked = sv3ReportUnlocked();
-  const rows = list.map((v) => {
+  const rows = list.map((v, i) => {
     const badges =
       (v.constructionReported ? ` <span class="vs-badge warn">Construction reported</span>` : "") +
       (v.mayBeTaken ? ` <span class="vs-badge alert">May be taken — ${escapeText(v.takenReason || "signs of an active business")}</span>` : ` <span class="vs-badge ok">Likely still vacant</span>`);
@@ -4398,15 +4398,39 @@ function sv3SpacesHTML() {
         <div class="vs-addr">${escapeText(sv3TitleCaseAddr(v.address))}</div>
         <div class="vs-meta">Owner-reported vacant${v.year ? ` · filed ${escapeText(String(v.year))}` : ""}${v.businessType ? ` · was: ${escapeText(v.businessType)}` : ""}${badges}</div>
         <div class="vs-owner">${owner}</div>
+        <div class="vs-detail hide" id="vs-detail-${i}">${sv3SpaceDetailHTML(v, unlocked)}</div>
       </div>
-      <button class="btn sm" type="button" data-sv3-space-analyze="${escapeText(v.address)}">Analyze</button>
+      <button class="btn sm" type="button" data-sv3-space-detail="${i}" aria-expanded="false">Building ▾</button>
     </div>`;
   }).join("");
   return intro + `<div class="card">
     <div class="sub">${formatInteger(data.vacantCount || list.length)} reported vacant${data.totalStorefronts ? ` of ${formatInteger(data.totalStorefronts)} registered storefronts` : ""}${data.latestFilingYear ? ` · latest filings ${escapeText(String(data.latestFilingYear))}` : ""}</div>
     <div class="vs-list">${rows}</div>
-    <div class="src">${escapeText(data.source || "NYC Storefront Registry")}. "May be taken" = an active liquor license at the address suggests a business has moved in since the filing. Display only — not used in the score.</div>
+    <div class="src">${escapeText(data.source || "NYC Storefront Registry")}. Tap <b>Building</b> on any storefront for its size, floors, year built and owner from NYC PLUTO. "May be taken" = an active liquor license at the address suggests a business has moved in since the filing. Display only — not used in the score.</div>
   </div>`;
+}
+// Inline building facts for one vacant storefront — pulled in the list query,
+// so expanding is instant. Owner + deeds are part of the paid tease.
+function sv3SpaceDetailHTML(v, unlocked) {
+  const b = v.building;
+  if (!b) return `<div class="vs-facts-empty">No building record for this lot in NYC PLUTO.</div>`;
+  const sqft = (n) => Number.isFinite(n) && n > 0 ? `${formatInteger(n)} sq ft` : null;
+  const cells = [];
+  const add = (k, val) => { if (val) cells.push(`<div class="vs-fact"><span class="vs-fk">${k}</span><span class="vs-fv">${val}</span></div>`); };
+  add("Building size", sqft(b.buildingArea));
+  add("Lot size", sqft(b.lotArea));
+  add("Floors", Number.isFinite(b.floors) && b.floors > 0 ? String(b.floors) : null);
+  add("Year built", b.yearBuilt ? String(b.yearBuilt) : null);
+  add("Units", Number.isFinite(b.unitsTotal) && b.unitsTotal > 0 ? `${formatInteger(b.unitsTotal)}${b.unitsRes ? ` · ${formatInteger(b.unitsRes)} res` : ""}` : null);
+  add("Assessed value", b.assessedTotal ? `${formatCurrency(b.assessedTotal)}` : null);
+  add("Building class", b.bldgClass ? escapeText(b.bldgClass) : null);
+  if (!cells.length) return `<div class="vs-facts-empty">No building measurements recorded for this lot.</div>`;
+  const ownerLine = unlocked
+    ? (v.ownerName
+        ? `<div class="vs-detail-owner">Owner of record: <b>${escapeText(v.ownerName)}</b>${v.acrisUrl ? `<br><a href="${escapeText(v.acrisUrl)}" target="_blank" rel="noopener">Look up the owner's deeds & contacts (ACRIS) ↗</a>` : ""}<div class="vs-detail-note">PLUTO has no phone number — the ACRIS deeds name the people behind the LLC, which is how brokers reach the owner.</div></div>`
+        : "")
+    : `<div class="vs-detail-owner">Owner of record: ●●●●●●●●<span class="u"> — unlock to see the owner and deed records</span></div>`;
+  return `<div class="vs-facts">${cells.join("")}</div>${ownerLine}<div class="vs-detail-src">NYC PLUTO tax-lot record · assessed value is the city assessment, not market price</div>`;
 }
 
 /* ---------- "What's around" — OpenStreetMap surroundings (facts only, display only) ---------- */
@@ -5783,30 +5807,18 @@ function initSpotVestV3Controls() {
   });
   document.querySelector("#sv3-close")?.addEventListener("click", () => sv3ShowMain("input"));
   // "Analyze" on a vacant-storefront row: prefill the address and run the
-  // normal analysis flow (account gate + meter apply as usual).
+  // Tapping a vacant storefront expands it in place to show the building's
+  // facts + owner (already loaded with the list) — no re-run, no score.
   app.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-sv3-space-analyze]");
+    const button = event.target.closest("[data-sv3-space-detail]");
     if (!button) return;
     event.preventDefault();
-    const refs = sv3Refs();
-    const raw = button.dataset.sv3SpaceAnalyze || "";
-    const addr = sv3TitleCaseAddr(raw);
-    if (!addr) return;
-    // A bare storefront number like "229 EAST 2 STREET" geocodes better with
-    // the borough than with a ZIP tacked on; keep the ZIP only as a hint.
-    const full = `${addr}, New York, NY`;
-    if (refs.address) refs.address.value = full;
-    if (elements.addressInput) elements.addressInput.value = full;
-    if (refs.zip) refs.zip.value = ""; // address wins, don't let a stale ZIP hijack runSmart
-    // Force a fresh address-level run even if the building is in the same ZIP
-    // as the report on screen — otherwise the cached render short-circuits and
-    // it looks like the button did nothing.
-    state.location = null;
-    sv3LastRender = null;
-    sv3FootReal = null;
-    sv3ShowTab("overview"); // the report lands on Overview when it renders
-    sv3PaywallToast(`Analyzing ${addr}…`);
-    document.querySelector("#sv3-analyze")?.click();
+    const i = button.dataset.sv3SpaceDetail;
+    const panel = document.getElementById(`vs-detail-${i}`);
+    if (!panel) return;
+    const open = panel.classList.toggle("hide") === false;
+    button.setAttribute("aria-expanded", String(open));
+    button.textContent = open ? "Building ▴" : "Building ▾";
   });
   document.querySelector("#sv3-assistant-button")?.addEventListener("click", () => { try { openAssistant(); } catch {} });
   document.querySelector("#sv3-compare-add")?.addEventListener("click", () => {

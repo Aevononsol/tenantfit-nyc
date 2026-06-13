@@ -165,7 +165,20 @@
 .sv3-app .vs-badge.ok{background:var(--green-bg);color:var(--green)}
 .sv3-app .vs-badge.warn{background:var(--amber-bg);color:var(--amber)}
 .sv3-app .vs-badge.alert{background:var(--red-bg);color:var(--red)}
-.sv3-app .vs-row .btn{width:auto;flex:0 0 auto;padding:10px 16px;font-size:13px;border-radius:12px}
+.sv3-app .vs-row{align-items:flex-start}
+.sv3-app .vs-row .btn{width:auto;flex:0 0 auto;padding:10px 14px;font-size:13px;border-radius:12px;margin-top:2px;white-space:nowrap}
+.sv3-app .vs-detail{margin-top:10px}
+.sv3-app .vs-detail.hide{display:none}
+.sv3-app .vs-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding:11px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px}
+.sv3-app .vs-fact{display:flex;flex-direction:column;gap:1px}
+.sv3-app .vs-fk{font-size:10.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.3px;font-weight:700}
+.sv3-app .vs-fv{font-family:'Sora';font-weight:700;font-size:14px;color:var(--txt)}
+.sv3-app .vs-facts-empty{padding:10px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;font-size:12px;color:var(--txt-3)}
+.sv3-app .vs-detail-owner{margin-top:9px;font-size:12.5px;color:var(--txt-2);line-height:1.6}
+.sv3-app .vs-detail-owner a{color:var(--teal);text-decoration:none;font-weight:700}
+.sv3-app .vs-detail-owner .u{font-style:italic;color:var(--txt-3)}
+.sv3-app .vs-detail-note{font-size:11px;color:var(--txt-3);margin-top:4px;font-style:italic}
+.sv3-app .vs-detail-src{font-size:10.5px;color:var(--txt-faint);margin-top:7px}
 .sv3-app .cx-tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase}
 .sv3-app .cx-tag.nb{background:rgba(59,214,201,.16);color:var(--teal-bright)}
 .sv3-app .cx-tag.reno{background:rgba(91,140,255,.16);color:#9DB6FF}
