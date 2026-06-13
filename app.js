@@ -4400,7 +4400,10 @@ function sv3SpacesHTML() {
         <div class="vs-owner">${owner}</div>
         <div class="vs-detail hide" id="vs-detail-${i}">${sv3SpaceDetailHTML(v, unlocked)}</div>
       </div>
-      <button class="btn sm" type="button" data-sv3-space-detail="${i}" aria-expanded="false">Building ▾</button>
+      <div class="vs-actions">
+        <button class="btn sm" type="button" data-sv3-space-detail="${i}" aria-expanded="false">Building ▾</button>
+        ${v.viewUrl ? `<a class="btn sm ghost" href="${escapeText(v.viewUrl)}" target="_blank" rel="noopener">View ↗</a>` : ""}
+      </div>
     </div>`;
   }).join("");
   return intro + `<div class="card">

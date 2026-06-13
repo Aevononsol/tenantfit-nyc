@@ -166,7 +166,8 @@
 .sv3-app .vs-badge.warn{background:var(--amber-bg);color:var(--amber)}
 .sv3-app .vs-badge.alert{background:var(--red-bg);color:var(--red)}
 .sv3-app .vs-row{align-items:flex-start}
-.sv3-app .vs-row .btn{width:auto;flex:0 0 auto;padding:10px 14px;font-size:13px;border-radius:12px;margin-top:2px;white-space:nowrap}
+.sv3-app .vs-actions{display:flex;flex-direction:column;gap:6px;flex:0 0 auto;margin-top:2px}
+.sv3-app .vs-row .btn{width:100%;padding:10px 14px;font-size:13px;border-radius:12px;white-space:nowrap;text-align:center;text-decoration:none;display:block;min-width:92px;box-sizing:border-box}
 .sv3-app .vs-detail{margin-top:10px}
 .sv3-app .vs-detail.hide{display:none}
 .sv3-app .vs-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding:11px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px}
